@@ -22,7 +22,7 @@ python3 -m http.server 8080
 
 ## 2. Đưa lên mạng (chọn một cách)
 
-**Netlify Drop (dễ nhất, không cần tài khoản Git):**
+**GitHub Pages Drop (dễ nhất, không cần tài khoản Git):**
 1. Vào https://app.netlify.com/drop
 2. Kéo cả thư mục `so-hoc-web` vào trang → nhận địa chỉ dạng `https://ten-ngau-nhien.netlify.app`.
 3. Có thể đổi tên miền con trong *Site configuration → Change site name*.
@@ -65,15 +65,21 @@ Gmail trong Sổ Học: nút **Gmail** ở thanh trên / thanh bên → tìm th�
 
 Mã truy cập Google chỉ lưu trong trình duyệt này (hết hạn sau khoảng 1 giờ; khi cần Sổ Học sẽ nhờ bạn bấm kết nối lại). Client ID không phải mật khẩu nên để trong `config.js` là bình thường. Nếu tài khoản trường (Google Workspace của VGU) chặn ứng dụng bên ngoài, hãy dùng Gmail cá nhân hoặc nhờ quản trị cho phép.
 
+## 4c. Thêm nguồn từ Google Drive
+
+1. Google Cloud Console → **APIs & Services → Library** → bật **Google Drive API** (cùng dự án với Client ID ở mục 4).
+2. **OAuth consent screen → Data access → Add or remove scopes** → thêm `https://www.googleapis.com/auth/drive.readonly`. Ứng dụng ở chế độ *Testing* thì tài khoản phải nằm trong **Test users**.
+3. Trong Sổ Học: ô **Thêm nguồn** (trang chủ), hộp **Thêm nguồn** trong bài học hoặc hộp **Bài học mới** → **Từ Google Drive** → *Liên kết Google Drive* → chọn tệp (Drive của tôi, Được chia sẻ, Gần đây, Có gắn sao, Drive dùng chung của trường). Google Tài liệu được chuyển thành DOCX, Trang trình bày thành PDF, Trang tính thành CSV.
+
 ## 4b. Nhạc từ tài khoản (YouTube · Spotify)
 
 Nút **Nhạc** ở thanh bên → **Nhạc từ tài khoản**.
 - **YouTube**: dùng đăng nhập Google ở trên (bật YouTube Data API v3, thêm quyền `youtube.readonly`) → xem danh sách phát của bạn, video đã thích, tìm nhạc học bài → bấm để phát trong trình phát mini. Tài khoản YouTube có thể khác tài khoản đăng nhập. Lần đầu trang hỏi tài khoản có **YouTube Premium** không (Google không cho trang khác đọc gói này): có Premium → phát bằng chính YouTube / YouTube Music Premium trong cửa sổ phát riêng (không quảng cáo, phát nền); không Premium → trình phát YouTube thường trong trang. Cần cho phép **cửa sổ bật lên** cho trang.
 - **Spotify**: tạo ứng dụng miễn phí tại https://developer.spotify.com/dashboard → *Create app* (chọn Web API) → **Redirect URI** = địa chỉ trang (ví dụ `https://ten-cua-ban.netlify.app/`) → *Settings → User Management* thêm email Spotify của bạn → dán **Client ID** vào trang (hoặc `spotifyClientId` trong `config.js`). Đăng nhập xong sẽ thấy danh sách phát, bài đã lưu, tìm kiếm. Trình phát nhúng phát đủ bài khi trình duyệt đang đăng nhập Spotify (thường cần Premium).
 
-## 5. Cập nhật phiên bản mới lên Netlify
+## 5. Cập nhật phiên bản mới lên GitHub Pages
 
-Nếu đã đưa trang lên bằng Netlify Drop: vào https://app.netlify.com → chọn trang → tab **Deploys** → kéo thư mục `so-hoc-web` mới vào ô "Drag and drop your site output folder here". Địa chỉ trang giữ nguyên, dữ liệu trong trình duyệt không mất.
+Nếu đã đưa trang lên bằng GitHub Pages Drop: vào https://app.netlify.com → chọn trang → tab **Deploys** → kéo thư mục `so-hoc-web` mới vào ô "Drag and drop your site output folder here". Địa chỉ trang giữ nguyên, dữ liệu trong trình duyệt không mất.
 
 ## 6. Dữ liệu
 
@@ -107,3 +113,17 @@ icon-192.png, icon-512.png
 ```
 
 Thư viện ngoài được tải từ CDN khi cần: KaTeX (công thức), three.js (mô hình 3D), pdf.js (đọc PDF), mammoth (đọc DOCX), JSZip (giải nén ZIP Moodle), Google Fonts.
+
+## Dùng ở nhiều máy mà không phải nhập lại Client ID và API key
+
+1. Trong Google Cloud Console (APIs & Services → Library) bật thêm **Google Drive API**. Sổ Học chỉ dùng một thư mục ẩn dành riêng cho ứng dụng trên Drive của bạn để lưu cài đặt.
+2. Ở máy đang dùng: **Cài đặt → Đồng bộ giữa các máy** → bấm **Đồng bộ ngay** (sau khi đã đăng nhập Google).
+3. Để máy nào mở trang cũng có sẵn Client ID: bấm **Tải config.js có sẵn Client ID**, chép đè tệp `config.js` trong thư mục `so-hoc-web`, rồi kéo thư mục lên GitHub Pages lại. Cách khác: **Sao chép link cài nhanh** rồi mở link đó trên máy mới.
+4. Ở máy mới: bấm **Đăng nhập bằng Google** → API key và lựa chọn mô hình tự được điền. Vẫn sửa được trong trang Cài đặt.
+
+## Cài thành ứng dụng
+
+- **Máy tính (cách nhanh):** mở trang bằng Chrome/Edge → biểu tượng "Cài đặt" ở thanh địa chỉ.
+- **Máy tính (bản .exe riêng):** dùng gói `SoHocDienTu-Windows.zip`; nhớ thêm `http://localhost:47823` vào *Authorized JavaScript origins*.
+- **Android:** mở trang bằng Chrome → ⋮ → *Cài đặt ứng dụng*. Muốn có tệp .apk / đưa lên Google Play: vào https://www.pwabuilder.com, dán địa chỉ trang GitHub Pages → *Package for stores* → Android.
+- **iPhone/iPad:** mở bằng Safari → Chia sẻ → *Thêm vào Màn hình chính*.

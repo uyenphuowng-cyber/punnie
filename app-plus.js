@@ -420,3 +420,131 @@ setTimeout(badge,4000);setInterval(badge,30000);
     const m=shared.match(/https?:\/\/[^\s<>"']+/);if(m){const i=parseMusic(m[0]);if(i&&!(i.type==="audio"&&i.guess))addMusicLinks([m[0]]);else toast("Đã nhận link — dán vào ô Thêm nguồn để đưa vào bài học",4000)}};
   let n=0;const w=setInterval(()=>{n++;if((typeof UI!=="undefined"&&UI.view&&$("#main .dash,#main .calpage,#main .nb3"))||n>48){clearInterval(w);setTimeout(go,350)}},250)})();
 })();
+
+/* =====================================================================
+   v42 (bản web) — 1) đồng bộ API key / Client ID qua tài khoản Google (thư mục ẩn của ứng dụng)
+                   2) trình phát nhạc gắn vào Trang chủ ngay sau hàng khối đã thu nhỏ (hoặc trong khối Nhạc)
+   ===================================================================== */
+(function(){
+/* ---------- 1. đồng bộ cài đặt giữa các máy ---------- */
+const L=window.SOHOC&&SOHOC.LS;if(!L||!SOHOC.cloud)return;
+const KEYS=["provider","apiKey","model","geminiKey","keyMode","gModel","gQuickModel","googleClientId","spClientId"];
+const snap=()=>{const o={};KEYS.forEach(k=>{const v=L.get(k,null);if(v!=null&&v!=="")o[k]=v});return o};
+const on=()=>L.get("cloudSync",true);
+const cid=()=>L.get("googleClientId","")||SOHOC.CFG.googleClientId||"";
+const fmtAgo=t=>{if(!t)return "chưa đồng bộ";const s=Math.round((Date.now()-t)/1000);return s<60?"vừa xong":s<3600?Math.round(s/60)+" phút trước":s<86400?Math.round(s/3600)+" giờ trước":new Date(t).toLocaleString("vi-VN")};
+let busy=false;
+async function push(inter){const st=L.get("cfgStamp",0)||Date.now();L.set("cfgStamp",st);try{await SOHOC.cloud.put({v:1,stamp:st,keys:snap()},inter);L.set("cloudAt",Date.now());L.set("cloudErr","");L.set("cloudPending",false)}catch(e){L.set("cloudErr",String(e.message||e).slice(0,200));L.set("cloudPending",true);throw e}finally{stat()}}
+async function pull(inter,quiet){if(busy)return 0;busy=true;let n=0;try{L.set("cloudErr","");const c=await SOHOC.cloud.get(inter);const ls=L.get("cfgStamp",0);
+    if(c&&c.keys&&(c.stamp||0)>ls){Object.entries(c.keys).forEach(([k,v])=>{if(KEYS.includes(k)&&v!=null&&v!==""&&JSON.stringify(L.get(k,null))!==JSON.stringify(v)){L.set(k,v);n++}});L.set("cfgStamp",c.stamp);L.set("cloudAt",Date.now());
+      if(n&&!quiet)toast("Đã tự lấy API key và cài đặt đã lưu trong tài khoản Google của bạn",3600)}
+    else if(Object.keys(snap()).length&&(!c||!c.keys||ls>(c.stamp||0)))await push(inter);
+    else L.set("cloudAt",Date.now())}
+  catch(e){console.warn("cloud sync",e);L.set("cloudErr",String(e.message||e).slice(0,200));if(inter)toast("Chưa đồng bộ được: "+(e.message||e),4500)}finally{busy=false;stat()}return n}
+function stat(){const el=document.getElementById("stCSst");if(!el)return;const a=SOHOC.google.accounts().find(x=>x.active);
+  el.innerHTML=!on()?"Đang tắt — cài đặt chỉ lưu trên máy này.":!a?"Chưa đăng nhập Google. Đăng nhập (phần bên dưới) để lưu / lấy cài đặt.":!SOHOC.cloud.granted()?`Tài khoản <b>${esc(a.email||a.name)}</b> chưa cho phép lưu cài đặt — bấm “Đồng bộ ngay”.`:`Đang đồng bộ với <b>${esc(a.email||a.name)}</b> · lần cuối: ${fmtAgo(L.get("cloudAt",0))}`+(L.get("cloudErr","")?`<br><span style="color:var(--bad)">Lỗi gần nhất: ${esc(L.get("cloudErr",""))}</span>`:"")+(!SOHOC.cloud.ready()?" · <i>phiên đã hết hạn — bấm “Đồng bộ ngay”</i>":"")}
+/* tự lấy khi mở trang (token còn hạn) và ngay sau khi đăng nhập */
+/* tự đồng bộ: mở trang, đăng nhập xong, quay lại tab — và nhắc cấp quyền / đăng nhập lại khi cần */
+const acct=()=>SOHOC.google.accounts().find(x=>x.active);
+async function auto(){try{if(!on()||!acct())return nudge();if(SOHOC.cloud.ready()){await pull(false);if(L.get("cloudPending",false)){await push(false);L.set("cloudPending",false)}}else nudge()}catch(e){console.warn(e)}}
+function nudge(){if(!on()||document.getElementById("cs53"))return;const a=acct();const noKey=!L.get("geminiKey","")&&!L.get("apiKey","");
+  let msg=null,act=null;
+  if(!a){if(noKey&&cid()&&!L.get("cs53NoAcct",false)&&!SOHOC.hasOwnerKey())msg=["Đã dùng Sổ Học ở máy khác?","Đăng nhập Google để tự lấy API key và cài đặt đã lưu.","Đăng nhập Google",()=>{if(typeof loginDialog==="function")loginDialog(false);else settingsDialog("google")},"cs53NoAcct"]}
+  else if(!SOHOC.cloud.granted())msg=["Bật đồng bộ cài đặt giữa các máy?","Cho phép Sổ Học lưu API key, Client ID, lựa chọn mô hình vào thư mục ẩn của ứng dụng trên Google Drive của bạn.","Cho phép",async()=>{await SOHOC.cloud.link();await pull(true,false)},"cs53Grant"];
+  else if(!SOHOC.cloud.ready()&&(noKey||L.get("cloudPending",false)))msg=["Phiên Google đã hết hạn","Đăng nhập lại để "+(noKey?"lấy API key đã lưu":"lưu thay đổi cài đặt lên tài khoản")+".","Đăng nhập lại",async()=>{await SOHOC.cloud.link();await pull(true,false);if(L.get("cloudPending",false)){await push(true);L.set("cloudPending",false)}},"cs53Re"];
+  if(!msg)return;if(sessionStorage.getItem(msg[4]))return;
+  const c=document.createElement("div");c.id="cs53";c.className="cs53";c.setAttribute("role","status");c.innerHTML=`<div><b>${msg[0]}</b><span>${msg[1]}</span></div><button class="pill-btn primary" data-a>${msg[2]}</button><button class="ghost ic" data-x aria-label="Để sau" title="Để sau">${ic("close")}</button>`;document.body.appendChild(c);
+  c.querySelector("[data-x]").onclick=()=>{sessionStorage.setItem(msg[4],"1");c.remove()};
+  c.querySelector("[data-a]").onclick=async()=>{const b=c.querySelector("[data-a]");b.disabled=true;try{await msg[3]();c.remove();stat()}catch(e){b.disabled=false;toast("Chưa đồng bộ được: "+(e.message||e),4200)}}}
+setTimeout(auto,2200);
+addEventListener("sohoc:me",()=>{const c=document.getElementById("cs53");if(c)c.remove();setTimeout(auto,400)});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&Date.now()-(L.get("cloudAt",0))>5*60e3)auto()});
+/* mục “Đồng bộ giữa các máy” trong Cài đặt */
+if(typeof settingsDialog==="function"){const _sd=settingsDialog;settingsDialog=function(){const r=_sd.apply(this,arguments);const bak=document.getElementById("setBak");if(!bak||document.getElementById("setSync"))return r;
+  const sec=document.createElement("section");sec.id="setSync";
+  sec.innerHTML=`<h4>${ic("loop")} Đồng bộ giữa các máy</h4>
+    <label class="chk-row"><input type="checkbox" class="chk" id="stCS" ${on()?"checked":""}> Lưu API key, Client ID và lựa chọn mô hình vào tài khoản Google của bạn — máy khác chỉ cần đăng nhập Google là tự có</label>
+    <p class="muted">Cài đặt nằm trong <b>thư mục ẩn dành riêng cho Sổ Học</b> trên Google Drive của chính bạn (không hiện trong Drive, ứng dụng khác không đọc được). Cần bật <b>Google Drive API</b> trong Google Cloud Console.</p>
+    <div id="stCSst" class="muted" style="font-size:13px"></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" id="stCSnow" type="button">${ic("loop")} Đồng bộ ngay</button><button class="btn" id="stCSlink" type="button">${ic("link")} Sao chép link cài nhanh</button><button class="btn" id="stCScfg" type="button">${ic("dl")} Tải config.js có sẵn Client ID</button></div>
+    <details class="muted" style="font-size:13px"><summary style="cursor:pointer">Dùng ở máy mới thế nào?</summary><ol style="margin:6px 0 0;padding-left:18px;display:grid;gap:4px">
+      <li><b>Cách gọn nhất:</b> tải <i>config.js</i> ở trên, chép đè vào kho GitHub của trang (cùng chỗ với index.html) rồi commit — mọi máy mở trang đều có sẵn Client ID.</li>
+      <li>Hoặc mở <b>link cài nhanh</b> trên máy mới (link chỉ chứa Client ID, không chứa API key).</li>
+      <li>Bấm <b>Đăng nhập bằng Google</b> → API key, mô hình… tự điền. Vẫn sửa được trong trang Cài đặt này.</li></ol></details>`;
+  bak.before(sec);stat();
+  const cs=document.getElementById("stCS");cs.onchange=()=>{L.set("cloudSync",cs.checked);stat();if(!cs.checked)toast("Đã tắt đồng bộ — cài đặt chỉ lưu trên máy này",2400)};
+  document.getElementById("stCSnow").onclick=async()=>{const b=document.getElementById("stCSnow");b.disabled=true;try{const sv=document.getElementById("stSave");if(sv)saveFromForm();if(!SOHOC.google.accounts().length){toast("Đăng nhập Google trước (nút bên dưới)",2600);return}if(!SOHOC.cloud.ready())await SOHOC.cloud.link();const n=await pull(true,true);if(!n)await push(true);toast(n?`Đã lấy ${n} cài đặt từ tài khoản Google`:"Đã lưu cài đặt lên tài khoản Google",2400)}catch(e){toast("Chưa đồng bộ được: "+(e.message||e),4500)}finally{b.disabled=false;stat()}};
+  document.getElementById("stCSlink").onclick=async()=>{const c=(document.getElementById("stCid")||{}).value||cid();if(!c){toast("Nhập Google Client ID trước",2400);return}const u=location.origin+location.pathname+"#sohoc-cid="+encodeURIComponent(c.trim());try{await navigator.clipboard.writeText(u);toast("Đã sao chép link — mở link này trên máy khác",2600)}catch(e){prompt("Sao chép link này:",u)}};
+  document.getElementById("stCScfg").onclick=async()=>{const c=((document.getElementById("stCid")||{}).value||cid()).trim();if(!c){toast("Nhập Google Client ID trước",2400);return}const C=SOHOC.CFG;
+    const txt=`/* Cấu hình Sổ Học Điện Tử — tạo từ trang Cài đặt ${new Date().toLocaleDateString("vi-VN")}.\n   Chép đè tệp này vào kho GitHub của trang (cùng chỗ với index.html) rồi commit: mọi máy mở trang đều có sẵn Client ID.\n   Tệp KHÔNG chứa API key (key được đồng bộ riêng qua tài khoản Google của bạn). */\nwindow.SOHOC_CONFIG = ${JSON.stringify({googleClientId:c,spotifyClientId:L.get("spClientId","")||C.spotifyClientId||"",provider:C.provider||"gemini",geminiModel:C.geminiModel,geminiQuickModel:C.geminiQuickModel,defaultModel:C.defaultModel,quickModel:C.quickModel},null,2)};\n`;
+    try{await P.downloads.save({filename:"config.js",data:new Blob([txt],{type:"text/javascript"})});toast("Đã tải config.js",1600)}catch(e){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([txt],{type:"text/javascript"}));a.download="config.js";a.click()}};
+  /* bấm Lưu → đánh dấu mới nhất và đẩy lên tài khoản */
+  const sv=document.getElementById("stSave");if(sv)sv.addEventListener("click",()=>{L.set("cfgStamp",Date.now());if(!on())return;if(SOHOC.cloud.ready())push(false).catch(e=>{console.warn(e);L.set("cloudPending",true)});else{L.set("cloudPending",true);setTimeout(nudge,600)}});
+  return r}}
+/* đọc lại giá trị đang gõ trong form (khi bấm “Đồng bộ ngay” trước khi bấm Lưu) */
+function saveFromForm(){const g=id=>{const e=document.getElementById(id);return e?e.value.trim():null};const m={stKey:"apiKey",stGKey:"geminiKey",stGModel:"gModel",stGQuick:"gQuickModel",stCid:"googleClientId"};let ch=false;
+  Object.entries(m).forEach(([id,k])=>{const v=g(id);if(v!=null&&v!==L.get(k,"")){L.set(k,v);ch=true}});const sm=document.getElementById("stModel");if(sm&&sm.value!==L.get("model","")){L.set("model",sm.value);ch=true}
+  const pv=document.querySelector("[data-prov][aria-checked=true]");if(pv&&pv.dataset.prov!==L.get("provider","")){L.set("provider",pv.dataset.prov);ch=true}if(ch)L.set("cfgStamp",Date.now())}
+})();
+
+(function(){
+/* ---------- 2. trình phát nhạc gắn vào Trang chủ ---------- */
+const MP=window.SOHOC_MP;if(!MP)return;
+const dockOn=()=>local.get("mpDock",true);
+function slot(){if(UI.view!=="home"||$("#pjOv:not([hidden])"))return null;const dash=$("#main .dash");if(!dash)return null;
+  const mb=$$("#dgrid .blk[data-bid]").find(b=>{const x=UI.dash&&UI.dash.blocks.find(y=>y.id===b.dataset.bid);return x&&x.k==="music"&&!b.classList.contains("collapsed")});
+  let s=$("#mpSlot50");const host=mb&&$(".blk-b",mb);
+  if(host){if(!s||s.parentElement!==host){if(s)s.remove();s=document.createElement("div");s.id="mpSlot50";s.className="in-blk";host.appendChild(s)}}
+  else{const a=$(".min-tray",dash)||$(".dash-editbar",dash)||$(".banner",dash);if(!a)return null;if(!s||s.previousElementSibling!==a){if(s)s.remove();s=document.createElement("div");s.id="mpSlot50";a.after(s)}}
+  return s}
+const undock=p=>{if(!p.classList.contains("dock50"))return;p.classList.remove("dock50","dock50n");p.style.clipPath="";p.style.visibility="";p.style.width="";p.style.removeProperty("--mpfw");MP.place()};
+const _pl=MP.place.bind(MP);
+MP.place=function(){const p=$("#mplayer");if(p&&p.classList.contains("dock50")){const fr=$("#mpFrame",p);const t=window.SOHOC_EMB&&SOHOC_EMB.type;const nar=p.classList.contains("dock50n");
+    const w=nar?p.clientWidth:Math.min(360,Math.max(220,Math.round(p.clientWidth*.36)));p.style.setProperty("--mpfw",w+"px");
+    const def=t==="yt"||t==="vm"?Math.round(w*9/16):t==="sc"?166:t==="sp"?152:t==="mc"?120:t?150:0;if(fr)fr.style.height=t?def+"px":"";return}
+  return _pl()};
+/* nút ghim / thả nổi trên đầu trình phát */
+function pinBtn(p){if($("#mpPin50",p))return;const col=$("#mpCol",p);if(!col)return;const b=document.createElement("button");b.id="mpPin50";b.type="button";col.before(b);
+  const upd=()=>{const on=dockOn();b.innerHTML=ic(on?"pin":"move");b.title=on?"Đang gắn vào Trang chủ — bấm để cho trình phát nổi":"Đang nổi — bấm để gắn vào Trang chủ (ngay sau hàng khối đã thu nhỏ)";b.setAttribute("aria-pressed",on)};upd();
+  b.onclick=e=>{e.stopPropagation();local.set("mpDock",!dockOn());upd();if(!dockOn()){undock(p);const s=$("#mpSlot50");if(s)s.remove()}}}
+let lastW=0;
+/* khi gắn vào trang và đủ rộng: hiện danh sách bài ở giữa để chọn nhanh */
+function list50(p){let el=$("#mpList50",p);if(!el){el=document.createElement("div");el.id="mpList50";el.className="mp-list50";const c=$(".mp-ctl",p);if(c)c.before(el);else p.appendChild(el)}
+  const s=UI.snd;const sig=s.tracks.map(t=>t.id+t.name).join("|")+"#"+s.track;if(el._sig===sig)return;el._sig=sig;
+  el.innerHTML=s.tracks.length>1?s.tracks.map((t,i)=>`<button type="button" data-mt="${esc(t.id)}" class="${t.id===s.track?"on":""}" title="${esc(t.name)}"><span class="n">${i+1}</span><span class="t">${esc(t.name)}</span></button>`).join(""):`<span class="muted">Thêm nhạc bằng nút chỉnh âm thanh cạnh biểu tượng loa (thanh trên cùng) — danh sách sẽ hiện ở đây.</span>`;
+  $$("[data-mt]",el).forEach(b=>b.onclick=e=>{e.stopPropagation();s.track=b.dataset.mt;s.on=true;saveSnd();SND.apply()})}
+function tick(){requestAnimationFrame(tick);const p=$("#mplayer");const s0=$("#mpSlot50");
+  if(!p||p.hidden){if(s0)s0.remove();return}pinBtn(p);
+  const s=dockOn()?slot():null;
+  if(!s){undock(p);if(s0&&s0!==s)s0.remove();return}
+  const w=s.clientWidth;if(!p.classList.contains("dock50")){p.classList.add("dock50");lastW=0}
+  list50(p);
+  p.classList.toggle("dock50n",w<560);if(w!==lastW){lastW=w;p.style.width=w+"px";MP.place()}
+  const h=p.offsetHeight;if(Math.abs((parseFloat(s.style.height)||0)-h)>1)s.style.height=h+"px";
+  const r=s.getBoundingClientRect();p.style.left=r.left+"px";p.style.top=r.top+"px";p.style.bottom="auto";
+  const dash=$("#main .dash");const cr=dash?dash.getBoundingClientRect():{top:0,bottom:innerHeight};const top=$("#top");const tb=top?top.getBoundingClientRect().bottom:0;
+  const ct=Math.max(0,Math.max(cr.top,tb)-r.top),cb=Math.max(0,r.top+h-Math.min(cr.bottom,innerHeight));
+  if(ct+cb>=h-4){p.style.visibility="hidden"}else{p.style.visibility="";p.style.clipPath=ct||cb?`inset(${ct}px 0 ${cb}px 0 round 16px)`:""}}
+requestAnimationFrame(tick);
+})();
+
+/* =====================================================================
+   v44 (bản web) — chọn API key: key có sẵn của Sổ Học (chủ trang) hoặc key của bạn ·
+   mục Cá nhân hóa ngay trong Cài đặt
+   ===================================================================== */
+(function(){const L=window.SOHOC&&SOHOC.LS;if(!L||typeof settingsDialog!=="function")return;
+const _sd=settingsDialog;settingsDialog=function(){const r=_sd.apply(this,arguments);try{
+  /* 1. chế độ key Gemini */
+  const box=document.querySelector('[data-pv="gemini"]');const kf=document.getElementById("stGKey");
+  if(box&&kf&&SOHOC.hasOwnerKey()&&!document.getElementById("km53")){const fld=kf.closest(".field");const own=L.get("geminiKey","");let m=L.get("keyMode","auto");if(m==="auto")m=own?"own":"owner";
+    const w=document.createElement("div");w.id="km53";w.className="field";w.innerHTML=`<span>Dùng API key nào?</span><div class="seg km53" role="radiogroup" aria-label="Chọn API key">
+      <button type="button" role="radio" data-km="owner" aria-checked="${m==="owner"}"><b>Key có sẵn của Sổ Học</b><small>Không cần làm gì — dùng chung hạn mức của chủ trang</small></button>
+      <button type="button" role="radio" data-km="own" aria-checked="${m==="own"}"><b>API key của tôi</b><small>Hạn mức riêng, lấy miễn phí ở AI Studio</small></button></div>`;
+    fld.before(w);const sync=()=>{const mm=L.get("keyMode","auto")==="own"||(L.get("keyMode","auto")==="auto"&&own)?"own":"owner";fld.hidden=mm==="owner";const gl=document.getElementById("stGList");if(gl)gl.closest("div").hidden=false;$$("[data-km]",w).forEach(b=>b.setAttribute("aria-checked",b.dataset.km===mm))};
+    if(L.get("keyMode",null)==null)L.set("keyMode",m);sync();
+    $$("[data-km]",w).forEach(b=>b.onclick=()=>{L.set("keyMode",b.dataset.km);L.set("cfgStamp",Date.now());if(b.dataset.km==="owner"){L.set("provider","gemini")}sync();if(b.dataset.km==="own")setTimeout(()=>kf.focus(),30)});
+    const p=box.querySelector("p.muted");if(p)p.insertAdjacentHTML("afterend",`<p class="muted km53-n">“Key có sẵn” được chủ trang cung cấp và dùng chung cho mọi người — khi nhiều người dùng cùng lúc có thể báo hết lượt; lúc đó hãy chuyển sang key của bạn.</p>`)}
+  /* 2. Cá nhân hóa ngay trong Cài đặt */
+  const ai=document.getElementById("setAI");if(ai&&!document.getElementById("setProf")){const pf=UI.profile||{};const sec=document.createElement("section");sec.id="setProf";
+    sec.innerHTML=`<h4>${ic("spark")} Cá nhân hóa việc học</h4><p class="muted">${pf.major?`Ngành <b>${esc(pf.major)}</b>${pf.spec?" · "+esc(pf.spec):""}${pf.year?" · "+esc(pf.year):""} — AI giảng, ra đề và gợi ý môn học theo ngành này.`:"Chưa chọn ngành. Chọn ngành / chuyên ngành để có gợi ý môn học và AI giảng đúng chuyên môn."}</p><div><button class="btn" type="button" id="stProf">${ic("edit")} ${pf.major?"Sửa cá nhân hóa":"Chọn ngành & cách học"}</button></div>`;
+    ai.before(sec);document.getElementById("stProf").onclick=()=>{const sv=document.getElementById("stSave");if(sv)sv.click();setTimeout(()=>profileDialog(),60)}}}catch(e){console.warn(e)}return r}})();

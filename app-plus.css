@@ -119,3 +119,24 @@ body.rs-dragging iframe{pointer-events:none}
 .prof-sw{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:color-mix(in srgb,var(--bg,#111) 55%,transparent);backdrop-filter:blur(6px);opacity:0;transition:opacity .25s}
 .prof-sw.on{opacity:1}.prof-sw>div{display:grid;gap:6px;justify-items:center;text-align:center;padding:22px 26px;border-radius:16px;background:var(--panel,#222);border:1px solid var(--line,#444);max-width:min(380px,calc(100vw - 32px));box-shadow:0 20px 60px #0006}
 .prof-sw b{font-size:15px}.prof-sw small{color:var(--muted);font-size:12.5px}
+/* v42: trình phát gắn vào Trang chủ */
+#mpSlot50{width:100%;margin:0 0 14px;pointer-events:none}#mpSlot50.in-blk{margin:8px 0 0}
+#mplayer.dock50{z-index:30;max-width:none;min-width:0;border-radius:16px;box-shadow:0 12px 30px -18px rgba(0,0,0,.4);animation:none;display:grid;grid-template-columns:var(--mpfw,360px) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;transition:none}
+#mplayer.dock50 .mp-h{grid-column:2;grid-row:1;cursor:default}
+#mplayer.dock50 .mp-b{grid-column:1;grid-row:1/4;align-self:stretch;background:#000}
+#mplayer.dock50 .mp-ctl{grid-column:2;grid-row:3}
+#mplayer.dock50 .mp-rs{display:none}
+#mplayer.dock50.dock50n{display:flex;flex-direction:column}
+#mplayer.dock50.col{grid-template-columns:minmax(0,1fr)}#mplayer.dock50.col .mp-h,#mplayer.dock50.col .mp-ctl{grid-column:1}
+#mplayer.dock50:not(.dock50n) .mp-b:empty,#mplayer.dock50:not(.dock50n) .mp-frame:empty{min-height:0}
+#mpPin50[aria-pressed="true"]{color:var(--accent)}
+.mp-list50{display:none}
+#mplayer.dock50:not(.dock50n):not(.col) .mp-list50{display:flex;flex-direction:column;gap:2px;grid-column:2;grid-row:2;overflow:auto;padding:2px 10px;min-height:0}
+#mplayer .mp-list50 button{width:auto;height:auto;display:flex;align-items:center;gap:8px;text-align:left;padding:5px 8px;border-radius:8px;font:13px var(--f-body,inherit);justify-content:flex-start}
+#mplayer .mp-list50 button.on{background:color-mix(in srgb,var(--accent) 14%,transparent);font-weight:700;color:var(--ink)}
+.mp-list50 .n{width:18px;color:var(--muted);font:12px var(--f-mono,monospace);flex:none}.mp-list50 .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mp-list50 .muted{font-size:12.5px;padding:6px 2px}
+/* v44 */
+.km53{display:grid!important;grid-template-columns:1fr 1fr;gap:6px;width:100%}.km53 button{display:grid;gap:2px;text-align:left;padding:9px 10px!important;white-space:normal;height:auto}.km53 button small{font-size:11.5px;color:var(--muted);font-weight:400}
+.km53-n{font-size:12px!important}
+.cs53{position:fixed;z-index:80;right:16px;bottom:16px;max-width:min(420px,calc(100vw - 32px));display:flex;align-items:center;gap:10px;padding:12px 12px 12px 16px;border-radius:16px;background:var(--panel);border:1px solid var(--accent);box-shadow:0 18px 40px -12px rgba(0,0,0,.45);animation:fadein .2s}
+.cs53>div{display:grid;gap:2px;font-size:13.5px}.cs53 span{color:var(--muted);font-size:12.5px}.cs53 .pill-btn{white-space:nowrap}

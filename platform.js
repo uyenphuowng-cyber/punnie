@@ -57,7 +57,11 @@ const user={async id(){return uid},async me(){return LS.get("me",{name:"",avatar
 
 /* ---------------- Trợ lý AI: Google Gemini (AI Studio) hoặc Claude — API key của bạn, lưu trên máy này ---------------- */
 const provider=()=>LS.get("provider",CFG.provider||"gemini")==="claude"?"claude":"gemini";
-const apiKey=(pv=provider())=>pv==="claude"?LS.get("apiKey",""):LS.get("geminiKey","");
+/* Gemini: dùng key của chính người dùng, hoặc key có sẵn của chủ trang (config.js → ownerGeminiKey) */
+const ownerKey=()=>String(CFG.ownerGeminiKey||"").trim();
+const keyMode=()=>{const m=LS.get("keyMode","auto");return m==="owner"&&!ownerKey()?"own":m};
+const useOwner=()=>!!ownerKey()&&(keyMode()==="owner"||(keyMode()==="auto"&&!LS.get("geminiKey","")));
+const apiKey=(pv=provider())=>pv==="claude"?LS.get("apiKey",""):(useOwner()?ownerKey():LS.get("geminiKey",""));
 const model=(tier,pv=provider())=>pv==="claude"?(tier==="quick"?LS.get("quickModel",CFG.quickModel):LS.get("model",CFG.defaultModel)):(tier==="quick"?LS.get("gQuickModel",CFG.geminiQuickModel):LS.get("gModel",CFG.geminiModel));
 async function blobToB64(b){let blob=b;try{const bmp=await createImageBitmap(b);const k=Math.min(1,1568/Math.max(bmp.width,bmp.height));if(k<1||b.size>3.5e6||!/png|jpeg|webp|gif/.test(b.type)){const c=document.createElement("canvas");c.width=Math.round(bmp.width*k);c.height=Math.round(bmp.height*k);c.getContext("2d").drawImage(bmp,0,0,c.width,c.height);blob=await new Promise(r=>c.toBlob(r,"image/jpeg",.88))}}catch(e){}
   const data=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.onerror=rej;r.readAsDataURL(blob)});return{mime:blob.type||"image/jpeg",data}}
@@ -110,9 +114,10 @@ sample.json=async(prompt,o={})=>{const r=await call(prompt+"\n\nCHỈ trả lờ
    Mỗi tài khoản giữ token riêng (chỉ trên trình duyệt này). Dịch vụ được cấp quyền dần
    (đăng nhập trước, liên kết Calendar / Gmail khi cần). */
 const GC="Google Calendar",GM="Gmail";
-const SC={base:"openid email profile",cal:"https://www.googleapis.com/auth/calendar.events",calr:"https://www.googleapis.com/auth/calendar.calendarlist.readonly",mail:"https://www.googleapis.com/auth/gmail.readonly",yt:"https://www.googleapis.com/auth/youtube.readonly",send:"https://www.googleapis.com/auth/gmail.compose"};
-const SVC_OF={YouTube:["yt"],[GC]:["cal","calr"],[GM]:["mail","send"]};
+const SC={base:"openid email profile",cal:"https://www.googleapis.com/auth/calendar.events",calr:"https://www.googleapis.com/auth/calendar.calendarlist.readonly",mail:"https://www.googleapis.com/auth/gmail.readonly",yt:"https://www.googleapis.com/auth/youtube.readonly",send:"https://www.googleapis.com/auth/gmail.compose",drive:"https://www.googleapis.com/auth/drive.readonly",appdata:"https://www.googleapis.com/auth/drive.appdata"};
+const SVC_OF={YouTube:["yt"],"Google Drive":["drive"],[GC]:["cal","calr"],[GM]:["mail","send"]};
 const clientId=()=>LS.get("googleClientId","")||CFG.googleClientId||"";
+try{const m=/[#&]sohoc-cid=([\w.-]+\.apps\.googleusercontent\.com)/.exec(location.hash||"");if(m){LS.set("googleClientId",m[1]);LS.set("cidFromLink",true);history.replaceState(null,"",location.pathname+location.search)}}catch(e){}
 let accts=LS.get("gaccts",null),act=LS.get("gActive",null);
 if(!Array.isArray(accts)){accts=[];const ot=LS.get("gtok",null),me=LS.get("me",null);if(ot&&me&&me.name){accts.push({id:"old",name:me.name,email:"",pic:me.avatarUrl||"",svc:{cal:true},tok:ot});act="old"}LS.del("gtok")}
 const cur=()=>act==="__guest"?null:(accts.find(a=>a.id===act)||accts[0]||null);
@@ -134,7 +139,7 @@ function loadGIS(){return window.google&&google.accounts&&google.accounts.oauth2
 /* mở cửa sổ Google: add=true → chọn/thêm tài khoản khác; svc = dịch vụ muốn liên kết thêm */
 async function auth({svc=[],add=false,acct=null}={}){
   const cid=clientId();if(!cid)throw err("no_client","Chưa cấu hình Google Client ID");await loadGIS();
-  const a0=add?null:(acct||cur());const want=new Set(svc);if(a0&&a0.svc)Object.keys(a0.svc).forEach(k=>{if(a0.svc[k])want.add(k)});
+  const a0=add?null:(acct||cur());const want=new Set(svc);if(LS.get("cloudSync",true))want.add("appdata");if(a0&&a0.svc)Object.keys(a0.svc).forEach(k=>{if(a0.svc[k])want.add(k)});
   const scope=[SC.base,...[...want].map(k=>SC[k])].join(" ");
   return new Promise((res,rej)=>{const c=google.accounts.oauth2.initTokenClient({client_id:cid,scope,include_granted_scopes:true,...(a0&&a0.email?{hint:a0.email}:{}),
     callback:async r=>{if(r.error){rej(err(r.error==="access_denied"?"approval_required":"auth_error",r.error_description||r.error));return}
@@ -142,8 +147,8 @@ async function auth({svc=[],add=false,acct=null}={}){
       const id=u.sub||(a0&&a0.id)||("g"+Date.now());let a=accts.find(x=>x.id===id)||(a0&&a0.id==="old"?a0:null);
       if(!a){a={id,svc:{}};accts.push(a)}if(a.id!==id&&OWN===a.id){OWN=id;LS.set("dataOwner",OWN)}a.id=id;a.name=u.name||u.given_name||a.name||"";a.email=u.email||a.email||"";a.pic=u.picture||a.pic||"";
       const has=k=>{try{return google.accounts.oauth2.hasGrantedAllScopes(r,SC[k])}catch(e){return String(r.scope||"").includes(SC[k])}};
-      a.svc={cal:has("cal"),calr:has("calr"),mail:has("mail"),send:has("send"),yt:has("yt")};a.tok={t:r.access_token,exp:Date.now()+(+r.expires_in||3600)*1000};
-      act=a.id;saveA();const miss=svc.filter(k=>!a.svc[k]);if(miss.length){rej(err("approval_required","Bạn chưa tích ô cho phép "+miss.map(k=>({cal:"Google Calendar",calr:"xem danh sách lịch",yt:"xem YouTube",mail:"đọc Gmail",send:"soạn/gửi Gmail"})[k]).join(", ")));return}res(a)},
+      a.svc={cal:has("cal"),calr:has("calr"),mail:has("mail"),send:has("send"),yt:has("yt"),drive:has("drive"),appdata:has("appdata")};a.tok={t:r.access_token,exp:Date.now()+(+r.expires_in||3600)*1000};
+      act=a.id;saveA();const miss=svc.filter(k=>!a.svc[k]);if(miss.length){rej(err("approval_required","Bạn chưa tích ô cho phép "+miss.map(k=>({cal:"Google Calendar",calr:"xem danh sách lịch",yt:"xem YouTube",drive:"xem tệp Google Drive",mail:"đọc Gmail",send:"soạn/gửi Gmail"})[k]).join(", ")));return}res(a)},
     error_callback:e=>rej(err(e&&e.type==="popup_closed"?"popup_closed":"auth_error",e&&e.message||"Đăng nhập Google bị hủy"))});
     c.requestAccessToken({prompt:add?"select_account consent":(a0&&a0.tok?"":"consent")})})}
 async function getToken(interactive,svc){const a=cur();if(a&&tokOk(a)&&(!svc||svc.every(k=>a.svc&&a.svc[k])))return a.tok.t;if(!clientId())throw err("no_client","Chưa cấu hình Google Client ID");
@@ -221,9 +226,40 @@ const ytApi_={has:()=>!!ytA,premium:()=>!!(ytA&&ytA.prem),setPrem(v){if(ytA){ytA
     const r=await _fetch("https://www.googleapis.com/youtube/v3/"+path+"?"+new URLSearchParams(q),{headers:{Authorization:"Bearer "+ytA.tok.t}});if(r.status===401){ytA.tok=null;LS.set(YTK,ytA);throw err("needs_reauth","Phiên YouTube hết hạn")}
     const j=await r.json().catch(()=>({}));if(!r.ok)throw err("tool_error",(j.error&&j.error.message)||("HTTP "+r.status));return j}};
 /* ---------------- sao lưu / khôi phục / dọn dữ liệu ---------------- */
+
 const b64=b=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(b)});
-window.SOHOC={CFG,LS,pkey:k=>k+PKS(),getToken:()=>getToken(true),google:google_,yt:ytApi_,signOut(){const a=cur();if(a)google_.remove(a.id)},
-  hasKey:()=>!!apiKey(),provider,model,listGeminiModels,clientId,
+/* ---- Google Drive (chỉ đọc) của tài khoản đang đăng nhập: chọn tệp làm nguồn bài học ---- */
+const DRV="https://www.googleapis.com/drive/v3/";
+const drive_={has:()=>{const a=cur();return !!(a&&a.svc&&a.svc.drive&&tokOk(a))},granted:()=>{const a=cur();return !!(a&&a.svc&&a.svc.drive)},link:()=>auth({svc:["drive"]}),acct:()=>{const a=cur();return a&&{email:a.email,name:a.name}},
+  async list(o={}){await getToken(false,["drive"]).catch(()=>getToken(true,["drive"]));const q=["trashed=false"];const p={pageSize:String(o.pageSize||80),supportsAllDrives:"true",includeItemsFromAllDrives:"true",fields:"nextPageToken,files(id,name,mimeType,size,modifiedTime,viewedByMeTime,iconLink,shortcutDetails,owners(displayName))"};
+    const esc_=t=>String(t).replace(/\\/g,"\\\\").replace(/'/g,"\\'");
+    if(o.search){q.push(`name contains '${esc_(o.search)}'`);p.corpora="allDrives"}
+    else if(o.folder){q.push(`'${esc_(o.folder)}' in parents`);p.orderBy="folder,name";if(o.driveId){p.corpora="drive";p.driveId=o.driveId}else p.corpora="allDrives"}
+    else if(o.tab==="shared"){q.push("sharedWithMe");p.orderBy="modifiedTime desc"}
+    else if(o.tab==="recent"){p.orderBy="viewedByMeTime desc";q.push("mimeType != 'application/vnd.google-apps.folder'")}
+    else if(o.tab==="starred"){q.push("starred");p.corpora="allDrives"}
+    else{q.push("'root' in parents");p.orderBy="folder,name"}
+    if(o.pageToken)p.pageToken=o.pageToken;p.q=q.join(" and ");return gapi(DRV+"files?"+new URLSearchParams(p))},
+  async drives(){await getToken(false,["drive"]).catch(()=>getToken(true,["drive"]));return gapi(DRV+"drives?pageSize=50")},
+  async download(f,exportMime){const t=await getToken(false,["drive"]);const u=exportMime?DRV+"files/"+encodeURIComponent(f.id)+"/export?mimeType="+encodeURIComponent(exportMime):DRV+"files/"+encodeURIComponent(f.id)+"?alt=media&supportsAllDrives=true";
+    const r=await _fetch(u,{headers:{Authorization:"Bearer "+t}});if(r.status===401){const a=cur();if(a){a.tok=null;saveA()}throw err("needs_reauth","Phiên Google hết hạn")}
+    if(!r.ok){const j=await r.json().catch(()=>({}));const m=(j.error&&j.error.message)||("HTTP "+r.status);throw err(/has not been used|disabled/i.test(m)?"tool_error":"tool_error",/has not been used|disabled/i.test(m)?"Chưa bật Google Drive API trong Google Cloud Console (APIs & Services → Library → Google Drive API).":m)}
+    return await r.blob()}};
+/* ---- Đồng bộ cài đặt (API key, Client ID…) qua thư mục ẨN của ứng dụng trên Google Drive của chính bạn ---- */
+const CLOUD_NAME="sohoc-settings.json";
+async function cloudTok(inter){const a=cur();if(!a)throw err("needs_reauth","Chưa đăng nhập Google");if(a.svc&&a.svc.appdata&&tokOk(a))return a.tok.t;if(!inter)throw err("needs_reauth","Cần cấp quyền lưu cài đặt");return (await auth({svc:["appdata"]})).tok.t}
+async function cloudReq(u,o,t){const r=await _fetch(u,{...o,headers:{...(o&&o.headers||{}),Authorization:"Bearer "+t}});if(r.status===401){const a=cur();if(a){a.tok=null;saveA()}throw err("needs_reauth","Phiên Google hết hạn")}
+  if(!r.ok){const j=await r.json().catch(()=>({}));const m=(j.error&&j.error.message)||("HTTP "+r.status);throw err("tool_error",/has not been used|disabled/i.test(m)?"Chưa bật Google Drive API trong Google Cloud Console (APIs & Services → Library → Google Drive API).":m)}return r}
+const cloud_={granted:()=>{const a=cur();return !!(a&&a.svc&&a.svc.appdata)},ready:()=>{const a=cur();return !!(a&&a.svc&&a.svc.appdata&&tokOk(a))},link:()=>auth({svc:["appdata"]}),
+  async _find(t){const r=await cloudReq(DRV+"files?"+new URLSearchParams({spaces:"appDataFolder",q:`name='${CLOUD_NAME}' and trashed=false`,fields:"files(id,modifiedTime)",pageSize:"5"}),{},t);const j=await r.json();return (j.files&&j.files[0])||null},
+  async get(inter){const t=await cloudTok(inter);const f=await this._find(t);if(!f)return null;const r=await cloudReq(DRV+"files/"+encodeURIComponent(f.id)+"?alt=media",{},t);return await r.json().catch(()=>null)},
+  async put(obj,inter){const t=await cloudTok(inter);const f=await this._find(t);const body=JSON.stringify(obj);
+    if(f){await cloudReq("https://www.googleapis.com/upload/drive/v3/files/"+encodeURIComponent(f.id)+"?uploadType=media",{method:"PATCH",headers:{"Content-Type":"application/json"},body},t);return}
+    const b="sohoc"+Date.now();const meta=JSON.stringify({name:CLOUD_NAME,parents:["appDataFolder"]});
+    await cloudReq("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",{method:"POST",headers:{"Content-Type":"multipart/related; boundary="+b},body:`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${b}--`},t)},
+  async remove(){const t=await cloudTok(false);const f=await this._find(t);if(f)await cloudReq(DRV+"files/"+encodeURIComponent(f.id),{method:"DELETE"},t)}};
+window.SOHOC={CFG,LS,drive:drive_,cloud:cloud_,pkey:k=>k+PKS(),getToken:()=>getToken(true),google:google_,yt:ytApi_,signOut(){const a=cur();if(a)google_.remove(a.id)},
+  hasKey:()=>!!apiKey(),hasOwnerKey:()=>!!ownerKey(),usingOwnerKey:()=>provider()==="gemini"&&useOwner(),keyMode,provider,model,listGeminiModels,clientId,
   async exportAll(){await load();const out={app:"so-hoc-dien-tu",v:1,exported:new Date().toISOString(),docs:Object.fromEntries(docs),assets:{}};
     try{const d=await getDB();await new Promise((res,rej)=>{const rq=d.transaction("assets").objectStore("assets").openCursor();const pend=[];rq.onsuccess=()=>{const c=rq.result;if(c){pend.push(b64(c.value).then(u=>{out.assets[c.key]=u}));c.continue()}else Promise.all(pend).then(res,rej)};rq.onerror=()=>rej(rq.error)})}catch(e){}
     return new Blob([JSON.stringify(out)],{type:"application/json"})},

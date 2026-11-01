@@ -1,5 +1,5 @@
 /* Sổ Học Điện Tử — service worker: mở nhanh, dùng được khi mạng chập chờn */
-const V="sohoc-6db7deb320";
+const V="sohoc-89ce240c74";
 const CORE=["./","index.html","app.js","app-plus.js","app-plus.css","platform.js","config.js","manifest.webmanifest","icon-192.png","icon-512.png"];
 self.addEventListener("install",e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting()))});
 self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});

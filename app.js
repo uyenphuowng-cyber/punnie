@@ -2729,7 +2729,7 @@ const _sceneURL=new Map();function sceneURL(id,w,h,seed){const k=[id,w,h,seed,is
 
 /* ---------- lựa chọn nền: cảnh pixel hoặc ảnh của bạn ---------- */
 UI.bg=Object.assign({sel:"auto",wall:false,dim:.25,fx:true,pix:false,customs:[]},local.get("bg",{}));
-let _sbgT=0;function saveBg(){const b=UI.bg;const lite={...b,customs:b.customs.map(c=>({id:c.id,url:c.url.length<4000?c.url:"",name:c.name}))};try{local.set("bg",lite)}catch(e){}clearTimeout(_sbgT);_sbgT=setTimeout(()=>Store.put("bg-me",{type:"bg",sel:b.sel,wall:!!b.wall,dim:+b.dim,fx:!!b.fx,pix:!!b.pix,customs:b.customs.map(c=>({id:c.id,url:c.url,name:c.name||"",asset:c.asset||null}))}).catch(e=>{console.warn(e);toast("Chưa lưu được hình nền")}),600)}
+let _sbgT=0;function saveBg(){const b=UI.bg;const lite={...b,customs:b.customs.map(c=>({id:c.id,url:c.url.length<4000?c.url:"",name:c.name,px:!!c.px}))};try{local.set("bg",lite)}catch(e){}clearTimeout(_sbgT);_sbgT=setTimeout(()=>Store.put("bg-me",{type:"bg",sel:b.sel,wall:!!b.wall,dim:+b.dim,fx:!!b.fx,pix:!!b.pix,customs:b.customs.map(c=>({id:c.id,url:c.url,name:c.name||"",asset:c.asset||null,px:!!c.px}))}).catch(e=>{console.warn(e);toast("Chưa lưu được hình nền")}),600)}
 async function loadBg(){try{const d=await Store.get("bg-me");if(d){UI.bg={sel:d.sel||"auto",wall:!!d.wall,dim:d.dim??.25,fx:d.fx!==false,pix:!!d.pix,customs:Array.isArray(d.customs)?d.customs.filter(c=>c&&c.url):[]};applyBg();if(UI.view==="home")drawBanner()}}catch(e){}}
 function bgSrc(){const s=UI.bg.sel;if(s.startsWith("c:")){const c=UI.bg.customs.find(x=>"c:"+x.id===s);if(c)return {img:c.url}}return {scene:SCENES[s]?s:"auto"}}
 function applyBg(){let w=$("#wall");if(!w){w=document.createElement("div");w.id="wall";w.setAttribute("aria-hidden","true");document.body.prepend(w)}
@@ -3333,7 +3333,7 @@ const SND={ctx:null,master:null,duck:null,cur:null,curKind:null,audio:null,buf:{
     const c=this.init();if(!c)return;if(c.state==="suspended"){try{await c.resume()}catch(e){}}if(c.state!=="running"){waitGesture();updSndBtn();return}
     this.master.gain.setTargetAtTime(s.vol*.9,c.currentTime,.3);
     const tr=s.track&&s.tracks.find(t=>t.id===s.track);
-    let kind=s.kind==="scene"?(()=>{const b=bgSrc();const m=SCENE_SND[b.scene||"auto"];return b.img?"lofi":typeof m==="function"?m():m||"city"})():s.kind;
+    let kind=s.kind==="scene"?(()=>{const b=bgSrc();const m=SCENE_SND[b.scene||"auto"];return b.img?(b.snd||"lofi"):typeof m==="function"?m():m||"city"})():s.kind;
     if(tr){kind=s.music?kind:null}
     if(kind!==this.curKind){this.stopCur();if(kind){this.cur=this.build(kind);this.curKind=kind}}
     if(tr){if(!this.audio||this.audio._id!==tr.id){if(this.audio){this.audio.pause();if(this.audio._obj)URL.revokeObjectURL(this.audio.src)}const a=new Audio();a.loop=true;a._id=tr.id;a.preload="auto";
@@ -3362,14 +3362,16 @@ function sndPopover(anchor){
   m.classList.add("wide");m.addEventListener("click",e=>e.stopPropagation());
   {const r=anchor.getBoundingClientRect(),w=m.offsetWidth,h=m.offsetHeight;m.style.left=Math.max(8,Math.min(innerWidth-w-8,r.right-w))+"px";m.style.top=Math.max(8,Math.min(innerHeight-h-8,r.bottom+6))+"px"}
   const re=()=>{closePop();sndPopover(anchor)};
-  $("#sOn",m).onclick=()=>{s.on=!s.on;local.set("bgSnd",s);SND.apply();re()};
+  $("#sOn",m).onclick=e=>{e.stopPropagation();s.on=!s.on;local.set("bgSnd",s);SND.apply();const b=$("#sOn",m);if(b){b.classList.toggle("primary",s.on);b.innerHTML=`${ic(s.on?"vol":"mute")} ${s.on?"Đang bật":"Đang tắt"}`}updSndBtn()};
   $("#sVol2",m).oninput=e=>{s.vol=+e.target.value;if(SND.ctx&&s.on)SND.master.gain.setTargetAtTime(s.vol*.9,SND.ctx.currentTime,.1);if(SND.audio)SND.audio.volume=s.vol;clearTimeout(m._t);m._t=setTimeout(saveSnd,300)};
   $("#sKind",m).onchange=e=>{s.kind=e.target.value;s.on=true;if(s.track&&!s.music)s.track=null;saveSnd();SND.apply();re()};
   $$("[data-tr]",m).forEach(b=>b.onclick=()=>{s.track=b.dataset.tr;s.on=true;saveSnd();SND.apply();re()});
   $$("[data-trdel]",m).forEach(b=>b.onclick=()=>{const t=s.tracks.find(x=>x.id===b.dataset.trdel);s.tracks=s.tracks.filter(x=>x!==t);if(t&&t.asset&&P.assets)P.assets.delete(t.asset).catch(()=>{});if(s.track===b.dataset.trdel)s.track=null;saveSnd();SND.apply();re()});
   $("#sFile",m).onchange=e=>addTracks([...e.target.files]).then(re);
   const nt=$("#sNoTr",m);if(nt)nt.onclick=()=>{s.track=null;saveSnd();SND.apply();re()};const mx=$("#sMix",m);if(mx)mx.onchange=()=>{s.music=mx.checked;saveSnd();SND.apply()};
-  setTimeout(()=>{const off=e=>{if(!m.contains(e.target)){closePop();document.removeEventListener("pointerdown",off,true)}};document.addEventListener("pointerdown",off,true)},0);
+  /* chỉ giữ MỘT bộ lắng nghe “bấm ra ngoài để đóng” — trước đây mỗi lần mở lại bảng lại thêm một bộ cũ, bộ cũ tự đóng bảng mới ở lần bấm thứ 2 */
+  if(window._sndOff){document.removeEventListener("pointerdown",window._sndOff,true);window._sndOff=null}
+  setTimeout(()=>{if(!m.isConnected)return;const off=e=>{if(!m.isConnected){document.removeEventListener("pointerdown",off,true);if(window._sndOff===off)window._sndOff=null;return}if(!m.contains(e.target)&&!(anchor&&anchor.contains&&anchor.contains(e.target))){closePop();document.removeEventListener("pointerdown",off,true);if(window._sndOff===off)window._sndOff=null}};if(window._sndOff)document.removeEventListener("pointerdown",window._sndOff,true);window._sndOff=off;document.addEventListener("pointerdown",off,true)},0);
 }
 /* nút loa luôn có trên thanh trên cùng; cảnh nền đổi → âm thanh đổi theo */
 const _renderTop11=renderTop;renderTop=function(...a){const r=_renderTop11.apply(this,a);const t=$("#top");if(t&&!$("#tSnd",t)){const b=document.createElement("button");b.className="ghost ic snd-btn";b.id="tSnd";b.dataset.snd="1";t.appendChild(b);
@@ -4881,7 +4883,9 @@ const fmtD=t=>{t=Math.round(t||0);const h=Math.floor(t/3600),m=Math.floor(t%3600
 const ytG=()=>window.SOHOC&&window.SOHOC.yt;
 const ytLinked=()=>!!(ytG()&&ytG().has());
 const ytPrem=()=>!!(ytG()&&ytG().premium&&ytG().premium());
-UI.ytMode=local.get("ytMode","win");/* win = cửa sổ YouTube · music = cửa sổ YouTube Music · page = trong trang */
+UI.ytMode=local.get("ytMode","win");
+/* v30: trình phát trong trang không nhận Premium trên nhiều trình duyệt → chuyển mặc định sang cửa sổ mini YouTube (Premium chắc chắn) */
+if(!local.get("ytModeV30",false)){local.set("ytModeV30",true);if(UI.ytMode==="page"){UI.ytMode="win";local.set("ytMode","win");UI._ytMoved=true}}/* win = cửa sổ YouTube · music = cửa sổ YouTube Music · page = trong trang */
 const ytWin=()=>ytPrem()&&UI.ytMode!=="page";
 const ytEmb=()=>window.SOHOC_EMB;
 const ytCookieBlock=()=>{const u=navigator.userAgent||"";return /Firefox\//.test(u)||(/Safari\//.test(u)&&!/Chrome|Chromium|Edg\//.test(u))||!!navigator.brave};
@@ -4908,8 +4912,8 @@ function ytWinURL(id,list,idx){const A=(ytG()&&ytG().acct())||{};const host=UI.y
   const q=new URLSearchParams();if(id)q.set("v",id);if(list){q.set("list",list);if(idx!=null)q.set("index",String(idx+1))}if(A.email)q.set("authuser",A.email);return host+"/watch?"+q}
 function ytWinOpen(url){
   try{if(YW&&!YW.closed&&!YWsev){YW.location.href=url;try{YW.focus()}catch(e){}return true}}catch(e){YWsev=true}
-  const w=Math.min(560,(screen.availWidth||1200)-40),h=Math.min(820,(screen.availHeight||900)-60);
-  YW=window.open(url,"sohocYTP",`popup=yes,width=${w},height=${h},left=${Math.max(0,(screen.availWidth||1200)-w-24)},top=40`);YWt=Date.now();
+  const w=Math.min(480,(screen.availWidth||1200)-40),h=Math.min(430,(screen.availHeight||900)-60);
+  YW=window.open(url,"sohocYTP",`popup=yes,width=${w},height=${h},left=${Math.max(0,(screen.availWidth||1200)-w-24)},top=${Math.max(0,(screen.availHeight||900)-h-60)}`);YWt=Date.now();
   if(!YW){toast("Trình duyệt đang chặn cửa sổ bật lên. Cho phép cửa sổ bật lên cho trang này rồi bấm lại.",6000);return false}
   /* một số trình duyệt tách cửa sổ YouTube khỏi trang mở nó → không điều khiển tiếp được */
   setTimeout(()=>{try{if(YW&&YW.closed&&Date.now()-YWt<6000){YWsev=true;ytNowPaint()}}catch(e){}},3000);return true}
@@ -4980,8 +4984,8 @@ maYT=async function(box){const G=window.SOHOC;if(!G||!G.yt){box.innerHTML=`<p cl
   if(!A){box.innerHTML=`<p style="margin:0">Kết nối <b>tài khoản YouTube</b>. Có thể là một tài khoản Google <b>khác</b> với tài khoản bạn đang dùng cho Sổ Học, ví dụ tài khoản có YouTube Premium.</p><button class="g-btn" id="maYt">${typeof G_LOGO!=="undefined"?G_LOGO:""}<span>Chọn tài khoản YouTube</span></button><p class="muted" style="font-size:12px;margin:0">Chỉ xin quyền xem (danh sách phát, video đã thích). Tài khoản phải có trong Test users của ứng dụng Google (README mục 4).</p>`;
     $("#maYt",box).onclick=async()=>{try{await G.yt.link(true);maYT(box)}catch(e){toast(gcErr(e),5000)}};return}
   const prem=!!A.prem,au=A.email||"";
-  const modeSel=prem?`<div class="field"><label for="ytMode">Phát qua</label><select id="ytMode"><option value="win">YouTube Premium (cửa sổ YouTube)</option><option value="music">YouTube Music Premium</option><option value="page">Trong trang Sổ Học</option></select></div>`:"";
-  const pageNote=prem&&UI.ytMode==="page"?`<div class="ma-tip box">Trình phát trong trang chỉ nhận Premium khi trình duyệt này <b>đã đăng nhập ${esc(au)}</b> trên youtube.com và cho phép cookie của YouTube trong trang khác.${ytCookieBlock()?` <b>Trình duyệt bạn đang dùng chặn cookie đó</b>, nên ở chế độ này vẫn có thể có quảng cáo. Hãy chọn “YouTube Premium (cửa sổ YouTube)”.`:""} <a href="https://accounts.google.com/AccountChooser?Email=${encodeURIComponent(au)}&continue=${encodeURIComponent("https://www.youtube.com/")}" target="_blank" rel="noopener" data-ytext>Đăng nhập YouTube trên trình duyệt</a></div>`:"";
+  const modeSel=prem?`<div class="field"><label for="ytMode">Phát qua</label><select id="ytMode"><option value="win">YouTube Premium · trình phát mini (chắc chắn không quảng cáo)</option><option value="music">YouTube Music Premium</option><option value="page">Trong trang Sổ Học</option></select></div>`:"";
+  const pageNote=prem&&UI.ytMode==="page"?ytPremFixHTML(au):"";
   box.innerHTML=`<div class="ma-me">${A.ch&&A.ch.img||A.pic?`<img src="${esc(A.ch&&A.ch.img||A.pic)}" alt="" referrerpolicy="no-referrer">`:""}<span class="ma-who"><b>${esc(A.ch&&A.ch.title||A.name||"YouTube")}</b><small>${esc(au)}</small></span><button class="btn" id="maYsw" title="Dùng tài khoản YouTube khác">Đổi</button><button class="ghost ic" id="maYout" title="Ngắt kết nối YouTube" aria-label="Ngắt kết nối YouTube">${ic("close")}</button></div>
     ${A.prem===undefined?`<div class="ma-ask"><b>Tài khoản ${esc(au)} có YouTube Premium không?</b><small>Google không cho trang web khác đọc gói Premium, nên Sổ Học hỏi bạn một lần cho mỗi tài khoản. Có Premium thì nhạc phát bằng chính YouTube Premium; không thì dùng YouTube thường.</small><div class="row"><button class="pill-btn primary yt" data-pr="1">Có Premium</button><button class="btn" data-pr="0">Không có</button></div></div>`
       :`<label class="ma-prtog"><input type="checkbox" class="chk" id="maPrem" ${prem?"checked":""}><span><b>${prem?"YouTube Premium đang bật":"YouTube thường"}</b><small>${prem?"Phát bằng YouTube Premium của tài khoản này: không quảng cáo, phát nền.":"Bật nếu tài khoản này có gói Premium."}</small></span></label>`}
@@ -4989,9 +4993,9 @@ maYT=async function(box){const G=window.SOHOC;if(!G||!G.yt){box.innerHTML=`<p cl
     ${modeSel}${pageNote}<div id="ytNow" class="sp-nowbox yt"></div>
     <form class="ma-q" id="maQ"><input class="input" id="maQi" placeholder="Tìm trên YouTube, ví dụ: lofi study" value="${esc(local.get("maQ","lofi hip hop study"))}"><button class="btn" aria-label="Tìm">${ic("search")}</button></form><div id="maRes"></div>
     <h4>Danh sách phát của bạn</h4><div id="maMine"><span class="spin"></span></div>`;
-  ytNowPaint();
+  ytNowPaint();if(UI._ytMoved&&prem){UI._ytMoved=false;toast("Đã chuyển sang trình phát mini YouTube Premium — chắc chắn không quảng cáo. Vẫn chọn lại “Trong trang” được.",5200)}
   const sel=$("#ytMode",box);if(sel){sel.value=["win","music","page"].includes(UI.ytMode)?UI.ytMode:"win";sel.onchange=()=>{UI.ytMode=sel.value;local.set("ytMode",UI.ytMode);if(UI.ytMode!=="page"){const E=ytEmb();if(E&&E.type==="yt")try{E.pause()}catch(e){}}maYT(box)}}
-  $$("[data-pr]",box).forEach(b=>b.onclick=()=>{G.yt.setPrem(b.dataset.pr==="1");if(b.dataset.pr==="1"&&!local.get("ytMode",null)){UI.ytMode="win";local.set("ytMode","win")}toast(b.dataset.pr==="1"?"Đã bật YouTube Premium cho "+au:"Dùng YouTube thường cho "+au,2200);maYT(box)});
+  $$("[data-pr]",box).forEach(b=>b.onclick=()=>{G.yt.setPrem(b.dataset.pr==="1");if(b.dataset.pr==="1"){UI.ytMode="win";local.set("ytMode","win")}toast(b.dataset.pr==="1"?"Đã bật YouTube Premium cho "+au:"Dùng YouTube thường cho "+au,2200);maYT(box)});
   const pt=$("#maPrem",box);if(pt)pt.onchange=()=>{G.yt.setPrem(pt.checked);maYT(box)};
   $("#maYsw",box).onclick=async()=>{try{await G.yt.link(true);maYT(box)}catch(e){toast(gcErr(e),5000)}};$("#maYout",box).onclick=()=>{G.yt.logout();maYT(box)};
   const re=$("#maYre",box);if(re)re.onclick=async()=>{try{await G.yt.link(false);maYT(box)}catch(e){toast(gcErr(e),5000)}};
@@ -5003,6 +5007,3410 @@ maYT=async function(box){const G=window.SOHOC;if(!G||!G.yt){box.innerHTML=`<p cl
     try{const r=await G.yt.api("search",{part:"snippet",q,type:"video,playlist",maxResults:"12"});const dec=t=>{const d=document.createElement("textarea");d.innerHTML=t;return d.value};
       const it=(r.items||[]).map(x=>ytItem({kind:x.id.playlistId?"pl":"v",id:x.id.playlistId||x.id.videoId,title:dec(x.snippet.title),sub:(x.id.playlistId?"Danh sách · ":"")+x.snippet.channelTitle,img:x.snippet.thumbnails&&(x.snippet.thumbnails.medium||x.snippet.thumbnails.default||{}).url,au}));
       R.innerHTML=ytRows(it);bindL(R,it)}catch(er){R.innerHTML=MA_ERR({message:gcErr(er)})}}};
+
+/* ---------- Premium cho trình phát TRONG TRANG: YouTube chỉ bỏ quảng cáo khi trình phát nhúng nhận được
+   phiên đăng nhập Premium của trình duyệt (cookie youtube.com). Trang không tự bật được điều này —
+   hướng dẫn từng bước theo đúng trình duyệt đang dùng. ---------- */
+function ytBrowser(){const u=navigator.userAgent||"";if(navigator.brave)return "brave";if(/Edg\//.test(u))return "edge";if(/OPR\//.test(u))return "opera";if(/Firefox\//.test(u))return "firefox";if(/Chrome\//.test(u))return "chrome";if(/Safari\//.test(u))return "safari";return "other"}
+function ytPremFixHTML(au){const b=ytBrowser();const inClaude=!window.SOHOC||/claude\.ai|claudeusercontent/.test(location.hostname);
+  const ck={chrome:`Mở <b>Cài đặt Chrome → Quyền riêng tư và bảo mật → Cookie của bên thứ ba</b> (dán <code>chrome://settings/cookies</code> vào thanh địa chỉ). Chọn <b>“Cho phép cookie của bên thứ ba”</b>, hoặc ở mục <b>“Các trang web được phép sử dụng cookie của bên thứ ba”</b> bấm <b>Thêm</b> và nhập <code>[*.]youtube.com</code>.`,
+    edge:`Mở <code>edge://settings/content/cookies</code> → <b>Allow</b> → <b>Add</b> và nhập <code>[*.]youtube.com</code>. Nếu bật <b>Tracking prevention: Strict</b>, hãy chuyển về <b>Balanced</b> hoặc thêm trang Sổ Học vào <b>Exceptions</b>.`,
+    opera:`Mở <code>opera://settings/cookies</code> → <b>Sites that can always use cookies</b> → thêm <code>[*.]youtube.com</code> (tích “Including third-party cookies”).`,
+    brave:`Bấm biểu tượng sư tử (Brave Shields) trên thanh địa chỉ khi đang ở trang Sổ Học → đặt <b>Cookies</b> thành <b>“Allow all”</b> (hoặc tắt Shields cho trang này).`,
+    firefox:`Bấm biểu tượng khiên ở thanh địa chỉ khi đang ở trang Sổ Học → tắt <b>Enhanced Tracking Protection</b> cho trang này. Firefox vẫn có thể tách cookie; nếu còn quảng cáo, dùng chế độ “YouTube Premium (cửa sổ YouTube)”.`,
+    safari:`Safari → <b>Cài đặt → Quyền riêng tư</b> → bỏ chọn <b>“Ngăn theo dõi chéo trang web”</b>. Safari thường vẫn chặn đăng nhập trong trình phát nhúng; nếu còn quảng cáo, dùng chế độ “YouTube Premium (cửa sổ YouTube)”.`,
+    other:`Trong cài đặt quyền riêng tư của trình duyệt, cho phép cookie của <code>[*.]youtube.com</code> khi nằm trong trang khác (cookie bên thứ ba).`}[b];
+  return `<details class="ma-prem yt-fix" ${local.get("ytFixSeen",false)?"":"open"}><summary>${MT_IC.yt} Còn quảng cáo trong trang? Bật Premium cho trình phát trong trang</summary>
+    ${inClaude?`<p class="warnbox" style="font-size:12.5px">Bạn đang mở Sổ Học bên trong Claude. Trang ở đây luôn bị tách khỏi đăng nhập YouTube nên vẫn có quảng cáo. Hãy dùng bản web của bạn (trang trên Netlify).</p>`:""}
+    <p>YouTube chỉ bỏ quảng cáo cho video nhúng trong trang khác khi trình phát nhận được <b>đăng nhập Premium của trình duyệt</b>. Sổ Học không tự bật được việc này, nên cần làm 3 bước sau một lần:</p>
+    <ol class="yt-steps">
+      <li><b>Đăng nhập ${esc(au)} trên youtube.com trong trình duyệt này</b> (không dùng cửa sổ ẩn danh). Nếu trình duyệt đăng nhập nhiều tài khoản Google, trình phát nhúng dùng <b>tài khoản mặc định</b> (tài khoản đăng nhập đầu tiên). Hãy để tài khoản Premium là tài khoản đầu tiên, hoặc dùng một hồ sơ trình duyệt riêng cho việc học.
+        <div class="row"><a class="btn" href="https://accounts.google.com/AccountChooser?Email=${encodeURIComponent(au)}&continue=${encodeURIComponent("https://www.youtube.com/paid_memberships")}" target="_blank" rel="noopener" data-ytext>${ic("ext")} Đăng nhập & xem gói Premium</a></div></li>
+      <li><b>Cho phép cookie của YouTube trong trang khác.</b> ${ck}</li>
+      <li><b>Tải lại trang Sổ Học</b> rồi phát lại. Logo trong trình phát không đổi, nhưng sẽ không còn quảng cáo trước video.<div class="row"><button class="btn" data-ytreload>${ic("sync")} Tải lại trang</button><button class="btn" data-ytfixok>Đã làm xong, thu gọn</button></div></li></ol>
+    <p class="muted" style="font-size:11.5px;margin:0">Lưu ý: gói <b>YouTube Music Premium</b> không bỏ quảng cáo trên video YouTube; cần gói <b>YouTube Premium</b>.</p></details>`}
+document.addEventListener("click",e=>{const r=e.target.closest&&e.target.closest("[data-ytreload]");if(r){location.reload();return}
+  const k=e.target.closest&&e.target.closest("[data-ytfixok]");if(k){local.set("ytFixSeen",true);const d=k.closest("details");if(d)d.open=false}});
+
+/* =====================================================================
+   v26 — Môn học chỉnh sửa được như Notion
+   - Thêm / đổi tên / xóa môn ngay trên thẻ môn (nút ⋯ hoặc bấm nút kéo ⋮⋮)
+   - Chế độ “Sắp xếp & chỉnh sửa”: kéo thả đổi thứ tự môn; mỗi thẻ hiện danh sách
+     bài học → kéo đổi thứ tự, kéo sang môn khác (hoặc “Chưa xếp môn”), thêm / xóa bài
+   - Cây thư mục trong trang môn: kéo bài lên một bài khác để xếp lại thứ tự
+   ===================================================================== */
+if(!IC.grip)IC.grip='<circle cx="9" cy="6" r="1.3"/><circle cx="15" cy="6" r="1.3"/><circle cx="9" cy="12" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="9" cy="18" r="1.3"/><circle cx="15" cy="18" r="1.3"/>';
+UI.courseEdit=local.get("courseEdit",false);
+const nbKey=n=>n.order!=null?n.order:(n.created||0);
+const sjSorted=()=>[...UI.subjs].sort((a,b)=>(a.order||0)-(b.order||0)||(a.created||0)-(b.created||0));
+/* thứ tự bài trong một môn: theo thư mục (duyệt cây), rồi theo thứ tự bài */
+function foldRank(sid){const R=new Map();let k=0;const walk=p=>UI.folds.filter(f=>f.subj===sid&&(f.parent||null)===p).sort((a,b)=>(a.order||0)-(b.order||0)).forEach(f=>{R.set(f.id,++k);walk(f.id)});walk(null);return R}
+function lessonsSorted(sid){const R=sid==="none"?new Map():foldRank(sid);const pr=n=>n.parent&&R.has(n.parent)?R.get(n.parent):0;return nbsOf(sid).sort((a,b)=>pr(a)-pr(b)||nbKey(a)-nbKey(b))}
+
+/* ---------- kéo thả chung (chuột + cảm ứng), có chỗ trống báo vị trí ---------- */
+function scrollParent(el){let p=el;while(p&&p!==document.body){const o=getComputedStyle(p).overflowY;if(/(auto|scroll)/.test(o)&&p.scrollHeight>p.clientHeight)return p;p=p.parentElement}return document.scrollingElement}
+function liftSort(e,el,{containers,item,grid,done}){
+  UI._crsDrag=true;const r=el.getBoundingClientRect();const ph=document.createElement(el.tagName==="LI"?"li":"div");ph.className="crs-ph"+(grid?" g":"");ph.style.height=r.height+"px";el.before(ph);
+  el.classList.add("crs-lift");Object.assign(el.style,{position:"fixed",left:r.left+"px",top:r.top+"px",width:r.width+"px",height:r.height+"px",zIndex:95,margin:0});document.body.appendChild(el);
+  const ox=e.clientX-r.left,oy=e.clientY-r.top;let px=e.clientX,py=e.clientY,raf=0;const sc=scrollParent(ph.parentElement);
+  const tick=()=>{raf=0;el.style.transform=`translate(${px-ox-r.left}px,${py-oy-r.top}px) rotate(${grid?.8:.4}deg)`;
+    const cs=containers();const c=cs.find(c=>{const q=c.getBoundingClientRect();return px>=q.left-6&&px<=q.right+6&&py>=q.top-10&&py<=q.bottom+10});
+    if(c){const its=[...c.children].filter(x=>x!==ph&&x.matches(item));let before=null;
+      for(const t of its){const q=t.getBoundingClientRect();if(grid?(py<q.top||(py<=q.bottom&&px<q.left+q.width/2)):(py<q.top+q.height/2)){before=t;break}}
+      const tail=c.querySelector(":scope>.crs-tail");const want=before||tail||null;
+      if(want){if(ph.nextSibling!==want||ph.parentElement!==c)c.insertBefore(ph,want)}else if(ph.parentElement!==c||ph.nextSibling)c.appendChild(ph);
+      $$(".crs-over").forEach(x=>x!==c&&x.classList.remove("crs-over"));c.classList.add("crs-over")}
+    if(sc){const q=sc===document.scrollingElement?{top:0,bottom:innerHeight}:sc.getBoundingClientRect();if(py<q.top+48)sc.scrollTop-=12;else if(py>q.bottom-48)sc.scrollTop+=12}};
+  const mv=ev=>{px=ev.clientX;py=ev.clientY;if(!raf)raf=requestAnimationFrame(tick)};
+  const up=()=>{removeEventListener("pointermove",mv);removeEventListener("pointerup",up);removeEventListener("pointercancel",up);cancelAnimationFrame(raf);$$(".crs-over").forEach(x=>x.classList.remove("crs-over"));
+    /* thả mượt về chỗ trống */
+    const q=ph.getBoundingClientRect();el.style.transition="transform .18s cubic-bezier(.2,.8,.2,1)";el.style.transform=`translate(${q.left-r.left}px,${q.top-r.top}px)`;
+    setTimeout(()=>{el.classList.remove("crs-lift");el.style.cssText="";ph.replaceWith(el);UI._crsDrag=false;try{done(el)}finally{if(UI._crsPend){UI._crsPend=false;setTimeout(()=>refreshViews("nb"),60)}}},180)};
+  addEventListener("pointermove",mv);addEventListener("pointerup",up);addEventListener("pointercancel",up);tick()}
+/* nút ⋮⋮: kéo khi di chuột > 5px, bấm để mở menu */
+function grip27(btn,drag,menu){btn.addEventListener("pointerdown",e=>{if(e.button!==0&&e.pointerType==="mouse")return;e.preventDefault();e.stopPropagation();const x0=e.clientX,y0=e.clientY;let st=false;
+  const mv=ev=>{if(!st&&Math.hypot(ev.clientX-x0,ev.clientY-y0)>5){st=true;clean();drag(ev)}};const upf=ev=>{clean();if(!st)menu(btn)};const clean=()=>{removeEventListener("pointermove",mv);removeEventListener("pointerup",upf)};
+  addEventListener("pointermove",mv);addEventListener("pointerup",upf)});btn.addEventListener("click",e=>e.stopPropagation());btn.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();menu(btn)}})}
+{const _rv27=refreshViews;refreshViews=function(k){if(UI._crsDrag){UI._crsPend=true;return}return _rv27.apply(this,arguments)}}
+
+/* ---------- lưu thứ tự ---------- */
+async function saveSubjOrder(ids){const ps=[];ids.forEach((id,i)=>{const s=subjOf(id);if(s&&s.order!==i){s.order=i;ps.push(Store.patch(id,{order:i}))}});await Promise.all(ps)}
+async function saveLessonDrop(el){const ul=el.parentElement;if(!ul)return;const sid=ul.dataset.lsj;const id=el.dataset.id;const n=UI.nbs.find(x=>x.id===id);if(!n)return;
+  const ids=[...ul.querySelectorAll(":scope>li[data-id]")].map(x=>x.dataset.id);const i=ids.indexOf(id);
+  const nb=k=>UI.nbs.find(x=>x.id===ids[k]);const nei=(i>0&&nb(i-1))||nb(i+1);const subj=sid==="none"?null:sid;
+  const parent=subj&&nei&&nei.id!==id&&nei.subj===subj&&nei.parent&&UI.folds.some(f=>f.id===nei.parent)?nei.parent:null;
+  const ps=[];const moved=(n.subj||null)!==subj||(n.parent||null)!==parent;
+  ids.forEach((x,k)=>{const d=UI.nbs.find(y=>y.id===x);if(!d)return;const patch={};if(d.order!==k)patch.order=k;if(x===id&&moved){patch.subj=subj;patch.parent=parent}if(Object.keys(patch).length){Object.assign(d,patch);ps.push(Store.patch(x,patch))}});
+  await Promise.all(ps);if(moved)toast(subj?`Đã chuyển “${n.title}” sang ${(subjOf(subj)||{}).title||"môn"}${parent?" · "+foldPath(parent):""}`:`Đã chuyển “${n.title}” sang Chưa xếp môn`,2200)}
+async function moveLesson(id,d){const n=UI.nbs.find(x=>x.id===id);if(!n)return;const sid=n.subj&&subjOf(n.subj)?n.subj:"none";const L=lessonsSorted(sid);const i=L.findIndex(x=>x.id===id);const j=i+d;if(j<0||j>=L.length)return;
+  [L[i],L[j]]=[L[j],L[i]];const t=L[i];const ps=[];if((n.parent||null)!==(t.parent||null)){n.parent=t.parent||null;ps.push(Store.patch(id,{parent:n.parent}))}
+  L.forEach((x,k)=>{if(x.order!==k){x.order=k;ps.push(Store.patch(x.id,{order:k}))}});await Promise.all(ps)}
+async function moveSubj(id,d){const L=sjSorted().map(s=>s.id);const i=L.indexOf(id);const j=d==="top"?0:d==="end"?L.length-1:i+d;if(i<0||j<0||j>=L.length)return;L.splice(i,1);L.splice(j,0,id);await saveSubjOrder(L)}
+function deleteSubject(s){confirmDialog("Xóa môn “"+s.title+"”?","Thư mục của môn bị xóa. Các bài học bên trong KHÔNG bị xóa mà chuyển sang “Chưa xếp môn”.","Xóa môn",async()=>{
+  const ps=[];UI.nbs.filter(n=>n.subj===s.id).forEach(n=>ps.push(Store.patch(n.id,{subj:null,parent:null})));UI.folds.filter(f=>f.subj===s.id).forEach(f=>ps.push(Store.del(f.id)));UI.tasks.filter(t=>t.subj===s.id).forEach(t=>ps.push(Store.patch(t.id,{subj:null})));
+  await Promise.all(ps);await Store.del(s.id);toast("Đã xóa môn “"+s.title+"”");if(UI.view==="subj"&&UI.curSubj===s.id)goHome()})}
+
+/* ---------- menu ---------- */
+function subjMenu27(btn,id){const s=subjOf(id);if(!s)return;const L=sjSorted();const i=L.findIndex(x=>x.id===id);
+  const m=popMenu(btn,`<button data-a="o">${ic("ext")}Mở môn</button><button data-a="l">${ic("plus")}Thêm bài học</button><button data-a="f">${ic("plus")}Thêm thư mục</button><button data-a="e">${ic("edit")}Đổi tên, nhãn & màu</button><div class="sep"></div>
+    <button data-a="u" ${i<=0?"disabled":""}>${ic("back")}Chuyển lên trước</button><button data-a="dn" ${i>=L.length-1?"disabled":""}>${ic("next")}Chuyển ra sau</button><button data-a="ed">${ic("widget")}${UI.courseEdit?"Tắt chế độ sắp xếp":"Sắp xếp & chỉnh sửa bài học"}</button><div class="sep"></div><button data-a="d" style="color:var(--bad)">${ic("trash")}Xóa môn</button>`);
+  const q=(k,f)=>{const b=$(`[data-a=${k}]`,m);if(b)b.onclick=f};q("o",()=>openSubject(id));q("l",()=>newLessonDialog(id));q("f",()=>folderDialog(id,null));q("e",()=>subjectDialog(s));
+  q("u",()=>moveSubj(id,-1));q("dn",()=>moveSubj(id,1));q("ed",()=>setCourseEdit(!UI.courseEdit));q("d",()=>deleteSubject(s))}
+function lessonMenu27(btn,id){const n=UI.nbs.find(x=>x.id===id);if(!n)return;
+  const m=popMenu(btn,`<button data-a="o">${ic("ext")}Mở bài học</button><button data-a="r">${ic("edit")}Đổi tên</button><button data-a="mv">${ic("book")}Chuyển môn / thư mục</button><div class="sep"></div><button data-a="u">${ic("back")}Chuyển lên</button><button data-a="dn">${ic("next")}Chuyển xuống</button><div class="sep"></div><button data-a="d" style="color:var(--bad)">${ic("trash")}Xóa bài học</button>`);
+  const q=(k,f)=>{const b=$(`[data-a=${k}]`,m);if(b)b.onclick=f};q("o",()=>openNotebook(id));q("r",()=>renameDialog(id));q("mv",()=>moveDialog(n));q("u",()=>moveLesson(id,-1));q("dn",()=>moveLesson(id,1));
+  q("d",()=>confirmDialog("Xóa bài học “"+n.title+"”?","Toàn bộ nguồn, ghi chú và nội dung Studio trong bài sẽ bị xóa vĩnh viễn.","Xóa",()=>deleteNotebook(id)))}
+function setCourseEdit(v){UI.courseEdit=!!v;local.set("courseEdit",UI.courseEdit);renderCourses();if(v)toast("Kéo ⋮⋮ để đổi thứ tự môn và bài học; kéo bài sang môn khác để chuyển",2600)}
+
+/* ---------- thẻ môn trên trang chủ ---------- */
+const lessonLI=(n,s)=>{const f=n.parent&&UI.folds.find(x=>x.id===n.parent);return `<li class="crs-l" data-id="${esc(n.id)}"><button class="crs-g sm" data-lgrip="${esc(n.id)}" aria-label="Kéo để đổi thứ tự “${esc(n.title)}”, bấm để xem tùy chọn" title="Kéo để đổi thứ tự · bấm để xem tùy chọn">${ic("grip")}</button><button class="crs-ln" data-lopen="${esc(n.id)}">${pxFile(s?s.color:"#8b93a8")}<span>${esc(n.title)}</span>${f?`<small>${esc(f.title)}</small>`:""}</button><button class="crs-x" data-ldel="${esc(n.id)}" aria-label="Xóa bài “${esc(n.title)}”" title="Xóa bài học">${ic("trash")}</button></li>`};
+const _rc27=renderCourses;
+renderCourses=function(){const box=$("#courseBox");if(!box)return;if(UI.courseTab==="all")return _rc27.apply(this,arguments);
+  if(UI._crsDrag){UI._crsPend=true;return}
+  const E=UI.courseEdit;const list=sjSorted();const orphan=lessonsSorted("none");const sc=scrollParent(box);const keep=sc?sc.scrollTop:0;
+  box.innerHTML=`<div class="crs-bar"><span class="muted">${E?"Kéo ⋮⋮ để đổi thứ tự. Kéo bài học sang môn khác để chuyển môn.":`${list.length} môn · ${UI.nbs.length} bài học`}</span><span class="grow"></span><button class="btn ${E?"primary":""}" data-cedit aria-pressed="${E}">${ic(E?"check":"widget")} ${E?"Xong":"Sắp xếp & chỉnh sửa"}</button></div>
+   <div class="courses ${E?"edit":""}" id="crsGrid">${list.map(s=>{const L=lessonsSorted(s.id);return `<div class="course" data-sj="${esc(s.id)}" data-id="${esc(s.id)}" tabindex="0" role="button" aria-label="Mở môn ${esc(s.title)}">
+      <canvas data-cov="${esc(s.id)}" aria-hidden="true"></canvas>
+      <div class="crs-tools"><button class="crs-g" data-sgrip="${esc(s.id)}" aria-label="Kéo để đổi thứ tự môn ${esc(s.title)}, bấm để xem tùy chọn" title="Kéo để đổi thứ tự · bấm để xem tùy chọn">${ic("grip")}</button><button class="crs-g" data-smenu="${esc(s.id)}" aria-label="Tùy chọn môn ${esc(s.title)}" title="Tùy chọn">${ic("more")}</button></div>
+      <div class="cb"><b><span class="dot" style="background:${s.color}"></span>${esc(s.title)}</b><small>${esc(s.code||"")}${s.code?" · ":""}${L.length} bài học · ${UI.folds.filter(f=>f.subj===s.id).length} thư mục</small>
+      ${E?`<ul class="crs-ls" data-lsj="${esc(s.id)}">${L.map(n=>lessonLI(n,s)).join("")}</ul><button class="crs-add" data-ladd="${esc(s.id)}">${ic("plus")} Thêm bài học</button>`:""}</div></div>`}).join("")}
+    ${orphan.length||E?`<div class="course crs-tail ${E?"":""}" data-sj="none" tabindex="0" role="button" aria-label="Mở Chưa xếp môn"><canvas data-cov="none" aria-hidden="true"></canvas><div class="cb"><b><span class="dot" style="background:#8b93a8"></span>Chưa xếp môn</b><small>${orphan.length} bài học</small>${E?`<ul class="crs-ls" data-lsj="none">${orphan.map(n=>lessonLI(n,null)).join("")}</ul><button class="crs-add" data-ladd="none">${ic("plus")} Thêm bài học</button>`:""}</div></div>`:""}
+    <button class="course crs-tail crs-new" data-newsj><div class="cb" style="text-align:center">${ic("plus")}<b style="justify-content:center">Thêm môn học</b><small>Ví dụ: Thiết kế hệ thống số, Mạch điện tử</small></div></button></div>`;
+  $$("[data-cov]",box).forEach(c=>{const s=subjOf(c.dataset.cov);pixelScene(c,{seed:c.dataset.cov+(s?s.title:""),night:isNightSkin(),tint:s?s.color:null,w:160,h:90})});
+  if(sc&&keep)sc.scrollTop=keep;
+  const grid=$("#crsGrid",box);
+  $$(".course[data-sj]",box).forEach(c=>{c.onclick=e=>{if(e.target.closest("button,a,input,.crs-ls"))return;openSubject(c.dataset.sj)};c.onkeydown=e=>{if(e.target===c&&(e.key==="Enter"||e.key===" ")){e.preventDefault();openSubject(c.dataset.sj)}}});
+  $("[data-newsj]",box).onclick=()=>subjectDialog();$("[data-cedit]",box).onclick=()=>setCourseEdit(!UI.courseEdit);
+  $$("[data-smenu]",box).forEach(b=>b.onclick=e=>{e.stopPropagation();subjMenu27(b,b.dataset.smenu)});
+  $$("[data-sgrip]",box).forEach(b=>grip27(b,ev=>liftSort(ev,b.closest(".course"),{grid:true,item:".course[data-id]",containers:()=>[grid],done:()=>saveSubjOrder($$(".course[data-id]",grid).map(x=>x.dataset.id))}),btn=>subjMenu27(btn,btn.dataset.sgrip)));
+  $$("[data-lgrip]",box).forEach(b=>grip27(b,ev=>liftSort(ev,b.closest("li"),{item:"li[data-id]",containers:()=>$$(".crs-ls",grid),done:el=>saveLessonDrop(el)}),btn=>lessonMenu27(btn,btn.dataset.lgrip)));
+  $$("[data-lopen]",box).forEach(b=>b.onclick=e=>{e.stopPropagation();openNotebook(b.dataset.lopen)});
+  $$("[data-ldel]",box).forEach(b=>b.onclick=e=>{e.stopPropagation();const n=UI.nbs.find(x=>x.id===b.dataset.ldel);if(n)confirmDialog("Xóa bài học “"+n.title+"”?","Toàn bộ nguồn, ghi chú và nội dung Studio trong bài sẽ bị xóa vĩnh viễn.","Xóa",()=>deleteNotebook(n.id))});
+  $$("[data-ladd]",box).forEach(b=>b.onclick=e=>{e.stopPropagation();newLessonDialog(b.dataset.ladd==="none"?null:b.dataset.ladd)})};
+
+/* ---------- cây thư mục trong trang môn: thứ tự bài + kéo bài lên bài khác để xếp ---------- */
+{const _tree27=treeHTML;treeHTML=function(sid,parent,curNb){const h=_tree27.apply(this,arguments);
+  /* sắp lại các bài trong cùng cấp theo thứ tự đã lưu */
+  try{const t=document.createElement("template");t.innerHTML=h;const ul=t.content.firstElementChild;if(!ul)return h;
+    const lis=[...ul.children].filter(li=>{const n=li.firstElementChild;return n&&n.dataset&&n.dataset.file});
+    if(lis.length>1){const key=li=>{const n=UI.nbs.find(x=>x.id===li.firstElementChild.dataset.file);return n?nbKey(n):0};lis.sort((a,b)=>key(a)-key(b)).forEach(li=>ul.appendChild(li))}
+    return ul.outerHTML}catch(e){return h}}}
+{const _bt27=bindTree;bindTree=function(root,sid){_bt27.apply(this,arguments);
+  $$("[data-file]",root).forEach(t=>{t.addEventListener("dragover",e=>{e.preventDefault();const q=t.getBoundingClientRect();t.classList.toggle("drop-a",e.clientY>q.top+q.height/2);t.classList.toggle("drop-b",e.clientY<=q.top+q.height/2)});
+    t.addEventListener("dragleave",()=>t.classList.remove("drop-a","drop-b"));
+    t.addEventListener("drop",async e=>{e.preventDefault();e.stopPropagation();const after=t.classList.contains("drop-a");t.classList.remove("drop-a","drop-b");const v=e.dataTransfer.getData("text/plain");if(!v||v[0]!=="f")return;const id=v.slice(2);const tid=t.dataset.file;if(id===tid)return;
+      const tg=UI.nbs.find(x=>x.id===tid),n=UI.nbs.find(x=>x.id===id);if(!tg||!n)return;const par=tg.parent&&UI.folds.some(f=>f.id===tg.parent)?tg.parent:null;const subj=tg.subj&&subjOf(tg.subj)?tg.subj:null;
+      const sib=UI.nbs.filter(x=>x.id!==id&&(x.subj&&subjOf(x.subj)?x.subj:null)===subj&&(x.parent&&UI.folds.some(f=>f.id===x.parent)?x.parent:null)===par).sort((a,b)=>nbKey(a)-nbKey(b));
+      sib.splice(sib.indexOf(tg)+(after?1:0),0,n);const ps=[];if((n.subj||null)!==subj||(n.parent||null)!==par){n.subj=subj;n.parent=par;ps.push(Store.patch(id,{subj,parent:par}))}
+      sib.forEach((x,k)=>{if(x.order!==k){x.order=k;ps.push(Store.patch(x.id,{order:k}))}});await Promise.all(ps)})})}}
+
+/* =====================================================================
+   v27 — Môn học & bài học quản lý trực tiếp trên thẻ
+   - Mỗi thẻ môn: ⋮⋮ kéo đổi chỗ · + thêm bài (bài mới / bài đã có) · ✕ xóa môn
+   - Danh sách bài trong thẻ luôn hiện: kéo đổi thứ tự / sang môn khác, ✕ xóa bài,
+     thả tệp từ máy lên một bài để thêm nguồn, thả lên thẻ môn để tạo bài mới có sẵn nguồn
+   - Hộp “Bài học mới”: chọn môn đã có HOẶC tạo môn mới, chọn thư mục, kèm tệp nguồn
+   ===================================================================== */
+UI.courseEdit=true;
+const SRC_ACCEPT=".pdf,.docx,.txt,.md,.csv,.png,.jpg,.jpeg,.webp,.zip,.vhd,.vhdl,.v,.sv,.c,.h,.py";
+const hasFiles=e=>!!(e.dataTransfer&&[...(e.dataTransfer.types||[])].includes("Files"));
+async function addFilesToLesson(id,files){files=[...files].filter(f=>f&&f.name);if(!files.length)return;const n=UI.nbs.find(x=>x.id===id);
+  toast(`Đang thêm ${files.length} tệp vào “${n?n.title:"bài học"}”…`,2000);await goLesson(id);const t0=Date.now();while(!(UI.cur&&UI.cur.id===id)&&Date.now()-t0<4000)await new Promise(r=>setTimeout(r,50));if(UI.cur&&UI.cur.id===id)ingestFiles(files)}
+const endOrder=subj=>{const sb=UI.nbs.filter(n=>(n.subj&&subjOf(n.subj)?n.subj:null)===(subj||null));return sb.length?Math.max(...sb.map(nbKey))+1:0};
+const nameFromFile=f=>f?f.name.replace(/\.[^.]+$/,"").replace(/[_-]+/g," ").replace(/\s+/g," ").trim().slice(0,80):"";
+
+/* ---------- hộp thoại bài học mới ---------- */
+newLessonDialog=function(sid,parent,opt={}){
+  const files=[...(opt.files||[])];const subs=sjSorted();let mode=subs.length||sid?"old":"new";
+  openModal({title:"Bài học mới",small:true,body:`<div class="form nl">
+    <div class="field"><label for="lsT">Tên bài</label><input class="input" id="lsT" placeholder="Ví dụ: Flip-Flop và ứng dụng" value="${esc(opt.title||"")}"></div>
+    <div class="field"><span>Thêm vào</span><div class="nl-seg" role="radiogroup" aria-label="Chọn môn"><button type="button" role="radio" data-nm="old">${ic("book")} Môn đã có</button><button type="button" role="radio" data-nm="new">${ic("plus")} Môn học mới</button></div></div>
+    <div id="nlOld" class="row3"><div class="field"><label for="lsS">Môn</label><select id="lsS"><option value="">Chưa xếp môn</option>${subs.map(s=>`<option value="${esc(s.id)}" ${s.id===sid?"selected":""}>${esc((s.code?s.code+" · ":"")+s.title)}</option>`).join("")}</select></div><div class="field"><label for="lsF">Chương</label><select id="lsF"></select></div></div>
+    <div id="nlNew" class="row3" hidden><div class="field"><label for="nsT">Tên môn mới</label><input class="input" id="nsT" placeholder="Để trống: tự đặt “Môn học mới”"></div><div class="field"><label for="nsC">Mã / nhãn ngắn</label><input class="input" id="nsC" placeholder="MCU"></div></div>
+    <div class="field"><span>Nguồn cho bài (tùy chọn)</span><label class="qdrop nl-drop" id="nlDz" tabindex="0"><span class="plus">${ic("upload")}</span><b>Thả tệp vào đây hoặc bấm để chọn</b><small>PDF · DOCX · TXT · ảnh · ZIP từ Moodle</small><input type="file" multiple hidden accept="${SRC_ACCEPT}" id="nlF"></label><div class="nl-drvrow"><button type="button" class="btn drv-btn" data-nldrv>${ic("drive")} Chọn từ Google Drive</button></div><div id="nlFiles" class="nl-files"></div></div>
+    <div class="field"><label for="lsG">Mục tiêu bài học (tùy chọn)</label><textarea class="input" id="lsG" placeholder="Ví dụ: Hiểu SR latch, D flip-flop, tính tần số ra của bộ chia tần"></textarea></div>
+    <label class="chk-row"><input type="checkbox" class="chk" id="nlOpen" ${opt.stay?"":"checked"}> Mở bài ngay sau khi tạo</label></div>`,
+    foot:`<div class="grow"></div><button class="pill-btn" data-close>Hủy</button><button class="pill-btn primary" id="lsOk">Tạo bài học</button>`});
+  const fillF=()=>{const s=$("#lsS").value;const fs=UI.folds.filter(f=>f.subj===s);const def=parent&&fs.some(f=>f.id===parent)?parent:(s?chapDefault(s):"");
+    $("#lsF").innerHTML=`<option value="">(Gốc của môn)</option>`+chapOrder(s).map(f=>`<option value="${esc(f.id)}" ${f.id===def?"selected":""}>${esc(foldPath(f.id))}</option>`).join("")+(s?`<option value="__new" ${def==="__new"?"selected":""}>➕ Chương mới (${esc(nextChapTitle(s,null))})</option>`:"");$("#lsF").disabled=!s;autoName()};
+  const autoName=()=>{const t=$("#lsT");if(!t)return;if(files[0]){t.placeholder=nameFromFile(files[0]);return}const s=mode==="new"?"__newsj":$("#lsS").value;const f=mode==="new"?"__new":$("#lsF").value;t.placeholder=autoLessonName(s,f)+" (tự đặt nếu để trống)"};
+  const setMode=m=>{mode=m;$$("[data-nm]").forEach(b=>b.setAttribute("aria-checked",b.dataset.nm===m));$("#nlOld").hidden=m!=="old";$("#nlNew").hidden=m!=="new";if(m==="new")setTimeout(()=>$("#nsT").focus(),0);autoName()};
+  const drawFiles=()=>{$("#nlFiles").innerHTML=files.map((f,i)=>`<span class="chip nl-file">${pxFile("#8b93a8")}<span>${esc(f.name)}</span><button type="button" data-rmf="${i}" aria-label="Bỏ ${esc(f.name)}">${ic("close")}</button></span>`).join("");
+    $$("[data-rmf]").forEach(b=>b.onclick=()=>{files.splice(+b.dataset.rmf,1);drawFiles()});$("#lsOk").textContent=files.length?`Tạo bài và thêm ${files.length} tệp`:"Tạo bài học";
+    autoName()};
+  fillF();$("#lsS").onchange=fillF;$("#lsF").addEventListener("change",autoName);$$("[data-nm]").forEach(b=>b.onclick=()=>setMode(b.dataset.nm));setMode(mode);drawFiles();
+  const inp=$("#nlF"),dz=$("#nlDz");inp.onchange=()=>{files.push(...inp.files);inp.value="";drawFiles()};dz.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();inp.click()}};
+  ["dragenter","dragover"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();dz.classList.add("over")}));dz.addEventListener("dragleave",()=>dz.classList.remove("over"));
+  dz.addEventListener("drop",e=>{e.preventDefault();e.stopPropagation();dz.classList.remove("over");files.push(...e.dataTransfer.files);drawFiles()});
+  setTimeout(()=>$("#lsT").focus(),0);
+  {const db=$("[data-nldrv]");if(db)db.onclick=()=>openDrivePicker({onPick:fs=>{files.push(...fs);drawFiles()}})}
+  $("#lsOk").onclick=async()=>{const ok=$("#lsOk");let subj=null,par=null;
+    if(mode==="new"){const t=$("#nsT").value.trim()||autoSubjTitle();ok.disabled=true;subj=mkid("sj");
+      await Store.put(subj,{type:"subj",title:t,code:$("#nsC").value.trim(),color:SUBJ_COLORS[UI.subjs.length%SUBJ_COLORS.length],created:Date.now(),order:UI.subjs.length});
+      par=await createChapter(subj,null,"Chương 1",{quiet:true})}
+    else{subj=$("#lsS").value||null;par=$("#lsF").value||null;if(par==="__new"){ok.disabled=true;par=await createChapter(subj,null,"",{quiet:true})}}
+    ok.disabled=true;const title=$("#lsT").value.trim()||nameFromFile(files[0])||autoLessonName(subj,par);const id=mkid("nb");const open=$("#nlOpen").checked;
+    await Store.put(id,{type:"nb",title,subj,parent:par,goals:$("#lsG").value.trim(),created:Date.now(),updated:Date.now(),srcCount:0,summary:"",questions:[],order:endOrder(subjOf(subj)?subj:null)});
+    closeDialog();
+    if(files.length)addFilesToLesson(id,files);else if(open)goLesson(id,{addSources:true});else toast(`Đã thêm “${title}”${subj?" vào "+(((subjOf(subj)||{}).title)||$("#nsT").value.trim()):""}`,2000)}};
+
+/* ---------- thêm bài đã có vào môn ---------- */
+function pickExistingDialog(sid){const target=sid==="none"?null:sid;const s=subjOf(sid);
+  const L=UI.nbs.filter(n=>(n.subj&&subjOf(n.subj)?n.subj:"none")!==sid).sort((a,b)=>(b.updated||0)-(a.updated||0));
+  if(!L.length){toast("Không còn bài học nào ở môn khác. Hãy tạo bài mới.",2500);return newLessonDialog(target,null,{stay:true})}
+  openModal({title:"Thêm bài đã có vào "+(s?s.title:"Chưa xếp môn"),small:true,body:`<div class="form"><input class="input" id="peQ" placeholder="Tìm bài học…" aria-label="Tìm bài học"><div class="pe-list" id="peL">${L.map(n=>{const o=subjOf(n.subj);return `<label class="pe-it" data-t="${esc((n.title+" "+(o?o.title+" "+(o.code||""):"chưa xếp môn")).toLowerCase())}"><input type="checkbox" class="chk" value="${esc(n.id)}">${pxFile(o?o.color:"#8b93a8")}<span><b>${esc(n.title)}</b><small>${esc(o?(o.code?o.code+" · ":"")+o.title:"Chưa xếp môn")} · ${n.srcCount||0} nguồn</small></span></label>`}).join("")}</div><p class="muted" style="margin:0;font-size:12px">Bài được chuyển sang môn này (không tạo bản sao). Nguồn, ghi chú và Studio giữ nguyên.</p></div>`,
+    foot:`<div class="grow"></div><button class="pill-btn" data-close>Hủy</button><button class="pill-btn primary" id="peOk" disabled>Thêm vào môn</button>`});
+  const upd=()=>{const n=$$("#peL input:checked").length;$("#peOk").disabled=!n;$("#peOk").textContent=n?`Thêm ${n} bài vào môn`:"Thêm vào môn"};$$("#peL input").forEach(x=>x.onchange=upd);
+  $("#peQ").oninput=()=>{const q=$("#peQ").value.trim().toLowerCase();$$("#peL .pe-it").forEach(x=>x.hidden=!!q&&!x.dataset.t.includes(q))};setTimeout(()=>$("#peQ").focus(),0);
+  $("#peOk").onclick=async()=>{const ids=$$("#peL input:checked").map(x=>x.value);const base=endOrder(target);closeDialog();
+    await Promise.all(ids.map((id,i)=>Store.patch(id,{subj:target,parent:null,order:base+i})));toast(`Đã thêm ${ids.length} bài vào ${s?s.title:"Chưa xếp môn"}`,2000)}}
+function addLessonMenu(btn,sid){const m=popMenu(btn,`<button data-a="n">${ic("plus")}Bài học mới</button><button data-a="e">${ic("book")}Thêm bài đã có…</button>${sid!=="none"?`<button data-a="f">${pxFolder(false)} Chương mới</button>`:""}<div class="sep"></div><button data-a="u">${ic("upload")}Bài mới từ tệp…</button>`);
+  const q=(k,f)=>{const b=$(`[data-a=${k}]`,m);if(b)b.onclick=f};q("n",()=>newLessonDialog(sid==="none"?null:sid,null,{stay:true}));q("e",()=>pickExistingDialog(sid));q("f",()=>folderDialog(sid,null));
+  q("u",()=>{const i=document.createElement("input");i.type="file";i.multiple=true;i.accept=SRC_ACCEPT;i.onchange=()=>{if(i.files.length)newLessonDialog(sid==="none"?null:sid,null,{files:[...i.files],title:nameFromFile(i.files[0])})};i.click()})}
+
+/* menu môn (bấm ⋮⋮) — bỏ mục bật/tắt chế độ, thêm “Thêm bài đã có” */
+subjMenu27=function(btn,id){const s=subjOf(id);if(!s)return;const L=sjSorted();const i=L.findIndex(x=>x.id===id);
+  const m=popMenu(btn,`<button data-a="o">${ic("ext")}Mở môn</button><button data-a="l">${ic("plus")}Bài học mới</button><button data-a="x">${ic("book")}Thêm bài đã có…</button><button data-a="f">${ic("plus")}Chương mới</button><button data-a="e">${ic("edit")}Đổi tên, nhãn & màu</button><div class="sep"></div>
+    <button data-a="u" ${i<=0?"disabled":""}>${ic("back")}Chuyển lên trước</button><button data-a="dn" ${i>=L.length-1?"disabled":""}>${ic("next")}Chuyển ra sau</button><div class="sep"></div><button data-a="d" style="color:var(--bad)">${ic("trash")}Xóa môn</button>`);
+  const q=(k,f)=>{const b=$(`[data-a=${k}]`,m);if(b)b.onclick=f};q("o",()=>openSubject(id));q("l",()=>newLessonDialog(id,null,{stay:true}));q("x",()=>pickExistingDialog(id));q("f",()=>folderDialog(id,null));q("e",()=>subjectDialog(s));
+  q("u",()=>moveSubj(id,-1));q("dn",()=>moveSubj(id,1));q("d",()=>deleteSubject(s))};
+lessonMenu27=function(btn,id){const n=UI.nbs.find(x=>x.id===id);if(!n)return;const inSubj=!!(n.subj&&subjOf(n.subj));
+  const m=popMenu(btn,`<button data-a="o">${ic("ext")}Mở bài học</button><button data-a="s">${ic("upload")}Thêm nguồn (tệp)…</button><button data-a="r">${ic("edit")}Đổi tên</button><button data-a="mv">${ic("book")}Chuyển môn / thư mục</button>${inSubj?`<button data-a="rm">${ic("close")}Bỏ khỏi môn</button>`:""}<div class="sep"></div><button data-a="u">${ic("back")}Chuyển lên</button><button data-a="dn">${ic("next")}Chuyển xuống</button><div class="sep"></div><button data-a="d" style="color:var(--bad)">${ic("trash")}Xóa bài học</button>`);
+  const q=(k,f)=>{const b=$(`[data-a=${k}]`,m);if(b)b.onclick=f};q("o",()=>openNotebook(id));q("r",()=>renameDialog(id));q("mv",()=>moveDialog(n));q("u",()=>moveLesson(id,-1));q("dn",()=>moveLesson(id,1));
+  q("s",()=>{const i=document.createElement("input");i.type="file";i.multiple=true;i.accept=SRC_ACCEPT;i.onchange=()=>addFilesToLesson(id,[...i.files]);i.click()});
+  q("rm",()=>Store.patch(id,{subj:null,parent:null}).then(()=>toast(`Đã chuyển “${n.title}” sang Chưa xếp môn`,1800)));
+  q("d",()=>confirmDialog("Xóa bài học “"+n.title+"”?","Toàn bộ nguồn, ghi chú và nội dung Studio trong bài sẽ bị xóa vĩnh viễn.","Xóa",()=>deleteNotebook(id)))};
+
+/* ---------- thẻ môn ---------- */
+const lessonLI28=(n,s)=>{const f=n.parent&&UI.folds.find(x=>x.id===n.parent);return `<li class="crs-l" data-id="${esc(n.id)}" data-fdrop="${esc(n.id)}"><button class="crs-g sm" data-lgrip="${esc(n.id)}" aria-label="Kéo để đổi thứ tự “${esc(n.title)}”, bấm để xem tùy chọn" title="Kéo để đổi thứ tự · bấm để xem tùy chọn">${ic("grip")}</button><button class="crs-ln" data-lopen="${esc(n.id)}" title="${esc(n.title)} · ${n.srcCount||0} nguồn">${pxFile(s?s.color:"#8b93a8")}<span class="t2"><span>${esc(n.title)}</span><small>${f?esc(f.title)+" · ":""}${n.srcCount||0} nguồn</small></span></button><button class="crs-x" data-ldel="${esc(n.id)}" aria-label="Xóa bài “${esc(n.title)}”" title="Xóa bài học">${ic("close")}</button></li>`};
+const cardHTML28=(s,L,none)=>`<div class="course${none?" crs-tail":""}" data-sj="${none?"none":esc(s.id)}" ${none?"":`data-id="${esc(s.id)}"`} data-cdrop="${none?"none":esc(s.id)}" tabindex="0" role="button" aria-label="Mở môn ${esc(none?"Chưa xếp môn":s.title)}">
+    <canvas data-cov="${none?"none":esc(s.id)}" aria-hidden="true"></canvas>
+    <div class="crs-tools">${none?"":`<button class="crs-g" data-sgrip="${esc(s.id)}" aria-label="Kéo để đổi thứ tự môn ${esc(s.title)}, bấm để xem tùy chọn" title="Kéo để đổi chỗ · bấm để xem tùy chọn">${ic("grip")}</button>`}<button class="crs-g" data-sadd="${none?"none":esc(s.id)}" aria-label="Thêm bài vào ${esc(none?"Chưa xếp môn":s.title)}" title="Thêm bài (bài mới hoặc bài đã có)">${ic("plus")}</button>${none?"":`<button class="crs-g del" data-sdel="${esc(s.id)}" aria-label="Xóa môn ${esc(s.title)}" title="Xóa môn">${ic("close")}</button>`}</div>
+    <div class="cb"><b><span class="dot" style="background:${none?"#8b93a8":s.color}"></span>${esc(none?"Chưa xếp môn":s.title)}</b><small>${none?"":esc(s.code||"")}${!none&&s.code?" · ":""}${L.length} bài học${none?"":" · "+UI.folds.filter(f=>f.subj===s.id).length+" thư mục"}</small>
+    <ul class="crs-ls" data-lsj="${none?"none":esc(s.id)}">${L.map(n=>lessonLI28(n,none?null:s)).join("")}</ul><button class="crs-add" data-ladd="${none?"none":esc(s.id)}">${ic("plus")} Thêm bài</button></div></div>`;
+renderCourses=function(){const box=$("#courseBox");if(!box)return;if(UI.courseTab==="all")return _rc27.apply(this,arguments);
+  if(UI._crsDrag){UI._crsPend=true;return}
+  const list=sjSorted();const orphan=lessonsSorted("none");const sc=scrollParent(box);const keep=sc?sc.scrollTop:0;
+  box.innerHTML=`<div class="crs-bar"><span class="muted">${list.length} môn · ${UI.nbs.length} bài học · kéo ⋮⋮ để sắp xếp, thả tệp lên bài để thêm nguồn</span><span class="grow"></span><button class="btn" data-newsj2>${ic("plus")} Môn học</button><button class="btn primary" data-newls>${ic("plus")} Bài học</button></div>
+    <div class="courses edit" id="crsGrid">${list.map(s=>cardHTML28(s,lessonsSorted(s.id),false)).join("")}${cardHTML28(null,orphan,true)}
+    <button class="course crs-tail crs-new" data-newsj><div class="cb" style="text-align:center">${ic("plus")}<b style="justify-content:center">Thêm môn học</b><small>Ví dụ: Thiết kế hệ thống số, Mạch điện tử</small></div></button></div>`;
+  $$("[data-cov]",box).forEach(c=>{const s=subjOf(c.dataset.cov);pixelScene(c,{seed:c.dataset.cov+(s?s.title:""),night:isNightSkin(),tint:s?s.color:null,w:160,h:90})});
+  if(sc&&keep)sc.scrollTop=keep;
+  const grid=$("#crsGrid",box);
+  $$(".course[data-sj]",box).forEach(c=>{c.onclick=e=>{if(e.target.closest("button,a,input,.crs-ls"))return;openSubject(c.dataset.sj)};c.onkeydown=e=>{if(e.target===c&&(e.key==="Enter"||e.key===" ")){e.preventDefault();openSubject(c.dataset.sj)}}});
+  $("[data-newsj]",box).onclick=()=>subjectDialog();$("[data-newsj2]",box).onclick=()=>subjectDialog();$("[data-newls]",box).onclick=()=>newLessonDialog(null,null,{stay:true});
+  $$("[data-sadd]",box).forEach(b=>b.onclick=e=>{e.stopPropagation();addLessonMenu(b,b.dataset.sadd)});
+  $$("[data-ladd]",box).forEach(b=>b.onclick=e=>{e.stopPropagation();addLessonMenu(b,b.dataset.ladd)});
+  $$("[data-sdel]",box).forEach(b=>b.onclick=e=>{e.stopPropagation();const s=subjOf(b.dataset.sdel);if(s)deleteSubject(s)});
+  $$("[data-sgrip]",box).forEach(b=>grip27(b,ev=>liftSort(ev,b.closest(".course"),{grid:true,item:".course[data-id]",containers:()=>[grid],done:()=>saveSubjOrder($$(".course[data-id]",grid).map(x=>x.dataset.id))}),btn=>subjMenu27(btn,btn.dataset.sgrip)));
+  $$("[data-lgrip]",box).forEach(b=>grip27(b,ev=>liftSort(ev,b.closest("li"),{item:"li[data-id]",containers:()=>$$(".crs-ls",grid),done:el=>saveLessonDrop(el)}),btn=>lessonMenu27(btn,btn.dataset.lgrip)));
+  $$("[data-lopen]",box).forEach(b=>b.onclick=e=>{e.stopPropagation();openNotebook(b.dataset.lopen)});
+  $$("[data-ldel]",box).forEach(b=>b.onclick=e=>{e.stopPropagation();const n=UI.nbs.find(x=>x.id===b.dataset.ldel);if(n)confirmDialog("Xóa bài học “"+n.title+"”?","Toàn bộ nguồn, ghi chú và nội dung Studio trong bài sẽ bị xóa vĩnh viễn.","Xóa",()=>deleteNotebook(n.id))});
+  /* thả tệp từ máy: lên một bài → thêm nguồn; lên thẻ môn → bài mới có sẵn nguồn */
+  $$("[data-fdrop]",box).forEach(li=>{li.addEventListener("dragover",e=>{if(!hasFiles(e))return;e.preventDefault();e.stopPropagation();li.classList.add("fover")});li.addEventListener("dragleave",()=>li.classList.remove("fover"));
+    li.addEventListener("drop",e=>{if(!hasFiles(e))return;e.preventDefault();e.stopPropagation();li.classList.remove("fover");addFilesToLesson(li.dataset.fdrop,e.dataTransfer.files)})});
+  $$("[data-cdrop]",box).forEach(c=>{c.addEventListener("dragover",e=>{if(!hasFiles(e))return;e.preventDefault();e.stopPropagation();c.classList.add("fover")});c.addEventListener("dragleave",e=>{if(!c.contains(e.relatedTarget))c.classList.remove("fover")});
+    c.addEventListener("drop",e=>{if(!hasFiles(e))return;e.preventDefault();e.stopPropagation();c.classList.remove("fover");const fs=[...e.dataTransfer.files];if(fs.length){const sid=c.dataset.cdrop;newLessonDialog(sid==="none"?null:sid,null,{files:fs,title:nameFromFile(fs[0])})}})})};
+
+/* =====================================================================
+   v28 — Chương trong môn học
+   - “+ Chương” ở explorer, trang môn, thẻ môn, hộp bài học mới → tạo ngay “Chương N”
+     (N tự tăng theo chương cuối), đổi tên tại chỗ; để trống tên → tự đặt lại “Chương N”
+   - Xóa chương (✕): bài bên trong chuyển lên cấp trên, không mất
+   - Bài học không đặt tên → tự đặt “Chương N · Bài k” / “Bài k”
+   - Hộp bài học mới mặc định chọn chương tiếp theo (chương trống cuối cùng, hoặc chương mới)
+   ===================================================================== */
+const chapNum=t=>{const m=String(t||"").match(/^\s*(?:chương|chuong|chapter|ch\.?)\s*(\d+)/i);return m?+m[1]:0};
+const isRootF=f=>!f.parent||!UI.folds.some(x=>x.id===f.parent);
+const foldKids=(sid,parent)=>UI.folds.filter(f=>f.subj===sid&&(parent?f.parent===parent:isRootF(f))).sort((a,b)=>(a.order||0)-(b.order||0)||(a.created||0)-(b.created||0));
+/* thứ tự duyệt cây: chương → mục con */
+function chapOrder(sid){const out=[];const walk=p=>foldKids(sid,p).forEach(f=>{out.push(f);walk(f.id)});walk(null);return out}
+function nextChapTitle(sid,parent){const sib=foldKids(sid,parent||null);if(parent){return "Mục "+(sib.length+1)}
+  const mx=Math.max(0,...sib.map(f=>chapNum(f.title)));return "Chương "+Math.max(mx+1,sib.length+1)}
+const lessonsIn=(sid,fid)=>UI.nbs.filter(n=>n.subj===sid&&(fid?n.parent===fid:!(n.parent&&UI.folds.some(f=>f.id===n.parent))));
+/* chương mặc định cho bài mới: chương gốc cuối nếu còn trống, không thì “chương tiếp theo” (tạo mới) */
+function chapDefault(sid){const ch=foldKids(sid,null);if(!ch.length)return "__new";const last=ch[ch.length-1];return lessonsIn(sid,last.id).length?"__new":last.id}
+function autoLessonName(sid,fid){if(sid==="__newsj")return "Chương 1 · Bài 1";if(!sid)return "Bài "+(lessonsSorted("none").length+1);
+  if(fid==="__new")return nextChapTitle(sid,null)+" · Bài 1";const f=fid&&UI.folds.find(x=>x.id===fid);if(f)return f.title+" · Bài "+(lessonsIn(sid,f.id).length+1);return "Bài "+(lessonsIn(sid,null).length+1)}
+function autoSubjTitle(){const base="Môn học mới";const n=UI.subjs.filter(s=>s.title===base||s.title.startsWith(base+" ")).length;return n?base+" "+(n+1):base}
+async function createChapter(sid,parent,title,o={}){if(!sid||sid==="none")return null;const id=mkid("fd");const sib=foldKids(sid,parent||null);const t=String(title||"").trim()||nextChapTitle(sid,parent);
+  await Store.put(id,{type:"fold",subj:sid,parent:parent||null,title:t,order:sib.length?Math.max(...sib.map(f=>f.order||0))+1:0,created:Date.now()});
+  if(!UI.folds.some(f=>f.id===id))UI.folds.push({id,type:"fold",subj:sid,parent:parent||null,title:t,order:sib.length});
+  if(parent)UI.openFolds.add(parent);UI.openFolds.add(id);local.set("openFolds",[...UI.openFolds]);
+  if(!o.quiet){toast(`Đã thêm “${t}”. Gõ để đổi tên ngay.`,2200);UI._focusChap=id;focusChap(id)}return id}
+/* đưa con trỏ vào ô tên chương vừa tạo (chờ giao diện vẽ lại xong) */
+function focusChap(id){let ok=0,k=0;const t=setInterval(()=>{k++;const i=$(`[data-cn="${id}"]`);
+  if(i){if(document.activeElement===i){if(++ok>=3){clearInterval(t);UI._focusChap=null}}else{ok=0;i.focus();i.select();i.scrollIntoView({block:"nearest",behavior:"smooth"})}}
+  else if(UI.view!=="subj"||UI.subjTab!=="lessons"){const n=$(`#xpTree [data-fold="${id}"] .nm`)||$(`[data-fold="${id}"] .nm`);const f=UI.folds.find(x=>x.id===id);if(n&&f&&k>3){clearInterval(t);UI._focusChap=null;inlineRename(n,f)}}
+  if(k>25){clearInterval(t);UI._focusChap=null}},80)}
+function deleteChapter(f){const L=UI.nbs.filter(n=>n.parent===f.id).length,K=UI.folds.filter(c=>c.parent===f.id).length;
+  confirmDialog(`Xóa “${f.title}”?`,`${L||K?`${L} bài học${K?` và ${K} mục con`:""} bên trong được chuyển lên ${f.parent?"cấp trên":"gốc của môn"}, không bị xóa.`:"Chương đang trống."}`,"Xóa chương",async()=>{
+    const ps=[];UI.nbs.filter(n=>n.parent===f.id).forEach(n=>ps.push(Store.patch(n.id,{parent:f.parent||null})));UI.folds.filter(c=>c.parent===f.id).forEach(c=>ps.push(Store.patch(c.id,{parent:f.parent||null})));
+    await Promise.all(ps);await Store.del(f.id);toast(`Đã xóa “${f.title}”`,1600)})}
+async function renameChapter(f,v){const t=String(v||"").trim();const sib=foldKids(f.subj,f.parent||null);const k=chapNum(f.title)||sib.indexOf(f)+1;const auto=f.parent?"Mục "+(sib.indexOf(f)+1):"Chương "+k;const nt=t||auto;if(nt!==f.title){f.title=nt;await Store.patch(f.id,{title:nt})}return nt}
+
+/* thư mục mới → tạo ngay với tên tự đánh số (sửa tên tại chỗ); đổi tên → hộp thoại như cũ */
+{const _fd29=folderDialog;folderDialog=function(sid,parent,f){if(f)return _fd29.apply(this,arguments);createChapter(sid,parent||null,"")}}
+
+/* ---------------- explorer: nút + / ✕ trên chương, bấm đúp để đổi tên ---------------- */
+function inlineRename(span,f){if(span.querySelector("input"))return;const old=f.title;span.innerHTML=`<input class="chap-in" value="${esc(old)}" aria-label="Tên chương">`;const i=$("input",span);i.focus();i.select();
+  let done=false;const fin=async ok=>{if(done)return;done=true;const t=ok?await renameChapter(f,i.value):old;span.textContent=t};
+  i.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter"){e.preventDefault();fin(true)}if(e.key==="Escape")fin(false)};i.onblur=()=>fin(true);i.onclick=e=>e.stopPropagation()}
+{const _bt29=bindTree;bindTree=function(root,sid){_bt29.apply(this,arguments);
+  $$("[data-fold]",root).forEach(node=>{const f=UI.folds.find(x=>x.id===node.dataset.fold);if(!f||$(".fx",node))return;const mn=$(".mn",node);
+    const add=document.createElement("button");add.className="mn fx";add.title="Thêm bài học vào "+f.title;add.setAttribute("aria-label",add.title);add.innerHTML=ic("plus");add.onclick=e=>{e.stopPropagation();newLessonDialog(f.subj,f.id)};
+    const del=document.createElement("button");del.className="mn fx del";del.title="Xóa "+f.title;del.setAttribute("aria-label",del.title);del.innerHTML=ic("close");del.onclick=e=>{e.stopPropagation();deleteChapter(f)};
+    const ren=document.createElement("button");ren.className="mn fx";ren.title="Đổi tên "+f.title;ren.setAttribute("aria-label",ren.title);ren.innerHTML=ic("edit");ren.onclick=e=>{e.stopPropagation();const nm=$(".nm",node);if(nm)inlineRename(nm,f)};
+    node.insertBefore(add,mn);node.insertBefore(ren,mn);node.insertBefore(del,mn);node.addEventListener("keydown",e=>{if(e.key==="F2"){e.preventDefault();const nm=$(".nm",node);if(nm)inlineRename(nm,f)}});const nm=$(".nm",node);if(nm){nm.title="Bấm đúp để đổi tên";nm.ondblclick=e=>{e.stopPropagation();inlineRename(nm,f)}}});
+}}
+/* menu ⋯ của thư mục: đổi chữ cho đúng “chương”, đổi tên tại chỗ */
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-fmenu]");if(!b)return;setTimeout(()=>{const m=$(".popmenu");if(!m)return;const f=UI.folds.find(x=>x.id===b.dataset.fmenu);if(!f)return;
+  const ch=isRootF(f);$$("button",m).forEach(x=>{if(x.dataset.a==="l")x.lastChild.textContent=ch?"Bài học mới trong chương":"Bài học mới trong mục";if(x.dataset.a==="f")x.lastChild.textContent="Mục con";if(x.dataset.a==="d")x.lastChild.textContent=ch?"Xóa chương":"Xóa mục";
+    if(x.dataset.a==="r"){x.onclick=()=>{closePop();const nm=$(`[data-fold="${f.id}"] .nm`);if(nm)inlineRename(nm,f);else folderDialog(f.subj,null,f)}}});
+  const d=$("[data-a=d]",m);if(d)d.onclick=()=>{closePop();deleteChapter(f)};
+  const nx=document.createElement("button");nx.innerHTML=`${ic("plus")}Chương mới sau chương này`;if(ch){nx.onclick=()=>{closePop();createChapter(f.subj,null,"")};m.insertBefore(nx,$("[data-a=r]",m))}},0)},true);
+
+/* ---------------- trang môn: nút “Chương” ở explorer + phần Bài học theo chương ---------------- */
+{const _rs29=renderSubject;renderSubject=function(treeOnly){_rs29.apply(this,arguments);if(UI.view!=="subj")return;const sid=UI.curSubj;const b=$("#xpF");
+  if(b&&!b._c){b._c=1;b.innerHTML=`${pxFolder(false)} Chương`;b.title="Thêm chương mới (tự đánh số)";b.onclick=()=>createChapter(sid,null,"")}
+  const xp=$(".xp-b>p.muted");if(xp)xp.textContent="Kéo bài học hoặc chương để sắp xếp. Rê chuột vào chương: + thêm bài, ✎ đổi tên (hoặc phím F2), ✕ xóa chương."}}
+{const _sb29=subjBody;subjBody=function(s){if(UI.subjTab!=="lessons"||!s||s.id==="none")return _sb29.apply(this,arguments);const b=$("#sjBody");if(!b)return;const sid=s.id;
+  const card=n=>`<button class="lcard" data-go="${esc(n.id)}" draggable="true" data-dragnb="${esc(n.id)}"><b>${pxFile(s.color)} ${esc(n.title)}</b><small>${esc(n.summary?n.summary.replace(/\*\*|\[\d+\]/g,""):n.goals||"Chưa có tóm tắt")}</small><span class="muted" style="font-size:12px">${n.srcCount||0} nguồn · ${dfmt(n.updated||n.created||Date.now())}</span></button>`;
+  const root=lessonsIn(sid,null).sort((a,c)=>nbKey(a)-nbKey(c));const chs=chapOrder(sid);
+  const sec=(f)=>{const L=lessonsIn(sid,f.id).sort((a,c)=>nbKey(a)-nbKey(c));const depth=foldPath(f.id).split(" › ").length-1;
+    return `<div class="sec chap" data-chap="${esc(f.id)}" style="--d:${depth}"><h4 class="chap-h">${pxFolder(true)}<input class="chap-name" size="${Math.max(8,[...f.title].length+1)}" value="${esc(f.title)}" data-cn="${esc(f.id)}" aria-label="Tên ${esc(f.title)}" title="Bấm để đổi tên"><span class="muted" style="font-weight:400">(${L.length})</span><span class="grow"></span><button class="btn" data-addin="${esc(f.id)}">${ic("plus")} Bài</button><button class="ghost ic chap-del" data-cdel="${esc(f.id)}" aria-label="Xóa ${esc(f.title)}" title="Xóa chương">${ic("close")}</button></h4>
+      <div class="lessons-grid">${L.map(card).join("")||`<button class="lcard chap-empty" data-addin="${esc(f.id)}">${ic("plus")} Thêm bài vào ${esc(f.title)}<small>hoặc kéo bài học vào đây</small></button>`}</div></div>`};
+  b.innerHTML=`<div class="chap-bar"><button class="pill-btn primary" data-newchap>${ic("plus")} Chương mới <small>(${esc(nextChapTitle(sid,null))})</small></button><button class="pill-btn" data-newles>${ic("plus")} Bài học</button><span class="muted" style="font-size:12.5px">Kéo thẻ bài học sang chương khác để chuyển.</span></div>
+    ${root.length?`<div class="sec chap" data-chap=""><h4 class="chap-h">${ic("book")}<b>Bài học ở gốc</b><span class="muted" style="font-weight:400">(${root.length})</span></h4><div class="lessons-grid">${root.map(card).join("")}</div></div>`:""}
+    ${chs.map(sec).join("")||(!root.length?`<div class="empty">Môn này chưa có chương nào. Bấm “Chương mới” để bắt đầu với Chương 1.</div>`:"")}`;
+  $$("[data-go]",b).forEach(x=>x.onclick=()=>openNotebook(x.dataset.go));$$("[data-addin]",b).forEach(x=>x.onclick=()=>newLessonDialog(sid,x.dataset.addin));
+  $("[data-newchap]",b).onclick=()=>createChapter(sid,null,"");$("[data-newles]",b).onclick=()=>newLessonDialog(sid,null);
+  $$("[data-cdel]",b).forEach(x=>x.onclick=()=>{const f=UI.folds.find(y=>y.id===x.dataset.cdel);if(f)deleteChapter(f)});
+  $$("[data-cn]",b).forEach(i=>{const f=UI.folds.find(y=>y.id===i.dataset.cn);i.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();i.blur()}if(e.key==="Escape"){i.value=f.title;i.blur()}};i.oninput=()=>{i.size=Math.max(8,[...i.value].length+1)};i.onchange=async()=>{if(f)i.value=await renameChapter(f,i.value)};i.onblur=()=>{if(f&&!i.value.trim())i.value=f.title}});
+  /* kéo thẻ bài sang chương khác */
+  $$("[data-dragnb]",b).forEach(c=>c.addEventListener("dragstart",e=>{e.dataTransfer.setData("text/plain","f:"+c.dataset.dragnb);e.dataTransfer.effectAllowed="move"}));
+  $$(".sec.chap",b).forEach(sc=>{sc.addEventListener("dragover",e=>{if(hasFiles(e))return;e.preventDefault();sc.classList.add("drop")});sc.addEventListener("dragleave",e=>{if(!sc.contains(e.relatedTarget))sc.classList.remove("drop")});
+    sc.addEventListener("drop",async e=>{sc.classList.remove("drop");const v=e.dataTransfer.getData("text/plain");if(!v||v[0]!=="f")return;e.preventDefault();const id=v.slice(2);const fid=sc.dataset.chap||null;const n=UI.nbs.find(x=>x.id===id);if(!n||(n.parent||null)===fid)return;
+      await Store.patch(id,{parent:fid,subj:sid,order:Math.max(0,...lessonsIn(sid,fid).map(nbKey))+1});toast(`Đã chuyển “${n.title}” vào ${fid?(UI.folds.find(f=>f.id===fid)||{}).title:"gốc của môn"}`,1600)})});
+}}
+
+/* thẻ môn trên trang chủ: hiện chương của bài + “Chương mới” trong menu đã đổi chữ */
+
+/* ---------------- “Đi nhanh”: nút ✕ xóa bài học ngay trong danh sách ---------------- */
+function quickDelNb(id){const n=UI.nbs.find(x=>x.id===id);if(!n)return;confirmDialog("Xóa bài học “"+n.title+"”?","Toàn bộ nguồn, ghi chú và nội dung Studio trong bài sẽ bị xóa vĩnh viễn.","Xóa",()=>deleteNotebook(id))}
+if(typeof BLK!=="undefined"&&BLK.recent){BLK.recent.body=function(b){const recent=[...UI.nbs].sort((a,c)=>(c.updated||0)-(a.updated||0)).slice(0,5);
+  b.innerHTML=`<div class="qa">${recent.length?recent.map(n=>`<div class="qa-row"><button data-go="${esc(n.id)}" title="${esc(n.title)}">${pxFile(tagCol(n.subj))}<span>${esc(n.title)}</span></button><button class="qa-x" data-qdel="${esc(n.id)}" aria-label="Xóa bài “${esc(n.title)}”" title="Xóa bài học">${ic("close")}</button></div>`).join(""):`<span class="muted" style="font-size:13px">Các bài học mở gần đây hiện ở đây.</span>`}<button data-qa="cal">${ic("cal")}<span>Lịch học đầy đủ</span></button></div>`;
+  $$("[data-qdel]",b).forEach(x=>x.onclick=e=>{e.stopPropagation();quickDelNb(x.dataset.qdel)})}}
+
+/* =====================================================================
+   v29 — “Việc cần làm” tách khỏi “Bài tập”
+   - Việc cần làm (type "todo") chỉ nằm trong bảng tuần / Tổng quan, KHÔNG vào Bài tập
+   - Bài tập có hạn rơi vào tuần này → tự hiện ở đúng thứ trong bảng tuần
+   - Tích ✓ → việc xong tự biến mất (việc cần làm bị xóa; bài tập được đánh dấu xong)
+   - + để thêm việc ngay tại ngày đó (gõ rồi Enter), ✕ để xóa
+   ===================================================================== */
+UI.todos=UI.todos||[];
+const todayISO=()=>ymd(new Date());
+async function addTodo(title,date){/* dùng từ nơi khác (Tổng quan) */const t=String(title||"").trim();if(!t)return;const id=mkid("td");const d={type:"todo",title:t,date:date||todayISO(),created:Date.now()};UI.todos.push({id,...d});await Store.put(id,d)}
+/* thu gọn mượt: đo chiều cao thật rồi co về 0 (chỉ dùng transform/opacity/height trên chính dòng đó) */
+let _wkHold=0;
+function finishRow(row,fn){try{const a=document.activeElement;if(a&&a.blur&&row&&row.contains(a))a.blur()}catch(e){}
+  if(row&&row.isConnected){const h=row.getBoundingClientRect().height;row.style.height=h+"px";row.style.overflow="hidden";row.getBoundingClientRect();row.classList.add("wk-done");row.style.height="0px";
+    _wkHold=Date.now()+260;setTimeout(()=>{if(row.isConnected)row.remove()},250)}
+  fn()}
+function todoDone(id,row){UI.todos=UI.todos.filter(t=>t.id!==id);finishRow(row,()=>Store.del(id).catch(e=>console.warn(e)))}
+function todoDel(id,row){UI.todos=UI.todos.filter(t=>t.id!==id);finishRow(row,()=>Store.del(id).catch(e=>console.warn(e)))}
+function hwDone(id,row){finishRow(row,async()=>{const t=UI.tasks.find(x=>x.id===id);if(t)t.status="done";await Store.patch(id,{status:"done"});toast("Đã xong bài tập ✓ (xem lại ở Bài tập → Đã xong)",2000)})}
+function hwDel(id){const t=UI.tasks.find(x=>x.id===id);if(!t)return;confirmDialog("Xóa bài tập “"+t.title+"”?","Bài tập này sẽ bị xóa khỏi cả danh sách Bài tập.","Xóa",()=>Store.del(id))}
+/* ô nhập nhanh trong cột ngày */
+const todoRowHTML=t=>`<div class="it wk-it" data-tdrow="${esc(t.id)}"><input type="checkbox" class="chk" data-tddone="${esc(t.id)}" aria-label="Xong: ${esc(t.title)}"><span class="nm" title="${esc(t.title)}">${esc(t.title)}</span><button class="wk-x" data-tddel="${esc(t.id)}" aria-label="Xóa việc ${esc(t.title)}" title="Xóa">${ic("close")}</button></div>`;
+/* ô nhập nhanh trong cột ngày: Enter thêm ngay vào cột (không vẽ lại cả bảng), ô vẫn mở để gõ tiếp */
+function wkInline(day,ds){const ex=$(".wk-in input",day);if(ex){ex.focus();return}const w=document.createElement("div");w.className="wk-in";w.innerHTML=`<input class="input" placeholder="Việc cần làm… (Enter để thêm, Esc để đóng)" aria-label="Việc cần làm ngày ${esc(ds)}">`;
+  const add=$(".add",day);day.insertBefore(w,add||null);const i=$("input",w);i.focus();let closing=false;UI._wkKeep=ds;
+  i.onkeydown=e=>{e.stopPropagation();if(e.key==="Enter"){e.preventDefault();const v=i.value.trim();if(!v){close();return}i.value="";
+      const id=mkid("td");const t={id,type:"todo",title:v,date:ds,created:Date.now()};UI.todos.push(t);
+      const tmp=document.createElement("div");tmp.innerHTML=todoRowHTML(t);const row=tmp.firstElementChild;row.classList.add("wk-new");w.before(row);bindWeekRows(row);
+      Store.put(id,{type:"todo",title:v,date:ds,created:t.created}).catch(er=>{toast("Không lưu được việc: "+er.message,3000)});i.focus()}
+    if(e.key==="Escape"){e.preventDefault();close()}};
+  const close=()=>{if(closing)return;closing=true;UI._wkKeep=null;w.remove();setTimeout(()=>refreshViews("todo"),30)};
+  i.onblur=()=>setTimeout(()=>{if(!w.isConnected||document.activeElement===i)return;if(!i.value.trim())close()},180)}
+function weekHTML(){const now=new Date(),wk=monday(now);const td=todayISO();
+  return `<div class="week wk2">${WD.map((d,i)=>{const day=addD(wk,i),ds=ymd(day);
+    const hw=UI.tasks.filter(t=>t.due===ds&&t.status!=="done");const tds=(UI.todos||[]).filter(t=>t.date===ds).sort((a,b)=>(a.created||0)-(b.created||0));const ses=upcomingAll().filter(e=>e.date===ds);
+    return `<div class="day ${ds===td?"today":""}${ds<td?" past":""}" data-wkday="${ds}"><h5><img src="${stkURL(["star-y","star-b","star-p","star-l","star-m","heart-p","moon"][i],2).url}" alt=""><span title="${WDL[i]}">${WD[i]}</span><small class="wk-d">${day.getDate()}/${day.getMonth()+1}</small><span class="grow"></span><button class="wk-plus" data-tdadd="${ds}" aria-label="Thêm việc cần làm ${WDL[i]}" title="Thêm việc">${ic("plus")}</button></h5>
+      ${hw.map(t=>{const s=subjOf(t.subj);return `<div class="it wk-it wk-hw"><input type="checkbox" class="chk" data-hwdone="${esc(t.id)}" aria-label="Xong: ${esc(t.title)}"><span class="nm" title="${esc(t.title)}">${esc(t.title)}</span><i class="wk-tag" style="${s?`background:${s.color}`:""}" title="Bài tập${s?" · "+esc(s.title):""}">${esc(s?(s.code||"BT"):"BT")}</i><button class="wk-x" data-hwdel="${esc(t.id)}" aria-label="Xóa bài tập ${esc(t.title)}" title="Xóa">${ic("close")}</button></div>`}).join("")}
+      ${tds.map(todoRowHTML).join("")}
+      ${ses.map(e=>`<div class="it" title="${esc(e.title)}">${ic("cal")}<span>${esc(e.start)} ${esc(e.title)}</span></div>`).join("")}
+      <button class="add" data-tdadd="${ds}">${ic("plus")} Việc cần làm</button></div>`}).join("")}</div>`}
+function bindWeekRows(b){$$("[data-tddone]",b).forEach(x=>x.onchange=()=>{if(x.checked)todoDone(x.dataset.tddone,x.closest(".wk-it"))});
+  $$("[data-tddel]",b).forEach(x=>x.onclick=e=>{e.stopPropagation();todoDel(x.dataset.tddel,x.closest(".wk-it"))});
+  $$("[data-hwdone]",b).forEach(x=>x.onchange=()=>{if(x.checked)hwDone(x.dataset.hwdone,x.closest(".wk-it"))});
+  $$("[data-hwdel]",b).forEach(x=>x.onclick=e=>{e.stopPropagation();hwDel(x.dataset.hwdel)})}
+function bindWeek(b){$$("[data-tdadd]",b).forEach(x=>x.onclick=e=>{e.stopPropagation();wkInline(x.closest(".day"),x.dataset.tdadd)});bindWeekRows(b);
+  if(UI._wkKeep){const d=$(`[data-wkday="${UI._wkKeep}"]`,b);if(d){UI._wkKeep=null;wkInline(d,d.dataset.wkday)}}}
+if(typeof BLK!=="undefined"&&BLK.week){BLK.week.act=`<button class="btn" data-wkadd>${ic("plus")} Việc</button>`;
+  BLK.week.body=function(b){const wait=_wkHold-Date.now();if(wait>0&&b.querySelector(".wk2")){clearTimeout(b._wkT);b._wkT=setTimeout(()=>BLK.week.body(b),wait+20);return}
+    /* đang gõ trong ô nhập nhanh → giữ nguyên, vẽ lại khi đóng ô */
+    if(b.querySelector(".wk-in input")&&document.activeElement&&b.contains(document.activeElement))return;b.innerHTML=weekHTML();bindWeek(b)}}
+if(typeof BLK_DEPS!=="undefined")BLK_DEPS.todo=["week"];
+document.addEventListener("click",e=>{const a=e.target.closest&&e.target.closest("[data-wkadd]");if(!a)return;e.preventDefault();const d=$(`.wk2 [data-wkday="${todayISO()}"]`)||$(".wk2 .day");if(d)wkInline(d,d.dataset.wkday);else toast("Bảng tuần chưa hiện trên trang chủ")});
+/* Tổng quan → “Việc cần làm”: gộp việc cần làm + bài tập chưa xong */
+if(typeof OV_BLK!=="undefined"&&OV_BLK.tasks){const _ovb=OV_BLK.tasks.body;OV_BLK.tasks.body=function(el){_ovb.call(this,el);const today=ovToday();
+  const T=(UI.todos||[]).slice().sort((a,b)=>(a.date||"").localeCompare(b.date||""));if(T.length){const emp=$(".ov-empty",el);if(emp)emp.remove();
+    el.insertAdjacentHTML("afterbegin",`<div class="ov-grp">Việc cần làm</div>${T.map(t=>`<div class="ov-task ${t.date&&t.date<today?"late":""}"><input type="checkbox" class="chk" data-ovtd="${esc(t.id)}" aria-label="Xong: ${esc(t.title)}"><span class="nm">${esc(t.title)}</span><small>${t.date?new Date(t.date+"T00:00:00").toLocaleDateString("vi-VN",{weekday:"short",day:"numeric",month:"numeric"}):""}</small><button class="wk-x" data-ovtdx="${esc(t.id)}" aria-label="Xóa ${esc(t.title)}">${ic("close")}</button></div>`).join("")}${T.length&&UI.tasks.some(t=>t.status!=="done")?`<div class="ov-grp">Bài tập</div>`:""}`)}
+  $$("[data-ovtd]",el).forEach(x=>x.onchange=()=>{if(x.checked)todoDone(x.dataset.ovtd,x.closest(".ov-task"))});$$("[data-ovtdx]",el).forEach(x=>x.onclick=e=>{e.preventDefault();e.stopPropagation();todoDel(x.dataset.ovtdx,x.closest(".ov-task"))})}}
+
+/* =====================================================================
+   v30 — Thêm nguồn từ Google Drive (bản web)
+   - Duyệt Drive của tôi · Được chia sẻ · Gần đây · Có gắn sao · Drive dùng chung (của trường)
+   - Tìm theo tên, mở thư mục, chọn nhiều tệp → tải về và thêm làm nguồn
+   - Google Tài liệu → DOCX, Trang trình bày → PDF, Trang tính → CSV
+   ===================================================================== */
+Object.assign(IC,{drive:'<path d="M8 3h8l6 10-4 7H6l-4-7z"/><path d="M8 3l6 10H2M16 3L10 13M14 13l4 7M10 13l-4 7"/>'});
+const DRV_EXPORT={"application/vnd.google-apps.document":["application/vnd.openxmlformats-officedocument.wordprocessingml.document",".docx","Tài liệu Google"],"application/vnd.google-apps.presentation":["application/pdf",".pdf","Trang trình bày Google"],"application/vnd.google-apps.spreadsheet":["text/csv",".csv","Trang tính Google"],"application/vnd.google-apps.drawing":["image/png",".png","Bản vẽ Google"]};
+const DRV_EXT={"application/pdf":".pdf","application/vnd.openxmlformats-officedocument.wordprocessingml.document":".docx","text/plain":".txt","text/markdown":".md","text/csv":".csv","image/png":".png","image/jpeg":".jpg","image/webp":".webp","application/zip":".zip","application/x-zip-compressed":".zip"};
+const DRV_FOLDER="application/vnd.google-apps.folder";
+function drvKind(f){if(f.mimeType===DRV_FOLDER)return "folder";if(DRV_EXPORT[f.mimeType])return "gapps";const n=f.name||"";if(kindOf(n))return "file";if(DRV_EXT[f.mimeType])return "file";return null}
+function drvIcon(f){const m=f.mimeType||"";if(m===DRV_FOLDER)return pxFolder(false);if(/pdf/.test(m)||/\.pdf$/i.test(f.name))return pxFile("#e5534b");if(/document|word/.test(m))return pxFile("#4a8af4");if(/presentation/.test(m))return pxFile("#f4b400");if(/spreadsheet|csv/.test(m))return pxFile("#0f9d58");if(/image/.test(m))return pxFile("#c77dff");if(/zip/.test(m))return pxFile("#8b93a8");return pxFile("#8b93a8")}
+const drvSize=b=>{b=+b||0;return !b?"":b<1024?b+" B":b<1048576?(b/1024).toFixed(0)+" KB":(b/1048576).toFixed(1)+" MB"};
+async function drvToFile(f){const D=window.SOHOC.drive;const ex=DRV_EXPORT[f.mimeType];
+  if(ex){const b=await D.download(f,ex[0]);return new File([b],f.name.replace(/[\\/:*?"<>|]/g," ")+ex[1],{type:ex[0]})}
+  if(f.size&&+f.size>40e6)throw new Error(f.name+" lớn hơn 40 MB");const b=await D.download(f);let name=f.name;if(!kindOf(name)&&DRV_EXT[f.mimeType])name+=DRV_EXT[f.mimeType];return new File([b],name,{type:f.mimeType||b.type})}
+
+/* ---------- hộp chọn tệp Drive (lớp phủ riêng, nằm trên mọi hộp thoại) ---------- */
+function openDrivePicker({onPick,title="Thêm nguồn từ Google Drive"}={}){
+  const G=window.SOHOC;$$(".drv-ov").forEach(x=>x.remove());
+  const ov=document.createElement("div");ov.className="drv-ov";ov.innerHTML=`<div class="drv-card" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="drv-h">${ic("drive")}<b>${esc(title)}</b><span class="grow"></span><button class="ghost ic" data-dx aria-label="Đóng">${ic("close")}</button></div><div class="drv-b"></div></div>`;document.body.appendChild(ov);
+  const body=$(".drv-b",ov);const close=()=>{ov.remove();document.removeEventListener("keydown",esc_,true)};const esc_=e=>{if(e.key==="Escape"){e.stopPropagation();close()}};document.addEventListener("keydown",esc_,true);
+  $("[data-dx]",ov).onclick=close;ov.addEventListener("pointerdown",e=>{if(e.target===ov)close()});
+  if(!G||!G.drive){body.innerHTML=`<p style="margin:0">Google Drive chỉ dùng được ở <b>bản web</b> của Sổ Học (trang trên Netlify), nơi bạn đăng nhập bằng tài khoản Google.</p><p class="muted" style="font-size:13px">Ở đây bạn có thể tải tệp từ Drive về máy rồi thả vào ô thêm nguồn.</p>`;return}
+  if(!G.clientId()){body.innerHTML=`<p style="margin:0">Cần Google Client ID trước (Cài đặt → Tài khoản Google).</p><button class="btn" data-dset>${ic("gear")} Mở Cài đặt</button>`;$("[data-dset]",body).onclick=()=>{close();settingsDialog("google")};return}
+  const TABS=[["mine","Drive của tôi"],["shared","Được chia sẻ"],["recent","Gần đây"],["starred","Có gắn sao"],["drives","Drive dùng chung"]];
+  const st={tab:"mine",path:[],search:"",sel:new Map(),files:[],next:null,drives:null};
+  const need=()=>{const a=G.drive.acct();body.innerHTML=`<div class="drv-need">${ic("drive")}<p style="margin:0">${a?`Cho phép Sổ Học <b>xem</b> tệp Google Drive của <b>${esc(a.email||a.name)}</b> để chọn làm nguồn bài học.`:"Đăng nhập tài khoản Google trước, rồi cho phép Sổ Học xem tệp Google Drive."}</p>
+      <button class="g-btn" data-dlink>${typeof G_LOGO!=="undefined"?G_LOGO:""}<span>${a?"Liên kết Google Drive":"Đăng nhập Google"}</span></button><p class="muted" style="font-size:12px;margin:0">Chỉ xin quyền đọc. Cần bật <b>Google Drive API</b> trong Google Cloud Console (README mục 4c). Quyền lưu trên trình duyệt này, gỡ được ở myaccount.google.com/permissions.</p></div>`;
+    $("[data-dlink]",body).onclick=async()=>{try{if(!a){close();return loginDialog(false)}await G.drive.link();draw();load()}catch(e){toast(gcErr(e),5000)}}};
+  if(!G.drive.granted())return need();
+  function draw(){body.innerHTML=`<div class="drv-top"><div class="rtab drv-tabs" role="tablist">${TABS.map(([k,l])=>`<button role="tab" data-dt="${k}" aria-selected="${!st.search&&st.tab===k}">${l}</button>`).join("")}</div>
+      <form class="drv-q" data-dq><input class="input" placeholder="Tìm tệp theo tên…" aria-label="Tìm trên Google Drive" value="${esc(st.search)}"><button class="btn" aria-label="Tìm">${ic("search")}</button></form></div>
+    <div class="drv-crumb">${st.search?`Kết quả cho “${esc(st.search)}” <button class="ghost" data-dclr>${ic("close")} Xóa tìm kiếm</button>`:[`<button class="ghost" data-dcr="-1">${esc((TABS.find(t=>t[0]===st.tab)||[])[1]||"Drive")}</button>`,...st.path.map((p,i)=>`<span>›</span><button class="ghost" data-dcr="${i}">${esc(p.name)}</button>`)].join("")}</div>
+    <div class="drv-list" id="drvL"><span class="spin"></span></div>
+    <div class="drv-f"><span class="muted" id="drvN">Chọn tệp: PDF, Word, Google Tài liệu/Trang trình bày/Trang tính, TXT, ảnh, ZIP</span><span class="grow"></span><button class="pill-btn" data-dx2>Hủy</button><button class="pill-btn primary" data-dok disabled>Thêm nguồn</button></div>`;
+    $$("[data-dt]",body).forEach(b=>b.onclick=()=>{st.tab=b.dataset.dt;st.path=[];st.search="";draw();load()});
+    $("[data-dq]",body).onsubmit=e=>{e.preventDefault();st.search=$("input",e.target).value.trim();st.path=[];draw();load()};
+    const cl=$("[data-dclr]",body);if(cl)cl.onclick=()=>{st.search="";draw();load()};
+    $$("[data-dcr]",body).forEach(b=>b.onclick=()=>{const i=+b.dataset.dcr;st.path=st.path.slice(0,i+1);draw();load()});
+    $("[data-dx2]",body).onclick=close;$("[data-dok]",body).onclick=pick;upd()}
+  function upd(){const n=st.sel.size;const ok=$("[data-dok]",body),nn=$("#drvN",body);if(ok){ok.disabled=!n;ok.textContent=n?`Thêm ${n} tệp`:"Thêm nguồn"}if(nn&&n)nn.textContent=[...st.sel.values()].map(f=>f.name).join(", ").slice(0,120)}
+  async function load(more){const L=$("#drvL",body);if(!L)return;if(!more)L.innerHTML=`<span class="spin"></span>`;
+    try{let r;const cur=st.path[st.path.length-1];
+      if(!st.search&&st.tab==="drives"&&!cur){r=await G.drive.drives();const ds=r.drives||[];L.innerHTML=ds.length?ds.map(d=>`<button class="drv-it fold" data-dd="${esc(d.id)}" data-dn="${esc(d.name)}">${pxFolder(false)}<span class="nm">${esc(d.name)}</span><small>Drive dùng chung</small></button>`).join(""):`<div class="muted" style="padding:10px">Tài khoản này chưa tham gia Drive dùng chung nào.</div>`;
+        $$("[data-dd]",L).forEach(b=>b.onclick=()=>{st.path.push({id:b.dataset.dd,name:b.dataset.dn,driveId:b.dataset.dd});draw();load()});return}
+      r=await G.drive.list({tab:st.tab,search:st.search,folder:cur&&cur.id,driveId:cur&&cur.driveId,pageToken:more?st.next:null});
+      const fs=(r.files||[]).map(f=>f.mimeType==="application/vnd.google-apps.shortcut"&&f.shortcutDetails?{...f,id:f.shortcutDetails.targetId,mimeType:f.shortcutDetails.targetMimeType}:f);st.next=r.nextPageToken||null;
+      if(!more)st.files=[];st.files.push(...fs);
+      const row=f=>{const k=drvKind(f);const on=st.sel.has(f.id);const meta=[DRV_EXPORT[f.mimeType]?DRV_EXPORT[f.mimeType][2]:"",drvSize(f.size),f.modifiedTime?new Date(f.modifiedTime).toLocaleDateString("vi-VN"):""].filter(Boolean).join(" · ");
+        return k==="folder"?`<button class="drv-it fold" data-df="${esc(f.id)}">${drvIcon(f)}<span class="nm">${esc(f.name)}</span><small>${esc(meta)}</small>${ic("next")}</button>`
+          :`<label class="drv-it ${k?"":"off"} ${on?"on":""}" ${k?"":`title="Định dạng chưa hỗ trợ"`}><input type="checkbox" class="chk" data-dsel="${esc(f.id)}" ${on?"checked":""} ${k?"":"disabled"}>${drvIcon(f)}<span class="nm">${esc(f.name)}</span><small>${esc(meta||(k?"":"không hỗ trợ"))}</small></label>`};
+      L.innerHTML=(st.files.length?st.files.map(row).join(""):`<div class="muted" style="padding:10px">${st.search?"Không tìm thấy tệp nào.":"Thư mục trống."}</div>`)+(st.next?`<button class="btn drv-more" data-dmore>Tải thêm…</button>`:"");
+      $$("[data-df]",L).forEach(b=>b.onclick=()=>{const f=st.files.find(x=>x.id===b.dataset.df);st.search="";st.path.push({id:f.id,name:f.name,driveId:(cur&&cur.driveId)||null});draw();load()});
+      $$("[data-dsel]",L).forEach(x=>x.onchange=()=>{const f=st.files.find(y=>y.id===x.dataset.dsel);if(x.checked)st.sel.set(f.id,f);else st.sel.delete(f.id);x.closest(".drv-it").classList.toggle("on",x.checked);upd()});
+      const mo=$("[data-dmore]",L);if(mo)mo.onclick=()=>load(true)}
+    catch(e){if(e&&(e.code==="approval_required"||e.code==="needs_reauth")&&!G.drive.has())return need();L.innerHTML=`<div class="warnbox" style="font-size:13px">${esc(gcErr(e))}</div>`}}
+  async function pick(){const list=[...st.sel.values()];const ok=$("[data-dok]",body);ok.disabled=true;const out=[];let i=0;
+    for(const f of list){i++;ok.textContent=`Đang tải ${i}/${list.length}…`;try{out.push(await drvToFile(f))}catch(e){toast("Không tải được "+f.name+": "+(e.message||e),4000)}}
+    close();if(out.length&&onPick)onPick(out)}
+  draw();load()}
+
+/* ---------- gắn nút “Google Drive” vào các chỗ thêm nguồn ---------- */
+const drvBtn=(attr,label="Từ Google Drive")=>`<button type="button" class="btn drv-btn" ${attr}>${ic("drive")} ${label}</button>`;
+{const _asd31=addSourceDialog;addSourceDialog=function(){const r=_asd31.apply(this,arguments);const dz=$("#dz");if(dz&&!$("[data-asdrv]")){dz.insertAdjacentHTML("afterend",drvBtn("data-asdrv","Thêm từ Google Drive"));
+    $("[data-asdrv]").onclick=()=>openDrivePicker({onPick:files=>{closeModal();ingestFiles(files)}})}return r}}
+{const _qsh31=quickSourceHTML;quickSourceHTML=function(){return _qsh31.apply(this,arguments)+drvBtn("data-qdrv")}}
+{const _bqs31=bindQuickSource;bindQuickSource=function(root){_bqs31.apply(this,arguments);const b=$("[data-qdrv]",root),sel=$("[data-qt]",root);if(!b)return;
+  b.onclick=()=>openDrivePicker({onPick:async files=>{try{closeDialog()}catch(e){}let id=sel?sel.value:"new";
+    if(id==="new"){id=mkid("nb");await Store.put(id,{type:"nb",title:nameFromFile(files[0])||"Bài học mới",subj:null,parent:null,goals:"",created:Date.now(),updated:Date.now(),srcCount:0,summary:"",questions:[]})}
+    addFilesToLesson(id,files)}})}}
+
+/* =====================================================================
+   v30 — Mô hình 3D theo môn học (VGU · ECE, học kỳ đông 2026)
+   61ECE201 Engineering Design · 202 Electrical Measurement & Instrumentation ·
+   203 Advanced Engineering Mathematics · 204 Digital Systems Design ·
+   205 Analog Signals & Systems · 206 Object-Oriented Programming
+   - Mạch chạy mô phỏng được (netlist) + mô hình 3D minh họa (mặt cong, chuỗi Fourier,
+     trường vectơ, phổ tín hiệu, sơ đồ lớp) — mở trong Xưởng mô hình, chỉnh sửa được
+   ===================================================================== */
+/* dây dẫn dùng làm đường cong toán học: cho phép nhiều điểm hơn 24 */
+{const _cp32=m3CleanPart;m3CleanPart=function(p,i,ids){const o=_cp32.apply(this,arguments);if(o&&o.type==="wire"&&p&&p.props&&Array.isArray(p.props.pts)&&p.props.pts.length>24)o.props.pts=p.props.pts.slice(0,240).map(q=>v3(q,[0,0,0]));return o}}
+const R2=x=>Math.round(x*1000)/1000;
+const m3hsl=(h,s,l)=>{s/=100;l/=100;const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l),f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));return "#"+[f(0),f(8),f(4)].map(x=>Math.round(x*255).toString(16).padStart(2,"0")).join("")};
+function m3Axes(L=3.6,y0=0){return [
+  {id:"ax",type:"arrow",name:"Trục x",pos:[-L,y0,0],scale:[L*2/1.33,1,1],color:"#ff6b6b",label:""},{id:"ay",type:"arrow",name:"Trục z (lên)",pos:[0,y0,0],rot:[0,0,90],scale:[3.4/1.33,1,1],color:"#6be3a0",label:""},
+  {id:"az",type:"arrow",name:"Trục y",pos:[0,y0,-L],rot:[0,-90,0],scale:[L*2/1.33,1,1],color:"#6ba8ff",label:""},
+  {id:"lx",type:"text",name:"x",pos:[L+.6,y0+.2,0],label:"x"},{id:"ly",type:"text",name:"z",pos:[0,y0+4.9,0],label:"z"},{id:"lz",type:"text",name:"y",pos:[0,y0+.2,L+.6],label:"y"}]}
+function m3Surface(f,{n=13,m=25,span=3,y0=0,k=1,h0=200,h1=320}={}){const parts=[];const step=2*span/(n-1);
+  for(let d=0;d<2;d++)for(let i=0;i<n;i++){const c=-span+i*step;const pts=[];for(let j=0;j<m;j++){const t=-span+j*2*span/(m-1);const x=d?c:t,z=d?t:c;pts.push([R2(x),R2(y0+k*f(x,z)),R2(z)])}
+    parts.push({id:`g${d}${i}`,type:"wire",name:(d?"Đường y = ":"Đường x = ")+R2(c),color:m3hsl(h0+(h1-h0)*i/(n-1),75,d?62:55),props:{pts,r:.028}})}
+  return parts}
+function m3Curve(id,name,fn,{x0=-4,x1=4,z=0,y0=1.6,amp=1.2,m=121,color="#ffd45a",r=.04}){const pts=[];for(let j=0;j<m;j++){const x=x0+(x1-x0)*j/(m-1);pts.push([R2(x),R2(y0+amp*fn(x)),z])}return {id,type:"wire",name,color,props:{pts,r}}}
+const m3SQ=t=>Math.sign(Math.sin(t))||0,m3FS=(t,N)=>{let s=0;for(let k=1;k<=N;k+=2)s+=Math.sin(k*t)/k;return 4/Math.PI*s},m3TRI=t=>2/Math.PI*Math.asin(Math.sin(t));
+
+const M3_COURSE={
+  ECE201:{l:"Engineering Design",vi:"Thiết kế kỹ thuật",c:"#c58b4a",sims:[["sim","pwm"],["m3","ledsw"],["m3","bjt"]]},
+  ECE202:{l:"Electrical Measurement & Instrumentation",vi:"Đo lường điện & thiết bị đo",c:"#3fb7b2",sims:[["sim","divider"],["lab","led"]]},
+  ECE203:{l:"Advanced Engineering Mathematics",vi:"Toán kỹ thuật nâng cao",c:"#9aa0ab",sims:[["sim","rc"]]},
+  ECE204:{l:"Digital Systems Design",vi:"Thiết kế hệ thống số",c:"#5b8def",sims:[["sim","gates"],["sim","adder"],["sim","latch"],["sim","cpu"],["m3","nandsw"]]},
+  ECE205:{l:"Analog Signals & Systems",vi:"Tín hiệu & hệ thống tương tự",c:"#8f7cf0",sims:[["sim","rc"],["sim","opamp"],["lab","cap"]]},
+  ECE206:{l:"Object-Oriented Programming",vi:"Lập trình hướng đối tượng",c:"#3fae7c",sims:[]}};
+const NL=o=>m3FromNetlist(o);
+Object.assign(M3_TPL,{
+  /* ---------- 61ECE201 Engineering Design ---------- */
+  e201_alarm:{course:"ECE201",run:1,l:"Mạch báo động cửa",d:"Bài toán thiết kế: cửa mở → đèn đỏ sáng. Công tắc từ – transistor NPN – LED",spec:NL({title:"Thiết kế: mạch báo động cửa",notes:"Yêu cầu: khi cửa mở (công tắc đóng) thì đèn báo sáng. Giải pháp: công tắc cấp dòng nhỏ vào cực B qua R_B = 10 kΩ, transistor dẫn bão hòa và cho dòng LED ≈ (9 − 2) / 470 ≈ 15 mA. Bấm công tắc để thử, đổi R_B để thấy khi nào transistor không còn bão hòa.",
+    parts:[{id:"b1",type:"battery",kind:"9v"},{id:"s1",type:"switch",name:"Công tắc từ (cửa)",on:false},{id:"rb",type:"resistor",ohm:10000,name:"R_B 10 kΩ",label:"R_B = 10 kΩ"},{id:"q1",type:"transistor",label:"NPN",beta:120,name:"Q1 2N2222"},{id:"rl",type:"resistor",ohm:470,name:"R_C 470 Ω",label:"R = 470 Ω"},{id:"d1",type:"led",color:"red",name:"LED báo động"}],
+    nets:[["b1.+","s1.a","rl.a"],["s1.b","rb.a"],["rb.b","q1.B"],["rl.b","d1.A"],["d1.K","q1.C"],["q1.E","b1.-"]],texts:["Cửa mở → LED đỏ sáng"]})},
+  e201_process:{course:"ECE201",l:"Chu trình thiết kế kỹ thuật",d:"6 bước lặp: xác định vấn đề → nghiên cứu → ý tưởng → nguyên mẫu → thử nghiệm → cải tiến",spec:(()=>{const S=["1. Xác định vấn đề","2. Nghiên cứu & yêu cầu","3. Ý tưởng & chọn phương án","4. Làm nguyên mẫu","5. Thử nghiệm & đo","6. Cải tiến / báo cáo"],C=["#ff8a65","#ffd54f","#81c784","#4fc3f7","#9575cd","#f06292"];const parts=[];const r=3.4;
+    S.forEach((s,i)=>{const a=-Math.PI/2+i*2*Math.PI/S.length;parts.push({id:"s"+i,type:"box",name:s,pos:[R2(r*Math.cos(a)),.45,R2(r*Math.sin(a))],scale:[1.7,.9,1.1],color:C[i],label:s});
+      const a2=a+Math.PI/S.length;const ang=-(a2+Math.PI/2)*180/Math.PI;parts.push({id:"a"+i,type:"arrow",name:"Mũi tên "+(i+1),pos:[R2((r-.1)*Math.cos(a2)-.45*Math.cos(a2+Math.PI/2)),.45,R2((r-.1)*Math.sin(a2)-.45*Math.sin(a2+Math.PI/2))],rot:[0,R2(ang),0],scale:[.7,1,1],color:"#ffffff"})});
+    parts.push({id:"c",type:"cylinder",name:"Tâm",pos:[0,.15,0],scale:[2.2,.3,2.2],color:"#3a3f55",label:"Lặp lại đến khi đạt yêu cầu"});return {title:"Chu trình thiết kế kỹ thuật",notes:"Thiết kế kỹ thuật là quá trình lặp. Mỗi vòng: xác định yêu cầu đo được (tiêu chí & ràng buộc), chọn phương án bằng ma trận quyết định, làm nguyên mẫu, thử nghiệm theo tiêu chí, rồi cải tiến. Ghi lại mọi quyết định trong nhật ký thiết kế.",parts}})()},
+  /* ---------- 61ECE202 Electrical Measurement & Instrumentation ---------- */
+  e202_wheat:{course:"ECE202",run:1,l:"Cầu Wheatstone",d:"Bốn điện trở, LED làm bộ chỉ thị lệch cân bằng — đổi Rx để cân bằng cầu",spec:NL({title:"Cầu Wheatstone — LED báo lệch cân bằng",notes:"Cầu cân bằng khi R1/R2 = R3/Rx: điện áp hai điểm giữa bằng nhau, LED tắt. Ở đây Rx = 100 Ω (như cảm biến bị thay đổi) nên cầu lệch, LED sáng. Đổi Rx thành 470 Ω để thấy cầu cân bằng. Đây là nguyên lý của cảm biến strain gauge và nhiệt điện trở.",
+    parts:[{id:"b1",type:"battery",kind:"9v"},{id:"r1",type:"resistor",ohm:470,name:"R1 470 Ω",label:"R1"},{id:"r2",type:"resistor",ohm:470,name:"R2 470 Ω",label:"R2"},{id:"r3",type:"resistor",ohm:470,name:"R3 470 Ω",label:"R3"},{id:"rx",type:"resistor",ohm:100,name:"Rx (cảm biến)",label:"Rx = 100 Ω"},{id:"rd",type:"resistor",ohm:100,name:"R chỉ thị 100 Ω"},{id:"d1",type:"led",color:"yellow",name:"LED chỉ thị"}],
+    nets:[["b1.+","r1.a","r3.a"],["r1.b","r2.a","rd.a"],["rd.b","d1.A"],["r3.b","rx.a","d1.K"],["r2.b","rx.b","b1.-"]],texts:["Cân bằng: R1/R2 = R3/Rx"]})},
+  e202_shunt:{course:"ECE202",run:1,l:"Đo dòng bằng điện trở shunt",d:"Tải + R shunt 10 Ω: đo điện áp trên shunt để tính dòng I = V/R",spec:NL({title:"Đo dòng điện bằng điện trở shunt",notes:"Ampe kế số thực chất đo điện áp rơi trên một điện trở nhỏ (shunt). Dòng qua mạch ≈ (9 − 2) / 480 ≈ 14,6 mA nên V_shunt ≈ 0,146 V. Shunt càng nhỏ càng ít ảnh hưởng mạch (sai số do tải) nhưng điện áp đo càng nhỏ, cần khuếch đại.",
+    parts:[{id:"b1",type:"battery",kind:"9v"},{id:"s1",type:"switch",name:"Công tắc",on:true},{id:"rl",type:"resistor",ohm:470,name:"Tải 470 Ω",label:"Tải"},{id:"d1",type:"led",color:"green",name:"LED tải"},{id:"rs",type:"resistor",ohm:10,name:"R shunt 10 Ω",label:"Shunt 10 Ω"}],
+    nets:[["b1.+","s1.a"],["s1.b","rl.a"],["rl.b","d1.A"],["d1.K","rs.a"],["rs.b","b1.-"]],texts:["I = V_shunt / R_shunt"]})},
+  /* ---------- 61ECE203 Advanced Engineering Mathematics ---------- */
+  e203_saddle:{course:"ECE203",l:"Mặt yên ngựa z = x² − y²",d:"Điểm yên tại gốc: cực đại theo y, cực tiểu theo x — đạo hàm riêng & ma trận Hessian",spec:{title:"Mặt yên ngựa z = x² − y²",notes:"Tại (0,0): ∂z/∂x = ∂z/∂y = 0 nhưng Hessian H = [[2,0],[0,−2]] có định thức âm → điểm yên (không phải cực trị). Dọc trục x mặt cong lên, dọc trục y mặt cong xuống.",parts:[...m3Axes(3.6,0),...m3Surface((x,z)=>(x*x-z*z)/3,{y0:1.6,k:.55}),{id:"t",type:"text",name:"Công thức",pos:[0,4.2,-3],label:"z = x² − y² · điểm yên tại (0, 0)"}]}},
+  e203_gauss:{course:"ECE203",l:"Hàm Gauss 2 biến",d:"z = e^(−(x²+y²)/2): phân phối chuẩn, tích phân kép, tọa độ cực",spec:{title:"Hàm Gauss 2 biến",notes:"∬ e^(−(x²+y²)/2) dx dy = 2π (đổi sang tọa độ cực: ∫₀^2π ∫₀^∞ e^(−r²/2) r dr dθ). Đỉnh tại gốc, các đường mức là đường tròn.",parts:[...m3Axes(3.6,0),...m3Surface((x,z)=>Math.exp(-(x*x+z*z)/2),{y0:.02,k:3,h0:170,h1:300}),{id:"t",type:"text",name:"Công thức",pos:[0,4.3,-3],label:"z = e^(−(x²+y²)/2) · ∬ = 2π"}]}},
+  e203_fourier:{course:"ECE203",l:"Chuỗi Fourier sóng vuông",d:"Tổng riêng N = 1, 3, 7, 21 tiến dần về sóng vuông — hiện tượng Gibbs",spec:{title:"Chuỗi Fourier của sóng vuông",notes:"Sóng vuông f(t) = (4/π) Σ sin(kt)/k với k lẻ. Càng nhiều số hạng, tổng riêng càng sát sóng vuông, nhưng gần chỗ nhảy luôn vọt lố ≈ 9% (hiện tượng Gibbs).",
+    parts:[...[[1,"#ff8a65"],[3,"#ffd54f"],[7,"#81c784"],[21,"#4fc3f7"]].map(([N,c],i)=>m3Curve("f"+N,"Tổng riêng N = "+N,x=>m3FS(x*Math.PI/4,N),{z:-3+i*1.6,color:c,m:181})),m3Curve("sq","Sóng vuông",x=>m3SQ(x*Math.PI/4),{z:3.6,color:"#e0e0e0",m:241,r:.03}),
+      ...[1,3,7,21].map((N,i)=>({id:"l"+N,type:"text",name:"Nhãn N="+N,pos:[-5,1.6,-3+i*1.6],label:"N = "+N})),{id:"lsq",type:"text",name:"Nhãn",pos:[-5,1.6,3.6],label:"Sóng vuông"},{id:"base",type:"board",name:"Mặt phẳng t",pos:[0,.3,.3],scale:[9,.05,8.4],color:"#2c3047"}]}},
+  e203_field:{course:"ECE203",l:"Trường vectơ xoáy F = (−y, x)",d:"Rot F = 2, div F = 0 — tích phân đường quanh đường tròn",spec:(()=>{const parts=[];let k=0;for(let i=-2;i<=2;i++)for(let j=-2;j<=2;j++){if(!i&&!j)continue;const x=i*1.5,z=j*1.5;const Fx=-z,Fz=x;const mag=Math.hypot(Fx,Fz);const ang=Math.atan2(-Fz,Fx)*180/Math.PI;
+      parts.push({id:"v"+(k++),type:"arrow",name:`F(${R2(x)}, ${R2(z)})`,pos:[R2(x),.15,R2(z)],rot:[0,R2(ang),0],scale:[R2(.25+mag*.2),1,1],color:m3hsl(200-mag*30,80,60)})}
+    const pts=[];for(let a=0;a<=64;a++){const t=a/64*2*Math.PI;pts.push([R2(2.25*Math.cos(t)),.05,R2(2.25*Math.sin(t))])}parts.push({id:"c",type:"wire",name:"Đường tròn C",color:"#ffd45a",props:{pts,r:.03,flow:true}});
+    parts.push({id:"t",type:"text",name:"Chú thích",pos:[0,2.4,0],label:"∮ F·dr = ∬ rot F dA = 2·πr²"});return {title:"Trường vectơ xoáy F = (−y, x)",notes:"Trường quay quanh gốc tọa độ, độ lớn tăng theo khoảng cách. div F = 0 (không có nguồn), rot F = 2. Theo định lý Green, lưu số quanh đường tròn bán kính r bằng 2πr².",parts}})()},
+  /* ---------- 61ECE204 Digital Systems Design ---------- */
+  e204_xor:{course:"ECE204",run:1,l:"Cổng XOR 74HC86",d:"So sánh 2 bit: LED sáng khi A ≠ B",spec:NL({title:"Cổng XOR 74HC86 — so sánh hai bit",notes:"Y = A ⊕ B: ra 1 khi hai ngõ vào khác nhau. Điện trở 10 kΩ kéo ngõ vào xuống 0 khi công tắc mở (không để chân CMOS thả nổi).",
+    parts:[{id:"b1",type:"battery",kind:"9v"},{id:"u1",type:"ic",label:"74HC86",pins:14,name:"74HC86"},{id:"s1",type:"switch",name:"Công tắc A",on:true},{id:"s2",type:"switch",name:"Công tắc B",on:false},{id:"rl",type:"resistor",ohm:470,name:"R LED 470 Ω"},{id:"d1",type:"led",color:"yellow",name:"LED Y = A⊕B"},{id:"r1",type:"resistor",ohm:10000,name:"R kéo xuống A"},{id:"r2",type:"resistor",ohm:10000,name:"R kéo xuống B"}],
+    nets:[["b1.+","u1.14","s1.a","s2.a"],["b1.-","u1.7","d1.K","r1.b","r2.b"],["s1.b","u1.1","r1.a"],["s2.b","u1.2","r2.a"],["u1.3","rl.a"],["rl.b","d1.A"]],texts:["Y = A ⊕ B"]})},
+  e204_half:{course:"ECE204",run:1,l:"Bộ cộng bán phần",d:"74HC86 (tổng S) + 74HC08 (nhớ C) — cộng hai bit A + B",spec:NL({title:"Bộ cộng bán phần (half adder)",notes:"S = A ⊕ B (74HC86), C = A·B (74HC08). Thử 1 + 1: LED S tắt, LED C sáng → kết quả 10₂. Thực tế 74HC dùng nguồn 5 V.",
+    parts:[{id:"b1",type:"battery",kind:"9v"},{id:"u1",type:"ic",label:"74HC86",pins:14,name:"74HC86 (XOR)"},{id:"u2",type:"ic",label:"74HC08",pins:14,name:"74HC08 (AND)"},{id:"s1",type:"switch",name:"Bit A",on:true},{id:"s2",type:"switch",name:"Bit B",on:true},{id:"r1",type:"resistor",ohm:10000,name:"R kéo xuống A"},{id:"r2",type:"resistor",ohm:10000,name:"R kéo xuống B"},{id:"rs",type:"resistor",ohm:470,name:"R LED S"},{id:"d1",type:"led",color:"green",name:"LED S (tổng)"},{id:"rc",type:"resistor",ohm:470,name:"R LED C"},{id:"d2",type:"led",color:"red",name:"LED C (nhớ)"}],
+    nets:[["b1.+","u1.14","u2.14","s1.a","s2.a"],["b1.-","u1.7","u2.7","d1.K","d2.K","r1.b","r2.b"],["s1.b","u1.1","u2.1","r1.a"],["s2.b","u1.2","u2.2","r2.a"],["u1.3","rs.a"],["rs.b","d1.A"],["u2.3","rc.a"],["rc.b","d2.A"]],texts:["S = A⊕B · C = A·B"]})},
+  e204_mux:{course:"ECE204",run:1,l:"Bộ chọn kênh 2→1 (MUX)",d:"Y = A·S' + B·S bằng 74HC04 + 74HC08 + 74HC32",spec:NL({title:"Bộ chọn kênh 2 → 1",notes:"Khi S = 0, ngõ ra Y lấy theo A; khi S = 1, Y lấy theo B. Mạch gồm cổng NOT (74HC04) tạo S', hai cổng AND (74HC08) và một cổng OR (74HC32).",
+    parts:[{id:"b1",type:"battery",kind:"9v"},{id:"u1",type:"ic",label:"74HC04",pins:14,name:"74HC04 (NOT)"},{id:"u2",type:"ic",label:"74HC08",pins:14,name:"74HC08 (AND)"},{id:"u3",type:"ic",label:"74HC32",pins:14,name:"74HC32 (OR)"},{id:"sa",type:"switch",name:"Ngõ vào A",on:true},{id:"sb",type:"switch",name:"Ngõ vào B",on:false},{id:"ss",type:"switch",name:"Chọn S",on:false},{id:"ra",type:"resistor",ohm:10000,name:"R kéo xuống A"},{id:"rb",type:"resistor",ohm:10000,name:"R kéo xuống B"},{id:"rs",type:"resistor",ohm:10000,name:"R kéo xuống S"},{id:"rl",type:"resistor",ohm:470,name:"R LED"},{id:"d1",type:"led",color:"blue",name:"LED ngõ ra Y"}],
+    nets:[["b1.+","u1.14","u2.14","u3.14","sa.a","sb.a","ss.a"],["b1.-","u1.7","u2.7","u3.7","d1.K","ra.b","rb.b","rs.b"],["sa.b","ra.a","u2.1"],["ss.b","rs.a","u1.1","u2.5"],["u1.2","u2.2"],["sb.b","rb.a","u2.4"],["u2.3","u3.1"],["u2.6","u3.2"],["u3.3","rl.a"],["rl.b","d1.A"]],texts:["Y = A·S' + B·S"]})},
+  /* ---------- 61ECE205 Analog Signals & Systems ---------- */
+  e205_rc:{course:"ECE205",run:1,l:"Đáp ứng bậc thang của mạch RC",d:"Đóng công tắc: điện áp tụ tăng theo 1 − e^(−t/τ), LED sáng dần",spec:NL({title:"Đáp ứng bậc thang: bộ lọc thông thấp RC",notes:"Mạch RC là bộ lọc thông thấp bậc 1: H(s) = 1 / (1 + sRC), tần số cắt f_c = 1 / (2πRC). Với tín hiệu bậc thang, v_C(t) = V(1 − e^(−t/τ)), τ = RC. LED (qua 220 Ω) sáng dần khi tụ nạp.",
+    parts:[{id:"b1",type:"battery",kind:"9v"},{id:"s1",type:"switch",name:"Công tắc (bậc thang)",on:true},{id:"r1",type:"resistor",ohm:1000,name:"R 1 kΩ",label:"R = 1 kΩ"},{id:"c1",type:"capacitor",uf:1000,name:"C 1000 µF"},{id:"rl",type:"resistor",ohm:220,name:"R LED 220 Ω"},{id:"d1",type:"led",color:"red",name:"LED chỉ thị v_C"}],
+    nets:[["b1.+","s1.a"],["s1.b","r1.a"],["r1.b","c1.+","rl.a"],["rl.b","d1.A"],["d1.K","c1.-","b1.-"]],texts:["τ = RC = 1 s"]})},
+  e205_spec:{course:"ECE205",l:"Tín hiệu & phổ tần số",d:"Sin, vuông, tam giác theo thời gian và biên độ các hài tương ứng",spec:(()=>{const parts=[];const sig=[["sin","Sóng sin",t=>Math.sin(t),n=>n===1?1:0,"#4fc3f7"],["sq","Sóng vuông",m3SQ,n=>n%2?4/Math.PI/n:0,"#ffd54f"],["tri","Sóng tam giác",m3TRI,n=>n%2?8/(Math.PI*Math.PI*n*n):0,"#f06292"]];
+    sig.forEach(([k,l,fn,an,c],i)=>{const z=-3+i*3;parts.push(m3Curve("t"+k,l+" (miền thời gian)",x=>fn(x*Math.PI/2),{x0:-6,x1:0,z,y0:1.4,amp:1,color:c,m:161}));parts.push({id:"n"+k,type:"text",name:"Nhãn "+l,pos:[-3,3,z],label:l});
+      for(let n=1;n<=9;n++){const a=an(n);if(a<.01)continue;parts.push({id:`h${k}${n}`,type:"box",name:`${l}: hài bậc ${n}`,pos:[R2(.8+n*.6),R2(a*1.25),z],scale:[.3,R2(Math.max(.02,a*2.5)),.3],color:c})}});
+    parts.push({id:"tf",type:"text",name:"Nhãn trục",pos:[3.8,3,-4.6],label:"Phổ biên độ |cₙ| (n = 1…9)"},{id:"tt",type:"text",name:"Nhãn trục",pos:[-3,3,-4.6],label:"Miền thời gian"},{id:"base",type:"board",name:"Đế",pos:[0,-.05,0],scale:[13,.05,9],color:"#2c3047"});
+    return {title:"Tín hiệu và phổ tần số",notes:"Sóng sin chỉ có một hài. Sóng vuông có các hài lẻ giảm theo 1/n, sóng tam giác giảm nhanh hơn theo 1/n² nên “mượt” hơn. Bộ lọc thông thấp cắt bớt hài bậc cao làm tín hiệu tròn lại.",parts}})()},
+  /* ---------- 61ECE206 Object-Oriented Programming ---------- */
+  e206_class:{course:"ECE206",l:"Kế thừa lớp: LinhKien",d:"Lớp cơ sở LinhKien và các lớp con DienTro, TuDien, LED — đóng gói, kế thừa, đa hình",spec:(()=>{const parts=[{id:"base",type:"box",name:"Lớp LinhKien",pos:[0,4,0],scale:[10,.9,1.4],color:"#3fae7c",label:"«abstract» LinhKien"},
+      {id:"bm",type:"text",name:"Thành viên LinhKien",pos:[0,5.1,0],label:"# ten: string · + giaTri(): double (virtual) · + moTa(): string"}];
+    [["r","DienTro","#e8b04a","- ohm: double · giaTri() = ohm"],["c","TuDien","#5b8def","- farad: double · giaTri() = farad"],["l","LED","#ff6b6b","- mau: string · - vf: double"]].forEach(([k,n,c,m],i)=>{const x=-3.6+i*3.6;
+      parts.push({id:"c"+k,type:"box",name:"Lớp "+n,pos:[x,1,0],scale:[2.8,.8,1.2],color:c,label:n},{id:"m"+k,type:"text",name:"Thành viên "+n,pos:[x,.1,1.1],label:m},{id:"a"+k,type:"arrow",name:n+" kế thừa LinhKien",pos:[x,1.45,0],rot:[0,0,90],scale:[1.45,1,1],color:"#ffffff"})});
+    parts.push({id:"t",type:"text",name:"Chú thích",pos:[0,6.2,0],label:"Mũi tên ↑ = kế thừa (is-a). vector<LinhKien*> gọi giaTri() theo đa hình"});return {title:"Sơ đồ lớp: kế thừa LinhKien",notes:"LinhKien là lớp trừu tượng (có hàm ảo giaTri()). DienTro, TuDien, LED kế thừa và ghi đè giaTri(). Một mảng con trỏ LinhKien* chứa nhiều loại linh kiện; khi gọi giaTri() chương trình chọn đúng phiên bản của lớp con (đa hình, liên kết động).",parts}})()}
+});
+
+/* ---------- danh mục: phần “Mô hình theo môn học” ---------- */
+UI.m3Course=local.get("m3Course","ECE204");
+const M3_SIM_L=(t,k)=>t==="sim"?(SIM2D[k]||[k])[0]:t==="lab"?((typeof LABS!=="undefined"&&LABS[k]&&LABS[k].name)||k):((M3_TPL[k]&&M3_TPL[k].l)||k);
+function m3CourseSec(){const C=M3_COURSE[UI.m3Course]?UI.m3Course:"ECE204";const info=M3_COURSE[C];const T=Object.entries(M3_TPL).filter(([,t])=>t.course===C);
+  return `<div class="eyebrow" style="margin-bottom:8px">Mô hình theo môn học · VGU ECE</div>
+    <div class="m3c-tabs" role="tablist">${Object.entries(M3_COURSE).map(([k,v])=>`<button role="tab" data-m3c="${k}" aria-selected="${k===C}" style="--c:${v.c}"><b>61${k}</b><span>${esc(v.l)}</span></button>`).join("")}</div>
+    <p class="muted" style="margin:8px 0;font-size:13px"><b style="color:var(--ink)">61${C} — ${esc(info.l)}</b> · ${esc(info.vi)}</p>
+    <div class="catalog">${T.map(([k,t])=>`<button class="cat" data-m3tpl2="${k}" style="--c:${info.c}">${ic("cube")}<b>${esc(t.l)}</b><span>${esc(t.d)} · ${t.run?"chạy mô phỏng được":"mô hình 3D minh họa"} · chỉnh sửa được</span></button>`).join("")}</div>
+    ${info.sims.length?`<div class="m3c-rel"><span class="muted">Liên quan:</span>${info.sims.map(([t,k])=>`<button class="chip" data-m3rel="${t}:${k}">${t==="sim"?"2D":"3D"} · ${esc(M3_SIM_L(t,k))}</button>`).join("")}</div>`:""}`}
+function m3OpenRef(ref){const [t,k]=String(ref).split(":");if(t==="sim"&&typeof openSim==="function"&&SIM2D[k])return openSim(k);if(t==="lab"&&typeof openLab==="function")return openLab(k);if(t==="m3"&&M3_TPL[k])return openModelEditor(null,JSON.parse(JSON.stringify(M3_TPL[k].spec)));toast("Không tìm thấy mô hình "+ref)}
+{const _olc32=openLabCatalog;openLabCatalog=async function(){const r=await _olc32.apply(this,arguments);const pad=$(".mbody .pad");if(!pad)return r;
+  /* bỏ mẫu theo môn khỏi danh sách chung */
+  $$("[data-m3tpl]",pad).forEach(b=>{const t=M3_TPL[b.dataset.m3tpl];if(t&&t.course)b.remove()});
+  let sec=$(".m3-course",pad);if(!sec){sec=document.createElement("div");sec.className="m3-course";const after=$(".m3-cat",pad);if(after)after.after(sec);else pad.insertBefore(sec,pad.children[1]||null)}
+  const draw=()=>{sec.innerHTML=m3CourseSec();$$("[data-m3c]",sec).forEach(b=>b.onclick=()=>{UI.m3Course=b.dataset.m3c;local.set("m3Course",UI.m3Course);draw()});
+    $$("[data-m3tpl2]",sec).forEach(b=>b.onclick=()=>openModelEditor(null,JSON.parse(JSON.stringify(M3_TPL[b.dataset.m3tpl2].spec))));$$("[data-m3rel]",sec).forEach(b=>b.onclick=()=>m3OpenRef(b.dataset.m3rel))};draw();return r}}
+
+/* =====================================================================
+   v30 — Mèo nhỏ sống trên thanh (lấy cảm hứng từ “taskbar cat”: thú cưng pixel)
+   - Đi dạo dọc mép dưới màn hình, leo lên mép trên các khối/cửa sổ, ngủ, liếm lông,
+     chạy “zoomies”, đuổi theo con trỏ, vồ khi con trỏ lắc mạnh (hoặc bỏ chạy: chế độ nhát)
+   - Bấm vào mèo để vuốt ve (tim bay lên), kéo để nhấc mèo đặt chỗ khác, bấm đúp để mở menu
+   - Không đói, không chết · ẩn khi toàn màn hình · nhiều bộ lông tự vẽ bằng pixel
+   ===================================================================== */
+Object.assign(IC,{cat:'<path d="M5 20v-7a7 7 0 0 1 14 0v7"/><path d="M5 13L4 5l5 3M19 13l1-8-5 3"/><circle cx="9.5" cy="13.5" r=".8"/><circle cx="14.5" cy="13.5" r=".8"/><path d="M11 16.5h2"/>'});
+const CAT_W=32,CAT_H=24;
+const CAT_COATS={
+  orange:{l:"Cam mướp",b:"#e8913a",s:"#b45f1d",w:"#f7d7aa",pat:"tabby"},
+  gray:{l:"Xám mướp",b:"#9aa1ab",s:"#5d6470",w:"#e3e6ea",pat:"tabby"},
+  black:{l:"Mun",b:"#2e2c36",s:"#2e2c36",w:"#3a3844",e:"#f5d442",o:"#0f0e13"},
+  white:{l:"Tuyết",b:"#f5f2ec",s:"#e6e1d8",w:"#ffffff",e:"#4aa3ff",o:"#6b6670"},
+  calico:{l:"Tam thể",b:"#f6f1ea",s:"#2e2c36",w:"#ffffff",x:"#e8913a",pat:"calico"},
+  tuxedo:{l:"Tuxedo",b:"#2a2933",s:"#2a2933",w:"#f7f5f0",e:"#a5e06b",pat:"tux",o:"#0f0e13"},
+  siamese:{l:"Xiêm",b:"#efe3cf",s:"#5a4032",w:"#f8f0e2",e:"#5ab0ff",pat:"point"},
+  tiger:{l:"Hổ con",b:"#f08a24",s:"#211b17",w:"#fbe8c8",pat:"tiger"},
+  cream:{l:"Kem",b:"#f0d9b5",s:"#d6ad78",w:"#fbf0dc",pat:"tabby"},
+  smoke:{l:"Khói xanh",b:"#6f7d93",s:"#5d6a7e",w:"#8b98ac",e:"#f5c542"},
+  imp:{l:"Quỷ nhỏ",b:"#7a2233",s:"#4c1320",w:"#b3435a",e:"#ffd23b",pat:"imp",o:"#220810"}
+};
+/* ---------- vẽ một khung hình (lưới 32×24, mặt quay sang phải) ---------- */
+function catGrid(pose,f){const G=[];for(let y=0;y<CAT_H;y++)G.push(new Array(CAT_W).fill(null));
+  const put=(x,y,r)=>{if(x>=0&&y>=0&&x<CAT_W&&y<CAT_H)G[y][x]=r};const rect=(x,y,w,h,r)=>{for(let j=0;j<h;j++)for(let i=0;i<w;i++)put(x+i,y+j,r)};const clr=(x,y)=>put(x,y,null);
+  const line=(x0,y0,x1,y1,r,w=2)=>{const n=Math.max(Math.abs(x1-x0),Math.abs(y1-y0))||1;for(let k=0;k<=n;k++){const x=Math.round(x0+(x1-x0)*k/n),y=Math.round(y0+(y1-y0)*k/n);for(let a=0;a<w;a++)put(x+a,y,r)}};
+  const head=(x,y,o={})=>{rect(x,y,8,7,"h");clr(x,y);clr(x+7,y);clr(x,y+6);clr(x+7,y+6);put(x+1,y-1,"k");put(x+1,y-2,"k");put(x+2,y-1,"k");put(x+5,y-1,"k");put(x+6,y-1,"k");put(x+6,y-2,"k");
+    rect(x+5,y+3,3,3,"m");if(o.sleep||o.happy){put(x+4,y+3,"o");put(x+5,y+3,"o")}else{put(x+5,y+2,"e");if(o.two)put(x+2,y+2,"e")}put(x+7,y+3,"p");if(o.tongue)put(x+6,y+6,"p")};
+  const leg=(x,y,h)=>{rect(x,y,2,h,"l");put(x,y+h-1,"f");put(x+1,y+h-1,"f")};
+  const sway=[0,1,0,-1][f%4];
+  if(pose==="walk"||pose==="crouch"){const lo=pose==="crouch"?2:0,bob=pose==="walk"&&(f%2)?-1:0;const by=13+lo+bob;
+    rect(9,by,13,6,"b");clr(9,by);clr(21,by);clr(9,by+5);clr(21,by+5);rect(11,by+4,9,2,"w");head(19,by-5+(pose==="crouch"?1:0));
+    const L=pose==="crouch"?[[10,0],[13,0],[17,0],[20,0]]:[[[11,0],[12,1],[9,0],[10,1]],[[13,0],[13,0],[13,0],[13,0]],[[16,0],[18,0],[19,0],[17,0]],[[20,0],[19,1],[21,0],[20,1]]].map(a=>a[f%4]);
+    const lh=pose==="crouch"?2:4;L.forEach(([x,lift])=>leg(x,by+6,lh-lift));
+    if(pose==="crouch")line(8,by+1,2,by+2,"t");else{line(8,by+1,6,by-2,"t");line(6,by-2,6+sway,by-6,"t");put(7+sway,by-7,"t")}}
+  else if(pose==="run"){const st=f%2;rect(7,14,16,5,"b");clr(7,14);clr(22,14);clr(7,18);clr(22,18);rect(9,17,12,2,"w");head(21,9);
+    if(!st){line(9,19,5,22,"l");line(12,19,9,22,"l");line(19,19,23,22,"l");line(21,19,25,22,"l")}else{line(10,19,13,22,"l");line(12,19,15,22,"l");line(18,19,15,22,"l");line(20,19,17,22,"l")}
+    line(6,15,1,13+(st?1:-1),"t")}
+  else if(pose==="sit"||pose==="groom"||pose==="happy"){rect(12,12,9,10,"b");clr(12,12);clr(20,12);rect(10,17,7,6,"b");clr(10,17);rect(17,14,3,7,"w");
+    if(pose==="groom")head(14,7+(f%2),{tongue:f%2===1});else head(15,5,{two:true,happy:pose==="happy"});
+    leg(17,18,5);leg(19,18,5);if(pose==="groom"&&f%2){rect(20,11,2,6,"l");put(20,11,"f");put(21,11,"f")}
+    line(10,22,6,22,"t",1);line(6,21,5,19-(f%2),"t");put(5+(f%2),18-(f%2),"t")}
+  else if(pose==="sleep"){const br=f%2;rect(8,16-br,15,7+br,"b");clr(8,16-br);clr(22,16-br);clr(8,22);clr(22,22);rect(10,20,10,2,"w");head(18,15,{sleep:true});line(6,22,20,22,"t",1);line(7,21,6,20,"t",1)}
+  else if(pose==="held"){head(12,2,{two:true});rect(13,9,7,9,"b");rect(15,10,3,7,"w");leg(13,18,4);leg(18,18,4);rect(12,10,2,4,"l");rect(19,10,2,4,"l");line(16,18,16,22,"t",1);put(17,22,"t")}
+  return G}
+function catPaint(coat,G){const C=CAT_COATS[coat]||CAT_COATS.orange;const o=C.o||"#2a1f2b";
+  const hash=(x,y)=>((x*73856093)^(y*19349663))>>>0;
+  const col=(r,x,y)=>{if(r==="e")return C.e||"#5bd15b";if(r==="p")return "#f19ab0";if(r==="o")return o;
+    if(r==="w"||r==="m"){if(C.pat==="point"&&r==="m")return C.s;return C.w}
+    if(r==="f"){if(C.pat==="tux"||C.pat==="calico")return C.w;if(C.pat==="point")return C.s;return C.b}
+    if(C.pat==="point"&&(r==="k"||r==="t"||r==="l"))return C.s;
+    if(C.pat==="imp"&&r==="k")return "#e9e2d0";
+    if(C.pat==="calico"){const z=Math.floor(x/4)+Math.floor(y/4)*3;return [C.b,C.x,C.s,C.b,C.x][(hash(Math.floor(x/4),Math.floor(y/4))>>3)%5]}
+    if(C.pat==="tabby"&&(r==="b"||r==="h"||r==="t")&&x%3===0)return C.s;
+    if(C.pat==="tiger"&&(r==="b"||r==="h"||r==="t")&&(x%3===0||(r==="t"&&y%2)))return C.s;
+    if(r==="k")return C.s===C.b?C.b:C.b;return C.b};
+  const img=new ImageData(CAT_W,CAT_H);const set=(x,y,hex)=>{const i=(y*CAT_W+x)*4;img.data[i]=parseInt(hex.slice(1,3),16);img.data[i+1]=parseInt(hex.slice(3,5),16);img.data[i+2]=parseInt(hex.slice(5,7),16);img.data[i+3]=255};
+  for(let y=0;y<CAT_H;y++)for(let x=0;x<CAT_W;x++){const r=G[y][x];if(r)set(x,y,col(r,x,y));else{const n=[[1,0],[-1,0],[0,1],[0,-1]].some(([a,b])=>{const v=G[y+b]&&G[y+b][x+a];return v&&v!=="o"});if(n)set(x,y,o)}}
+  return img}
+const CAT_CACHE=new Map();
+function catFrame(coat,pose,f){const k=coat+"|"+pose+"|"+f;let c=CAT_CACHE.get(k);if(c)return c;c=document.createElement("canvas");c.width=CAT_W;c.height=CAT_H;c.getContext("2d").putImageData(catPaint(coat,catGrid(pose,f)),0,0);CAT_CACHE.set(k,c);return c}
+
+/* ---------- cài đặt ---------- */
+const CATS_DEF={on:true,list:[{coat:"orange"}],size:2,skittish:false,climb:true,sleepy:false};
+let CATS=Object.assign({},CATS_DEF,local.get("cats",{}));if(!Array.isArray(CATS.list)||!CATS.list.length)CATS.list=[{coat:"orange"}];
+const catsSave=()=>local.set("cats",CATS);
+/* ---------- thế giới ---------- */
+const CW={cats:[],raf:0,last:0,mx:-999,my:-999,mvx:0,wig:0,lastMove:0,lastUser:Date.now(),host:null};
+const catScale=()=>innerWidth<600?Math.min(2,CATS.size):CATS.size;
+function catHost(){let h=$("#catHost");if(!h){h=document.createElement("div");h.id="catHost";h.setAttribute("aria-hidden","false");document.body.appendChild(h)}return h}
+function catPerches(){if(!CATS.climb)return [];const out=[];const sel=".blk:not(.lifted):not(.maxed),#top,#mplayer:not([hidden]),.flyout,.sp-nowbox";
+  $$(sel).forEach(el=>{const r=el.getBoundingClientRect();if(r.width<140||r.top<40||r.top>innerHeight-70||r.bottom<0)return;if(getComputedStyle(el).visibility==="hidden")return;out.push({el,r})});return out}
+function catGroundAt(c){if(c.surf&&c.surf.el){const r=c.surf.el.getBoundingClientRect();if(!c.surf.el.isConnected||r.width<100||r.top<20||r.top>innerHeight-40)return null;return {y:r.top+1,l:r.left,rr:r.right}}return {y:innerHeight,l:0,rr:innerWidth}}
+function catNew(coat,i){const s=catScale();const el=document.createElement("canvas");el.className="cat-sp";el.width=CAT_W;el.height=CAT_H;el.style.width=CAT_W*s+"px";el.style.height=CAT_H*s+"px";el.title="Bấm để vuốt ve · kéo để nhấc · bấm đúp để mở menu";el.setAttribute("role","button");el.setAttribute("aria-label","Mèo "+(CAT_COATS[coat]||{}).l);
+  const c={el,coat,x:80+i*140+Math.random()*120,y:innerHeight,dir:Math.random()<.5?1:-1,st:"sit",t:1+Math.random()*2,f:0,ft:0,surf:null,vx:0,vy:0,tx:null,air:null,pose:"sit",z:0};catHost().appendChild(el);catBind(c);
+  const xb=document.createElement("button");xb.className="cat-x";xb.type="button";xb.title="Xóa bé mèo này";xb.setAttribute("aria-label","Xóa mèo "+((CAT_COATS[coat]||{}).l||""));xb.innerHTML=ic("close");catHost().appendChild(xb);c.xb=xb;
+  let ht=0;const on=()=>{clearTimeout(ht);c.hov=true},off=e=>{clearTimeout(ht);ht=setTimeout(()=>{c.hov=false},e&&e.pointerType==="touch"?3000:450)};
+  el.addEventListener("pointerenter",on);el.addEventListener("pointerleave",off);xb.addEventListener("pointerenter",on);xb.addEventListener("pointerleave",off);el.addEventListener("focus",on);el.addEventListener("blur",off);
+  xb.addEventListener("pointerdown",e=>e.stopPropagation());xb.onclick=e=>{e.stopPropagation();catRemove(c)};
+  return c}
+function catRemove(c){const i=CW.cats.indexOf(c);if(i<0)return;c.el.classList.add("bye");c.xb.remove();setTimeout(()=>c.el.remove(),260);CW.cats.splice(i,1);const L=CATS.list.slice();L.splice(i,1);
+  if(!L.length){CATS.on=false;CATS.list=[{coat:c.coat}];catsSave();catStop();toast("Đã xóa bé mèo. Bật lại ở biểu tượng mèo trên thanh bên.",2600)}else{CATS.list=L;catsSave();toast("Đã xóa bé "+((CAT_COATS[c.coat]||{}).l||"mèo"),1500)}}
+function catsRebuild(){CW.cats.forEach(c=>{c.el.remove();if(c.xb)c.xb.remove()});CW.cats=[];$$("#catHost .cat-fx").forEach(x=>x.remove());if(!CATS.on){catStop();return}
+  CATS.list.slice(0,4).forEach((q,i)=>CW.cats.push(catNew(CAT_COATS[q.coat]?q.coat:"orange",i)));catStart()}
+function catStart(){if(!CW.raf){CW.last=performance.now();CW.raf=requestAnimationFrame(catTick)}}
+function catStop(){cancelAnimationFrame(CW.raf);CW.raf=0}
+const catRM=()=>matchMedia("(prefers-reduced-motion: reduce)").matches;
+function catSet(c,st,t){c.st=st;c.t=t;c.f=0;c.ft=0}
+function catDecide(c){const P=catPerches();const idle=(Date.now()-CW.lastUser)/1000;const g=catGroundAt(c);const w=CAT_W*catScale();
+  const opts=[["walk",30],["sit",18],["groom",10],["sleep",8+(idle>25?40:0)+(CATS.sleepy?25:0)],["zoom",catRM()?0:5],["climb",P.length&&CATS.climb?(c.surf?6:14):0],["down",c.surf?14:0],["chase",Date.now()-CW.lastMove<4000&&Math.abs(CW.mx-c.x)<500?18:0]];
+  let tot=opts.reduce((s,o)=>s+o[1],0),r=Math.random()*tot,pick="sit";for(const [k,v] of opts){if((r-=v)<=0){pick=k;break}}
+  if(pick==="walk"){c.tx=Math.max(g.l+4,Math.min(g.rr-w-4,g.l+Math.random()*(g.rr-g.l-w)));catSet(c,"walk",20)}
+  else if(pick==="chase"){c.tx=Math.max(g.l+4,Math.min(g.rr-w-4,CW.mx-w/2));catSet(c,"walk",8)}
+  else if(pick==="sit")catSet(c,"sit",2+Math.random()*4);else if(pick==="groom")catSet(c,"groom",2.5+Math.random()*2.5);
+  else if(pick==="sleep")catSet(c,"sleep",10+Math.random()*18);
+  else if(pick==="zoom"){c.tx=c.dir>0?g.l+4:g.rr-w-4;catSet(c,"zoom",6)}
+  else if(pick==="climb"){const p=P[Math.floor(Math.random()*P.length)];if(!p||(c.surf&&c.surf.el===p.el))return catSet(c,"sit",2);const x=Math.max(p.r.left+4,Math.min(p.r.right-w-4,c.x+(Math.random()-.5)*300));catJump(c,x,p.r.top+1,{el:p.el})}
+  else if(pick==="down"){const x=Math.max(4,Math.min(innerWidth-w-4,c.x+(c.dir*80)));catJump(c,x,innerHeight,null)}}
+function catJump(c,x,y,surf){c.air={x0:c.x,y0:c.y,x1:x,y1:y,t:0,d:Math.max(.45,Math.min(1.1,Math.hypot(x-c.x,y-c.y)/700)),surf};c.dir=x>=c.x?1:-1;catSet(c,"jump",9)}
+function catFall(c){c.surf=null;c.air={x0:c.x,y0:c.y,x1:c.x,y1:innerHeight,t:0,d:Math.max(.25,Math.min(.8,(innerHeight-c.y)/900)),surf:null,fall:true};catSet(c,"jump",9)}
+function catTick(now){CW.raf=requestAnimationFrame(catTick);const dt=Math.min(.05,(now-CW.last)/1000);CW.last=now;if(document.hidden)return;
+  const shy=!!(document.fullscreenElement||$(".sshow"));const host=catHost();host.classList.toggle("shy",shy);if(shy)return;
+  const s=catScale(),w=CAT_W*s,h=CAT_H*s;
+  CW.cats.forEach(c=>{c.t-=dt;c.ft+=dt;
+    if(c.st==="held"){c.pose="held";}
+    else if(c.st==="jump"&&c.air){const A=c.air;A.t+=dt/A.d;const k=Math.min(1,A.t);c.x=A.x0+(A.x1-A.x0)*k;const arc=A.fall?0:Math.min(160,Math.abs(A.y1-A.y0)*.5+60);c.y=A.y0+(A.y1-A.y0)*(A.fall?k*k:k)-(A.fall?0:Math.sin(Math.PI*k)*arc);c.pose="run";c.f=0;
+      if(k>=1){c.surf=A.surf;c.air=null;c.y=A.y1;catSet(c,"sit",1+Math.random()*2)}}
+    else{const g=catGroundAt(c);if(!g){catFall(c)}else{c.y=g.y;
+      if(c.st==="walk"||c.st==="zoom"||c.st==="flee"){const sp=(c.st==="walk"?42:c.st==="flee"?260:230)*s/2;const d=c.tx-c.x;if(Math.abs(d)<3||c.t<=0){if(c.st==="zoom"&&!c.zback){c.zback=1;c.tx=c.dir>0?g.l+4:g.rr-w-4;c.dir*=-1}else{c.zback=0;catSet(c,"sit",1.5+Math.random()*2)}}else{c.dir=d>0?1:-1;c.x+=Math.sign(d)*Math.min(Math.abs(d),sp*dt)}c.pose=c.st==="walk"?"walk":"run"}
+      else if(c.st==="crouch"){c.pose="crouch";if(c.t<=0){const tx=Math.max(g.l+2,Math.min(g.rr-w-2,CW.mx-w/2));c.air={x0:c.x,y0:c.y,x1:tx,y1:c.y,t:0,d:.5,surf:c.surf};c.dir=tx>=c.x?1:-1;catSet(c,"jump",2)}}
+      else{c.pose=c.st==="sleep"?"sleep":c.st==="groom"?"groom":c.st==="happy"?"happy":"sit";if(c.t<=0)catDecide(c)}
+      c.x=Math.max(g.l,Math.min(g.rr-w,c.x))}}
+    /* khung hình */
+    const fps=c.pose==="walk"?8:c.pose==="run"?12:c.pose==="sleep"?1.2:c.pose==="groom"?3:1.5;if(c.ft>1/fps){c.ft=0;c.f=(c.f+1)%4}
+    const key=c.coat+c.pose+(c.f%4);if(c._k!==key){c._k=key;const ctx=c.el.getContext("2d");ctx.clearRect(0,0,CAT_W,CAT_H);ctx.drawImage(catFrame(c.coat,c.pose,c.f%4),0,0)}
+    if(c.el.style.width!==w+"px"){c.el.style.width=w+"px";c.el.style.height=h+"px"}
+    c.el.style.transform=`translate3d(${Math.round(c.x)}px,${Math.round(c.y-h+(c.surf?1:0))}px,0) scaleX(${c.dir})`;
+    if(c.xb){const show=c.hov&&c.st!=="held";c.xb.classList.toggle("on",show);if(show)c.xb.style.transform=`translate3d(${Math.round(c.x+(c.dir>0?w-6:-10))}px,${Math.round(c.y-h-12+(c.pose==="sleep"?h*.35:0))}px,0)`}
+    if(c.pose==="sleep"&&Math.random()<dt*.6)catFx(c,"z");});
+}
+/* ---------- hiệu ứng: tim, zzz ---------- */
+function catFx(c,k){const s=catScale();const d=document.createElement("span");d.className="cat-fx "+(k==="z"?"cat-z":"cat-heart");d.textContent=k==="z"?"z":"";
+  d.style.left=(c.x+(c.dir>0?CAT_W*s*.72:CAT_W*s*.28)+(Math.random()-.5)*12)+"px";d.style.top=(c.y-CAT_H*s*.7)+"px";if(k!=="z")d.style.setProperty("--dx",((Math.random()-.5)*50)+"px");catHost().appendChild(d);setTimeout(()=>d.remove(),k==="z"?2600:1300)}
+/* ---------- tương tác ---------- */
+function catBind(c){const el=c.el;
+  el.addEventListener("pointerdown",e=>{e.preventDefault();e.stopPropagation();const x0=e.clientX,y0=e.clientY;let drag=false;const s=catScale();const ox=x0-c.x,oy=y0-(c.y-CAT_H*s);
+    try{el.setPointerCapture(e.pointerId)}catch(_){}
+    const mv=ev=>{if(!drag&&Math.hypot(ev.clientX-x0,ev.clientY-y0)>6){drag=true;c.air=null;catSet(c,"held",99);c.surf=null;el.classList.add("held")}if(drag){c.x=ev.clientX-ox;c.y=ev.clientY-oy+CAT_H*s}};
+    const up=ev=>{el.removeEventListener("pointermove",mv);el.removeEventListener("pointerup",up);el.removeEventListener("pointercancel",up);el.classList.remove("held");
+      if(drag){/* thả xuống mép khối bên dưới gần nhất, hoặc mép dưới màn hình */const w=CAT_W*s;const cx=c.x+w/2;const P=catPerches().filter(p=>p.r.top>=c.y-8&&cx>p.r.left&&cx<p.r.right).sort((a,b)=>a.r.top-b.r.top);const p=P[0];
+        c.air={x0:c.x,y0:c.y,x1:c.x,y1:p?p.r.top+1:innerHeight,t:0,d:.35,surf:p?{el:p.el}:null,fall:true};catSet(c,"jump",9)}
+      else catPet(c)};
+    el.addEventListener("pointermove",mv);el.addEventListener("pointerup",up);el.addEventListener("pointercancel",up)});
+  el.addEventListener("dblclick",e=>{e.preventDefault();catMenu(c,el)});
+  el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();catPet(c)}});el.tabIndex=0}
+function catPet(c){if(c.st==="jump")return;CW.lastUser=Date.now();catSet(c,"happy",1.8);for(let i=0;i<5;i++)setTimeout(()=>catFx(c,"h"),i*90)}
+function catMenu(c,anchor){const keys=Object.keys(CAT_COATS);const m=popMenu(anchor,`<div class="who"><b style="color:var(--ink)">${esc(CAT_COATS[c.coat].l)}</b></div>
+  <button data-a="pet">${ic("star")}Vuốt ve</button><button data-a="sl">${ic("moon")}Cho ngủ</button><button data-a="zm">${ic("spark")}Chạy vòng vòng</button><button data-a="cc">${ic("palette")}Đổi bộ lông</button><div class="sep"></div><button data-a="add">${ic("plus")}Thêm một bé mèo</button><button data-a="set">${ic("cat")}Cài đặt mèo…</button><button data-a="off">${ic("close")}Tạm ẩn mèo</button>`);
+  const q=(k,f)=>{const b=$(`[data-a=${k}]`,m);if(b)b.onclick=f};const i=CW.cats.indexOf(c);
+  q("pet",()=>catPet(c));q("sl",()=>catSet(c,"sleep",25));q("zm",()=>{const g=catGroundAt(c)||{l:0,rr:innerWidth};c.dir=c.x>innerWidth/2?1:-1;c.tx=c.dir>0?g.rr-80:g.l+4;catSet(c,"zoom",6)});
+  q("cc",()=>{const n=keys[(keys.indexOf(c.coat)+1)%keys.length];c.coat=n;c._k=null;if(CATS.list[i])CATS.list[i].coat=n;catsSave();toast("Bộ lông: "+CAT_COATS[n].l,1400)});
+  q("add",()=>{if(CATS.list.length>=4){toast("Tối đa 4 bé mèo",1600);return}const used=new Set(CATS.list.map(x=>x.coat));const n=keys.find(k=>!used.has(k))||"gray";CATS.list.push({coat:n});catsSave();CW.cats.push(catNew(n,CW.cats.length))});
+  q("set",()=>catSettings());q("off",()=>{CATS.on=false;catsSave();catsRebuild();toast("Đã ẩn mèo. Bật lại ở biểu tượng mèo trên thanh bên.",2600)})}
+addEventListener("pointermove",e=>{const now=performance.now();const dx=e.clientX-CW.mx;if(CW.mx>-900&&Math.sign(dx)&&Math.sign(dx)!==Math.sign(CW.mvx)&&Math.abs(dx)>8)CW.wig+=1;CW.mvx=dx||CW.mvx;CW.mx=e.clientX;CW.my=e.clientY;CW.lastMove=Date.now();CW.lastUser=Date.now();
+  if(now-(CW._wt||0)>700){CW._wt=now;CW.wig=Math.max(0,CW.wig-2)}
+  if(CW.wig>=4){CW.wig=0;const s=catScale();CW.cats.forEach(c=>{if(c.st==="held"||c.st==="jump")return;const cx=c.x+CAT_W*s/2;if(Math.abs(cx-CW.mx)<260&&Math.abs((c.y-CAT_H*s/2)-CW.my)<260){
+    if(CATS.skittish){const g=catGroundAt(c)||{l:0,rr:innerWidth};c.tx=CW.mx>cx?g.l+4:g.rr-CAT_W*s-4;catSet(c,"flee",4)}else{c.dir=CW.mx>cx?1:-1;catSet(c,"crouch",.35)}}})}},{passive:true});
+addEventListener("keydown",()=>{CW.lastUser=Date.now();CW.cats.forEach(c=>{if(c.st==="sleep"&&Math.random()<.15)catSet(c,"sit",2)})},true);
+addEventListener("resize",()=>{CW.cats.forEach(c=>{c.x=Math.min(c.x,innerWidth-CAT_W*catScale());if(!c.surf)c.y=innerHeight})});
+addEventListener("scroll",()=>{},{passive:true});
+
+/* ---------- hộp cài đặt mèo ---------- */
+function catSwatch(coat){const c=catFrame(coat,"sit",0);return `<img src="${c.toDataURL()}" alt="" class="cat-sw">`}
+function catSettings(){const keys=Object.keys(CAT_COATS);
+  openModal({title:"Mèo nhỏ trên màn hình",small:true,body:`<div class="form cat-set">
+    <label class="chk-row"><input type="checkbox" class="chk" id="ctOn" ${CATS.on?"checked":""}> Bật mèo</label>
+    <div class="field"><span>Các bé mèo (tối đa 4) — bấm để đổi bộ lông</span><div class="cat-list" id="ctL"></div><button class="btn" id="ctAdd">${ic("plus")} Thêm một bé</button></div>
+    <div class="field"><span>Kích thước</span><div class="nl-seg">${[[2,"Nhỏ"],[3,"Vừa"],[4,"Lớn"]].map(([v,l])=>`<button type="button" role="radio" data-csz="${v}" aria-checked="${CATS.size===v}">${l}</button>`).join("")}</div></div>
+    <label class="chk-row"><input type="checkbox" class="chk" id="ctClimb" ${CATS.climb?"checked":""}> Leo lên mép các khối và cửa sổ</label>
+    <label class="chk-row"><input type="checkbox" class="chk" id="ctSk" ${CATS.skittish?"checked":""}> Nhát: lắc chuột thì mèo bỏ chạy (tắt: mèo vồ con trỏ)</label>
+    <label class="chk-row"><input type="checkbox" class="chk" id="ctSl" ${CATS.sleepy?"checked":""}> Hay buồn ngủ (ngủ nhiều hơn khi bạn đang tập trung học)</label>
+    <p class="muted" style="margin:0;font-size:12.5px">Bấm vào mèo để vuốt ve, kéo để nhấc mèo đặt chỗ khác, bấm đúp để mở menu. Mèo không đói, không cần chăm và tự ẩn khi bạn xem toàn màn hình.</p></div>`,foot:`<div class="grow"></div><button class="pill-btn primary" data-close>Xong</button>`});
+  const drawL=()=>{$("#ctL").innerHTML=CATS.list.map((q,i)=>`<div class="cat-it"><select data-cco="${i}" aria-label="Bộ lông mèo ${i+1}">${keys.map(k=>`<option value="${k}" ${k===q.coat?"selected":""}>${esc(CAT_COATS[k].l)}</option>`).join("")}</select>${catSwatch(q.coat)}${CATS.list.length>1?`<button class="ghost ic" data-cdel="${i}" aria-label="Bỏ mèo ${i+1}">${ic("close")}</button>`:""}</div>`).join("");
+    $$("[data-cco]").forEach(s=>s.onchange=()=>{CATS.list[+s.dataset.cco].coat=s.value;catsSave();catsRebuild();drawL()});$$("[data-cdel]").forEach(b=>b.onclick=()=>{CATS.list.splice(+b.dataset.cdel,1);catsSave();catsRebuild();drawL()})};drawL();
+  $("#ctAdd").onclick=()=>{if(CATS.list.length>=4)return toast("Tối đa 4 bé mèo",1500);const used=new Set(CATS.list.map(x=>x.coat));CATS.list.push({coat:keys.find(k=>!used.has(k))||"gray"});catsSave();catsRebuild();drawL()};
+  $("#ctOn").onchange=e=>{CATS.on=e.target.checked;catsSave();catsRebuild()};$("#ctClimb").onchange=e=>{CATS.climb=e.target.checked;catsSave();if(!CATS.climb)CW.cats.forEach(c=>{if(c.surf)catFall(c)})};
+  $("#ctSk").onchange=e=>{CATS.skittish=e.target.checked;catsSave()};$("#ctSl").onchange=e=>{CATS.sleepy=e.target.checked;catsSave()};
+  $$("[data-csz]").forEach(b=>b.onclick=()=>{CATS.size=+b.dataset.csz;catsSave();$$("[data-csz]").forEach(x=>x.setAttribute("aria-checked",x===b))})}
+/* ---------- nút trên thanh bên ---------- */
+RAIL_ALL.cat=["Mèo nhỏ trên màn hình","cat"];
+{const d=UI.dash;if(d&&d.rail&&!d.rail.order.includes("cat"))d.rail.order.push("cat")}
+{const _ra33=railAct;railAct=function(k,btn){if(k==="cat"){hideTip();closeFly();return catSettings()}return _ra33(k,btn)}}
+setTimeout(()=>{catsRebuild();if(CATS.on&&!local.get("catHello",false)){local.set("catHello",true);setTimeout(()=>toast("Có một bé mèo đang đi dạo ở mép dưới màn hình. Bấm vào để vuốt ve nhé!",4200),2500)}},1800);
+
+/* =====================================================================
+   v30 — DỰ ÁN: hướng dẫn từng bước cho bài toán thiết kế nhiều bước
+   (thiết kế chip, làm mạch in, robot, bộ lọc, hệ đo, FSM, phần mềm OOP, giải PTVP…)
+   - Mỗi bước: mục tiêu · chỉ dẫn · danh sách việc (cách làm) · lời giải mẫu · mô phỏng liên quan · ghi chú
+   - Thanh AI bên phải: giải thích, gợi ý, kiểm tra bài làm, viết thêm bước — bám theo bước đang mở
+   - Gắn dự án vào môn học (nút + trên thẻ môn, tab “Dự án” trong trang môn)
+   ===================================================================== */
+Object.assign(IC,{proj:'<path d="M4 6h7M4 12h11M4 18h7"/><circle cx="16" cy="6" r="2.2"/><circle cx="19" cy="12" r="2.2"/><circle cx="16" cy="18" r="2.2"/>',moon:'<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',flag:'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>'});
+UI.projs=UI.projs||[];
+const PJS=(t,goal,guide,tasks,sol,sims=[])=>({t,goal,guide,tasks,sol,sims});
+const PJ_TPL={
+ chip:{l:"Thiết kế chip số: bộ đếm 4 bit",course:"ECE204",i:"cube",d:"Từ đặc tả → RTL Verilog → mô phỏng → tổng hợp → STA → đặt & đi dây → nạp FPGA / tape-out",summary:"Thiết kế một khối số nhỏ theo đúng quy trình làm chip: bộ đếm 4 bit có reset, enable và cờ tràn.",steps:[
+  PJS("Đặc tả yêu cầu","Viết ra chính xác khối phải làm gì trước khi vẽ hay viết mã.","Liệt kê **ngõ vào/ra**, độ rộng bit, xung nhịp, kiểu reset (đồng bộ hay bất đồng bộ), tần số mục tiêu và điều kiện biên (đếm tới 15 rồi làm gì).\n\nMột đặc tả tốt phải **kiểm chứng được**: mỗi câu đều có thể viết thành một phép thử.",["Lập bảng I/O: tên, hướng, độ rộng, ý nghĩa","Chọn reset tích cực mức thấp, bất đồng bộ hay đồng bộ","Xác định tần số clock mục tiêu (ví dụ 100 MHz)","Viết 3 câu yêu cầu kiểm chứng được"],"| Tín hiệu | Hướng | Bit | Ý nghĩa |\n|---|---|---|---|\n| clk | vào | 1 | xung nhịp 100 MHz |\n| rst_n | vào | 1 | reset bất đồng bộ, tích cực 0 |\n| en | vào | 1 | cho phép đếm |\n| q | ra | 4 | giá trị đếm |\n| tc | ra | 1 | =1 khi q = 15 và en = 1 |\n\nYêu cầu: (1) rst_n = 0 → q = 0 ngay lập tức; (2) en = 1 → q tăng 1 mỗi sườn lên; (3) q = 15 → bước sau q = 0."),
+  PJS("Kiến trúc & sơ đồ khối","Tách thành đường dữ liệu và khối điều khiển.","Đường dữ liệu: **thanh ghi 4 bit** + **bộ cộng +1** + bộ chọn (giữ / tăng). Điều khiển: tín hiệu en và so sánh q = 15 để tạo tc.\n\nVẽ sơ đồ khối có đủ độ rộng bus và nhịp clock.",["Vẽ thanh ghi, bộ cộng, MUX giữ/tăng","Ghi độ rộng bus trên từng mũi tên","Chỉ ra đường tới hạn (critical path): Q → cộng → MUX → D"],"Đường tới hạn đi qua bộ cộng 4 bit (ripple carry 4 tầng). Ở 100 MHz (10 ns) còn rất nhiều dư thời gian; với bộ đếm 32 bit nên cân nhắc carry-lookahead.",["sim:adder","m3:e204_half"]),
+  PJS("Viết RTL (Verilog)","Mô tả phần cứng tổng hợp được, không phải chương trình tuần tự.","Dùng `always @(posedge clk or negedge rst_n)` cho phần tuần tự, phép gán **non-blocking (`<=`)**. Phần tổ hợp dùng `assign`. Tránh tạo latch ngoài ý muốn (mọi nhánh `if` đều gán).",["Viết module counter4","Kiểm tra mọi tín hiệu ra đều được gán","Không dùng delay #n trong RTL"],"```verilog\nmodule counter4(\n  input  wire clk, rst_n, en,\n  output reg  [3:0] q,\n  output wire tc);\n  always @(posedge clk or negedge rst_n)\n    if (!rst_n)  q <= 4'd0;\n    else if (en) q <= q + 4'd1;\n  assign tc = en & (q == 4'hF);\nendmodule\n```"),
+  PJS("Testbench & mô phỏng chức năng","Chứng minh RTL đúng đặc tả trước khi tổng hợp.","Viết testbench tạo clock, reset, kích thích en và **tự kiểm tra** (so sánh với mô hình tham chiếu) thay vì chỉ nhìn dạng sóng. Chạy bằng Icarus Verilog + GTKWave, ModelSim hoặc Vivado Simulator.",["Tạo clock 10 ns và reset 2 chu kỳ đầu","Đếm 20 chu kỳ, kiểm tra q và tc bằng if/$display","Thử en = 0 giữa chừng","Xem dạng sóng: q quay vòng 15 → 0"],"```verilog\n`timescale 1ns/1ps\nmodule tb;\n  reg clk=0, rst_n=0, en=0; wire [3:0] q; wire tc;\n  counter4 dut(.clk(clk),.rst_n(rst_n),.en(en),.q(q),.tc(tc));\n  always #5 clk = ~clk;\n  integer i; reg [3:0] ref;\n  initial begin\n    #12 rst_n=1; en=1; ref=0;\n    for(i=0;i<20;i=i+1) begin\n      @(posedge clk); #1 ref = ref + 1;\n      if(q!==ref) $display(\"LỖI t=%0t q=%d ref=%d\",$time,q,ref);\n    end\n    $display(\"Xong\"); $finish;\n  end\nendmodule\n```",["sim:latch"]),
+  PJS("Tổng hợp logic (synthesis)","Biến RTL thành netlist cổng/LUT và đọc báo cáo.","Dùng **Yosys** (mã nguồn mở) hoặc Vivado/Quartus. Kiểm tra báo cáo: số flip-flop phải là 4, không có **latch**, số LUT nhỏ. Đọc cảnh báo kỹ — cảnh báo “inferred latch” thường là lỗi.",["Chạy tổng hợp và lưu báo cáo tài nguyên","Xác nhận 4 FF, 0 latch","Ghi lại số LUT / cell"],"Yosys: `yosys -p \"read_verilog counter4.v; synth -top counter4; stat\"` → khoảng 4 DFF + vài cell cộng/so sánh."),
+  PJS("Ràng buộc thời gian & STA","Đảm bảo mạch chạy đúng tần số mục tiêu.","Khai báo clock: `create_clock -period 10 [get_ports clk]`. Phân tích thời gian tĩnh (STA) cho **setup slack** và **hold slack** ≥ 0. Nếu slack âm: giảm logic trên đường tới hạn, pipeline hoặc giảm tần số.",["Viết file ràng buộc (XDC/SDC)","Chạy STA, ghi WNS/TNS","Giải thích đường tới hạn trong báo cáo"],"Điều kiện setup: T_clk ≥ t_clk→Q + t_logic + t_setup. Với t_clk→Q = 0,5 ns, t_logic = 2 ns, t_setup = 0,3 ns ⇒ cần T ≥ 2,8 ns (≈ 357 MHz), nên 100 MHz dư 7,2 ns."),
+  PJS("Đặt linh kiện & đi dây (P&R)","Tạo bố trí vật lý: FPGA bitstream hoặc layout ASIC.","**FPGA:** gán chân (LED, nút bấm, clock), chạy implementation, tạo bitstream. **ASIC (OpenLane/SkyWater 130 nm):** floorplan → placement → cây clock (CTS) → routing → kiểm tra **DRC/LVS** → GDSII.",["Gán chân trong file ràng buộc","Chạy implementation / OpenLane flow","Kiểm tra DRC = 0, LVS khớp"],"Với FPGA, chia clock 100 MHz xuống ~2 Hz (bộ chia 26 bit) để thấy LED đếm bằng mắt."),
+  PJS("Kiểm thử trên phần cứng & báo cáo","So sánh kết quả thật với đặc tả.","Nạp FPGA, quan sát LED/logic analyzer. Viết báo cáo: đặc tả, kiến trúc, mã, kết quả mô phỏng, tài nguyên, timing, ảnh chạy thật, bài học rút ra.",["Nạp bitstream và chụp ảnh kết quả","Đối chiếu từng yêu cầu ở bước 1","Viết phần kết luận & cải tiến"],"Bảng đối chiếu: Yêu cầu (1) reset ✓, (2) đếm khi en ✓, (3) quay vòng ✓ — kèm ảnh/dạng sóng làm bằng chứng.",["sim:cpu"])]},
+ pcb:{l:"Làm mạch in: đèn nháy NE555",course:"ECE201",i:"cube",d:"Yêu cầu → sơ đồ nguyên lý → tính linh kiện → mô phỏng → layout KiCad → DRC/Gerber → hàn & đo",summary:"Thiết kế trọn một mạch in nhỏ: NE555 chế độ dao động (astable) nháy LED khoảng 1 Hz.",steps:[
+  PJS("Yêu cầu sản phẩm","Biết rõ mạch cần đạt gì.","Đèn nháy **1 Hz ± 10%**, nguồn **9 V**, dòng LED ≤ 20 mA, bo ≤ 40 × 30 mm, linh kiện xuyên lỗ (dễ hàn).",["Ghi tiêu chí đo được (tần số, dòng, kích thước)","Liệt kê ràng buộc: nguồn, chi phí, linh kiện có sẵn"],"Tiêu chí: f = 0,9–1,1 Hz; I_LED ≈ 15 mA; kích thước ≤ 40 × 30 mm."),
+  PJS("Sơ đồ nguyên lý","Vẽ mạch NE555 astable.","Chân 8 & 4 nối VCC, chân 1 GND, R1 từ VCC tới chân 7, R2 giữa chân 7 và 6/2, C nối chân 6/2 xuống GND, chân 5 qua 10 nF xuống GND, chân 3 → R → LED.",["Vẽ trong KiCad Eeschema","Đặt nhãn net rõ ràng","Chạy ERC (kiểm tra luật điện)"],"Tần số: f ≈ 1,44 / ((R1 + 2·R2)·C)."),
+  PJS("Tính giá trị & BOM","Chọn R, C theo công thức và giá trị chuẩn.","Chọn C = 10 µF rồi tính R1 + 2R2 ≈ 1,44 / (1 × 10⁻⁵) = 144 kΩ. Duty cycle D = (R1 + R2)/(R1 + 2R2).",["Tính R1, R2 với giá trị E12","Tính R LED: (9 − 2) / 0,015","Lập BOM: mã, giá trị, số lượng, footprint"],"R1 = 10 kΩ, R2 = 68 kΩ ⇒ R1 + 2R2 = 146 kΩ ⇒ f ≈ 0,99 Hz, D ≈ 53%. R_LED = 470 Ω (≈ 15 mA).",["sim:pwm","m3:ledsw"]),
+  PJS("Mô phỏng mạch","Kiểm tra trước khi làm bo.","Mô phỏng bằng LTspice/KiCad ngspice: xem điện áp tụ dao động giữa 1/3 và 2/3 VCC, ngõ ra chân 3 là xung vuông.",["Chạy transient 5 s","Đo chu kỳ trên đồ thị","So sánh với tính toán"],"Tụ nạp qua R1 + R2: t_H = 0,693(R1 + R2)C ≈ 0,54 s; xả qua R2: t_L = 0,693·R2·C ≈ 0,47 s.",["sim:rc"]),
+  PJS("Bố trí & đi dây PCB","Biến sơ đồ thành bo mạch.","Gán footprint, đặt IC ở giữa, tụ lọc sát chân nguồn, đường nguồn rộng ≥ 0,5 mm, tín hiệu ≥ 0,25 mm, phủ đồng GND mặt dưới.",["Đặt linh kiện gọn, LED ở mép bo","Đi dây không vòng lặp, không góc 90°","Thêm lỗ bắt vít, chữ tên & phiên bản"],"Quy tắc nhanh: 1 oz đồng, rộng 0,5 mm chịu ~1 A ở nhiệt độ tăng 10 °C — dư cho mạch này."),
+  PJS("DRC & xuất Gerber","Kiểm tra luật thiết kế và gửi gia công.","Chạy **DRC** theo khả năng nhà sản xuất (khoảng cách tối thiểu, lỗ khoan). Xuất Gerber + file khoan, xem lại bằng Gerber viewer.",["DRC = 0 lỗi","Xuất Gerber, drill, BOM, file vị trí","Xem lại từng lớp trước khi đặt"],"Thông số phổ biến: track/space 0,15/0,15 mm, khoan tối thiểu 0,3 mm."),
+  PJS("Hàn lắp & đo kiểm","Lắp, đo, sửa lỗi.","Hàn linh kiện thấp trước (điện trở) rồi cao sau (tụ, LED). Cấp nguồn qua đồng hồ đo dòng, đo tần số bằng oscilloscope hoặc đếm nháy.",["Kiểm tra ngắn mạch nguồn trước khi cấp điện","Đo dòng tiêu thụ","Đo tần số, so với yêu cầu"],"Nếu tần số lệch > 10%: kiểm tra dung sai tụ điện phân (±20%) — đổi R2 để hiệu chỉnh.",["lab:led"])]},
+ robot:{l:"Robot dò line",course:"ECE201",i:"cube",d:"Khung & động cơ → cảm biến IR → cầu H → vi điều khiển → PID → thử nghiệm",summary:"Robot hai bánh bám theo vạch đen bằng cảm biến hồng ngoại và điều khiển PID.",steps:[
+  PJS("Cơ khí & chọn động cơ","Khung chắc, trọng tâm thấp, động cơ đủ mô-men.","Chọn động cơ giảm tốc DC 6 V (~200 rpm), bánh 65 mm, bánh tự lựa phía trước. Đặt pin thấp và gần trục bánh.",["Tính tốc độ: v = π·D·rpm/60","Vẽ bố trí khung","Chọn pin (2S Li-ion 7,4 V hoặc 6 × AA)"],"v = π × 0,065 × 200 / 60 ≈ 0,68 m/s — vừa đủ để bám vạch ổn định."),
+  PJS("Cảm biến hồng ngoại","Phát hiện vạch đen trên nền trắng.","Dùng 3–5 cảm biến TCRT5000 đặt thành hàng cách mặt đất 5–10 mm. Đọc analog để có **sai số vị trí** liên tục thay vì chỉ 0/1.",["Đo giá trị trên nền trắng và vạch đen","Chọn ngưỡng hoặc chuẩn hóa 0–1","Tính sai số e = Σ(wᵢ·sᵢ)/Σsᵢ"],"Với 5 cảm biến trọng số −2, −1, 0, 1, 2: e = 0 khi vạch ở giữa, e < 0 lệch trái."),
+  PJS("Mạch công suất cầu H","Điều khiển chiều & tốc độ động cơ.","Dùng TB6612FNG (hiệu suất cao) hoặc L298N. PWM điều khiển tốc độ, hai chân IN điều khiển chiều. Thêm tụ 100 µF gần nguồn động cơ, nối chung GND.",["Vẽ sơ đồ nối dây MCU – driver – động cơ","Chọn tần số PWM (≈ 20 kHz cho êm)","Tính dòng đỉnh khi kẹt động cơ"],"Transistor/MOSFET trong cầu H hoạt động như công tắc; xem mô phỏng transistor làm công tắc.",["lab:mos","m3:bjt","sim:pwm"]),
+  PJS("Vi điều khiển & chương trình nền","Đọc cảm biến, xuất PWM theo chu kỳ cố định.","Arduino/ESP32: vòng lặp 200 Hz đọc cảm biến → tính e → điều khiển. Dùng millis() để giữ chu kỳ đều.",["Đọc 5 kênh analog","Xuất PWM 2 động cơ","In e ra Serial để kiểm tra"],"```cpp\nconst int W[5]={-2,-1,0,1,2};\nfloat readError(){long s=0,ws=0;for(int i=0;i<5;i++){int v=1023-analogRead(A0+i);s+=v;ws+=W[i]*v;}return s?(float)ws/s:0;}\n```"),
+  PJS("Thuật toán PID","Bám vạch mượt, không lắc.","u = Kp·e + Ki·Σe·dt + Kd·de/dt; tốc độ trái = v₀ + u, phải = v₀ − u. Bắt đầu chỉ với P, thêm D để giảm dao động, I nhỏ để bù lệch.",["Cài đặt PID với dt cố định","Giới hạn u và chống tích phân bão hòa","Ghi lại Kp, Ki, Kd thử nghiệm"],"```cpp\nfloat Kp=60,Ki=0,Kd=8,ie=0,pe=0;\nvoid control(float e,float dt){ie=constrain(ie+e*dt,-1,1);float u=Kp*e+Ki*ie+Kd*(e-pe)/dt;pe=e;\n  setMotors(150+u,150-u);}\n```"),
+  PJS("Hiệu chỉnh & thử nghiệm","Đạt tốc độ cao mà không lạc vạch.","Phương pháp: tăng Kp tới khi robot lắc đều, giảm còn ~60%, tăng Kd tới khi hết lắc. Thử trên đường cong gắt, đo thời gian một vòng.",["Bảng Kp/Kd và thời gian vòng","Thử 3 lần mỗi bộ tham số","Kết luận bộ tham số tốt nhất"],"Ghi kết quả dạng bảng: (Kp, Kd, thời gian, số lần lạc vạch) để chọn có căn cứ.")]},
+ filter:{l:"Thiết kế bộ lọc thông thấp 1 kHz",course:"ECE205",i:"cube",d:"Yêu cầu → chọn bậc & cấu trúc → tính R, C → mô phỏng Bode → lắp & đo → so sánh",summary:"Thiết kế bộ lọc thông thấp tần số cắt 1 kHz: bậc 1 RC và bậc 2 Sallen-Key Butterworth.",steps:[
+  PJS("Yêu cầu bộ lọc","Xác định tần số cắt và độ dốc.","f_c = **1 kHz**, suy giảm ≥ 30 dB ở 10 kHz, độ lợi dải thông 0 dB. Bậc 1 chỉ dốc −20 dB/decade nên cần xem bậc 2 (−40 dB/decade).",["Tính suy giảm của bậc 1 tại 10 kHz","Quyết định số bậc cần thiết"],"Bậc 1 tại 10 f_c: |H| ≈ 1/10 → −20 dB (chưa đủ). Bậc 2 Butterworth: −40 dB ✓."),
+  PJS("Bậc 1: mạch RC","Hiểu hàm truyền cơ bản.","H(s) = 1 / (1 + sRC), f_c = 1 / (2πRC), pha −45° tại f_c.",["Chọn C = 100 nF, tính R","Vẽ tiệm cận Bode"],"R = 1 / (2π · 1000 · 100 nF) ≈ 1,59 kΩ → chọn 1,6 kΩ (E24).",["sim:rc","m3:e205_rc"]),
+  PJS("Bậc 2: Sallen-Key Butterworth","Đạt −40 dB/decade với op-amp.","Cấu trúc độ lợi đơn vị: R1 = R2 = R, C1 (hồi tiếp) = 2·C2 cho Q = 0,707. f_c = 1 / (2πR·√(C1·C2)).",["Chọn C2 = 10 nF, C1 = 22 nF (gần 2×)","Tính R","Chọn op-amp có GBW ≥ 100 × f_c"],"√(22n·10n) ≈ 14,8 nF ⇒ R = 1/(2π·1000·14,8 nF) ≈ 10,7 kΩ → 10 kΩ + 680 Ω hoặc 11 kΩ. Op-amp TL072/MCP6002 đủ.",["sim:opamp"]),
+  PJS("Mô phỏng đáp ứng tần số","Kiểm tra Bode trước khi lắp.","AC sweep 10 Hz – 100 kHz trong LTspice. Đọc f tại −3 dB và độ suy giảm tại 10 kHz.",["Chạy .ac dec 50 10 100k","Ghi f(−3 dB) và |H(10 kHz)|"],"Kỳ vọng f(−3 dB) ≈ 1 kHz, |H(10 kHz)| ≈ −40 dB."),
+  PJS("Lắp mạch & đo Bode","Đo bằng máy phát hàm + oscilloscope.","Đưa sin 1 Vpp, quét 100 Hz, 300 Hz, 1 kHz, 3 kHz, 10 kHz; đo V_out/V_in và độ lệch pha.",["Lập bảng f – V_in – V_out – dB – pha","Vẽ đồ thị trên giấy log"],"dB = 20·log₁₀(V_out/V_in)."),
+  PJS("So sánh & phân tích sai số","Giải thích chênh lệch lý thuyết – thực tế.","Nguồn sai số: dung sai R ±1%, C ±10%, GBW op-amp, tải của đầu dò. Tính độ nhạy của f_c theo R và C.",["Tính sai lệch % của f_c","Nêu 3 nguồn sai số chính","Đề xuất cải tiến"],"f_c ∝ 1/(R·C) ⇒ sai số tương đối ≈ ΔR/R + ΔC/C: với C ±10% thì f_c lệch tới ~10%.")]},
+ meas:{l:"Hệ đo nhiệt độ với NTC",course:"ECE202",i:"cube",d:"Cảm biến → cầu Wheatstone → khuếch đại → ADC → hiệu chuẩn → sai số & độ không đảm bảo",summary:"Xây chuỗi đo nhiệt độ 0–100 °C dùng nhiệt điện trở NTC 10 kΩ và vi điều khiển.",steps:[
+  PJS("Chọn cảm biến & đặc tính","Hiểu quan hệ R(T) phi tuyến.","NTC 10 kΩ (25 °C), β = 3950: R(T) = R₂₅·exp(β(1/T − 1/T₂₅)) với T theo kelvin.",["Tính R tại 0 °C, 25 °C, 100 °C","Vẽ đồ thị R(T)"],"R(0 °C) ≈ 33,6 kΩ; R(100 °C) ≈ 0,68 kΩ."),
+  PJS("Mạch chuyển đổi: chia áp / cầu","Biến điện trở thành điện áp.","Chia áp NTC với R cố định 10 kΩ cho tuyến tính hóa gần 25 °C, hoặc cầu Wheatstone để đo vi sai quanh điểm cân bằng.",["Tính V_out tại 3 nhiệt độ","So sánh chia áp và cầu"],"Chia áp 3,3 V: V_out = 3,3·R/(R + 10k) → 0 °C: 2,54 V; 25 °C: 1,65 V; 100 °C: 0,21 V.",["m3:e202_wheat","sim:divider"]),
+  PJS("Khuếch đại & lọc","Tận dụng hết dải ADC, giảm nhiễu.","Op-amp không đảo hoặc khuếch đại vi sai (in-amp INA128 cho cầu). Thêm lọc RC thông thấp vài Hz vì nhiệt độ thay đổi chậm.",["Chọn độ lợi để dải ra 0–3,3 V","Thêm lọc thông thấp f_c ≈ 5 Hz"],"Lọc: R = 33 kΩ, C = 1 µF ⇒ f_c ≈ 4,8 Hz.",["sim:opamp"]),
+  PJS("ADC & độ phân giải","Biết hệ đo phân biệt được bao nhiêu độ.","LSB = V_ref / 2ⁿ. ADC 12 bit, 3,3 V ⇒ LSB ≈ 0,8 mV. Tính độ phân giải nhiệt độ tại 25 °C từ độ dốc dV/dT.",["Tính LSB","Tính dV/dT tại 25 °C","Suy ra độ phân giải °C"],"dV/dT ≈ −36 mV/°C tại 25 °C ⇒ 0,8 mV ↔ ≈ 0,02 °C (lý thuyết, chưa tính nhiễu)."),
+  PJS("Hiệu chuẩn","Bù sai lệch hệ thống.","Hiệu chuẩn 2 điểm (nước đá 0 °C, nước sôi ~100 °C) hoặc dùng phương trình Steinhart–Hart với 3 điểm.",["Đo tại ≥ 2 điểm chuẩn","Tính hệ số hiệu chỉnh","Kiểm tra lại tại điểm thứ 3"],"Steinhart–Hart: 1/T = A + B·ln R + C·(ln R)³ — giải hệ 3 phương trình để tìm A, B, C."),
+  PJS("Sai số & độ không đảm bảo đo","Báo cáo kết quả đúng chuẩn đo lường.","Phân biệt sai số hệ thống/ngẫu nhiên. Độ không đảm bảo loại A (thống kê lặp lại) và loại B (dung sai linh kiện, ADC). Kết hợp u_c = √(Σuᵢ²), mở rộng U = k·u_c (k = 2).",["Đo lặp 10 lần, tính độ lệch chuẩn","Liệt kê các nguồn loại B","Viết kết quả: T = x ± U (k = 2)"],"Ví dụ: s = 0,05 °C (n = 10) ⇒ u_A = 0,016 °C; u_B(R cố định 1%) ≈ 0,25 °C ⇒ u_c ≈ 0,25 °C ⇒ U ≈ 0,5 °C.")]},
+ fsm:{l:"Đèn giao thông bằng máy trạng thái (FSM)",course:"ECE204",i:"cube",d:"Sơ đồ trạng thái → bảng chuyển → mã hóa → RTL → mô phỏng → FPGA",summary:"Thiết kế FSM Moore điều khiển đèn giao thông ngã tư có bộ đếm thời gian.",steps:[
+  PJS("Sơ đồ trạng thái","Xác định trạng thái và điều kiện chuyển.","4 trạng thái: S0 (Bắc–Nam xanh), S1 (BN vàng), S2 (Đông–Tây xanh), S3 (ĐT vàng). Chuyển khi bộ đếm hết thời gian (xanh 20 s, vàng 3 s).",["Vẽ sơ đồ trạng thái Moore","Ghi ngõ ra của mỗi trạng thái"],"S0 →(t=20)→ S1 →(t=3)→ S2 →(t=20)→ S3 →(t=3)→ S0."),
+  PJS("Bảng chuyển & mã hóa trạng thái","Chuyển sơ đồ thành bảng.","Chọn mã nhị phân (2 bit) hoặc one-hot (4 FF, logic đơn giản, hợp FPGA).",["Lập bảng trạng thái hiện tại / điều kiện / trạng thái kế","So sánh mã nhị phân và one-hot"],"One-hot: S0=0001, S1=0010, S2=0100, S3=1000 — mỗi ngõ ra chỉ cần OR vài bit."),
+  PJS("RTL Verilog","Ba khối: thanh ghi trạng thái, logic kế, logic ra.","Dùng `localparam` cho trạng thái, `case` cho logic kế. Bộ đếm thời gian riêng, nạp lại khi đổi trạng thái.",["Viết module traffic","Thêm bộ chia clock 1 Hz","Không để case thiếu default"],"```verilog\nlocalparam S0=2'd0,S1=2'd1,S2=2'd2,S3=2'd3;\nreg [1:0] s,n; reg [4:0] t;\nalways @(posedge clk) if(rst) begin s<=S0;t<=0; end else if(t==lim(s)) begin s<=n;t<=0; end else t<=t+1;\nalways @* case(s) S0:n=S1; S1:n=S2; S2:n=S3; default:n=S0; endcase\n```",["sim:latch","sim:gates"]),
+  PJS("Mô phỏng","Kiểm tra trình tự và thời gian.","Testbench rút ngắn thời gian (tham số hóa xanh = 4, vàng = 2 chu kỳ) để xem nhanh. Kiểm tra không bao giờ hai hướng cùng xanh.",["Tham số hóa thời gian","Viết assertion: không cùng xanh"],"Điều kiện an toàn: !(g_ns && g_ew) phải luôn đúng."),
+  PJS("Nạp FPGA & mở rộng","Chạy thật và thêm tính năng.","Gán LED/chân, nạp. Mở rộng: nút người đi bộ, chế độ nhấp nháy vàng ban đêm.",["Nạp và quay video kết quả","Thêm một tính năng mở rộng"],"Nút đi bộ: thêm trạng thái S4 (đỏ cả hai) và cờ yêu cầu được chốt (latch) đến khi phục vụ.")]},
+ oop:{l:"Phần mềm quản lý linh kiện (OOP)",course:"ECE206",i:"cube",d:"Yêu cầu → sơ đồ lớp UML → đóng gói, kế thừa, đa hình → kiểm thử → lưu tệp",summary:"Viết chương trình C++ quản lý kho linh kiện điện tử theo hướng đối tượng.",steps:[
+  PJS("Phân tích yêu cầu","Tìm danh từ (lớp) và động từ (phương thức).","Kho có nhiều linh kiện: điện trở, tụ, LED… Mỗi loại có mã, tên, số lượng, giá trị riêng. Cần thêm/xóa/tìm, tính tổng giá trị kho.",["Liệt kê các lớp ứng viên","Liệt kê hành vi cần có"],"Lớp: LinhKien, DienTro, TuDien, LED, Kho."),
+  PJS("Sơ đồ lớp UML","Thiết kế quan hệ kế thừa và hợp thành.","LinhKien (trừu tượng) ← DienTro, TuDien, LED (kế thừa). Kho **chứa** nhiều LinhKien (hợp thành, dùng con trỏ thông minh).",["Vẽ sơ đồ lớp có thuộc tính & phương thức","Đánh dấu private/protected/public"],"Kho 1 —— * LinhKien; LinhKien có hàm ảo moTa() và giaTri().",["m3:e206_class"]),
+  PJS("Đóng gói & kế thừa","Viết lớp cơ sở và lớp con.","Thuộc tính private, truy cập qua getter. Lớp cơ sở có **hàm hủy ảo**.",["Viết lớp LinhKien trừu tượng","Viết DienTro kế thừa, ghi đè moTa()"],"```cpp\nclass LinhKien{protected: std::string ma,ten; int sl;\npublic: LinhKien(std::string m,std::string t,int s):ma(m),ten(t),sl(s){}\n  virtual ~LinhKien()=default;\n  virtual std::string moTa() const=0;\n  int soLuong() const{return sl;}};\nclass DienTro: public LinhKien{double ohm;\npublic: DienTro(std::string m,int s,double r):LinhKien(m,\"Điện trở\",s),ohm(r){}\n  std::string moTa() const override{return ten+\" \"+std::to_string(ohm)+\" Ω\";}};\n```"),
+  PJS("Đa hình","Một danh sách chứa nhiều loại linh kiện.","Dùng `std::vector<std::unique_ptr<LinhKien>>`; gọi moTa() qua con trỏ lớp cơ sở → chạy đúng phiên bản lớp con (liên kết động).",["Viết lớp Kho với them(), timTheoMa(), inTatCa()","Thử thêm 3 loại linh kiện khác nhau"],"```cpp\nclass Kho{std::vector<std::unique_ptr<LinhKien>> ds;\npublic: void them(std::unique_ptr<LinhKien> p){ds.push_back(std::move(p));}\n  void inTatCa() const{for(auto& p:ds) std::cout<<p->moTa()<<\"\\n\";}};\n```"),
+  PJS("Kiểm thử đơn vị","Mỗi lớp có phép thử riêng.","Dùng assert hoặc GoogleTest: thêm rồi tìm thấy, xóa rồi không còn, số lượng không âm.",["Viết ≥ 5 test case","Thử trường hợp biên: mã trùng, kho rỗng"],"assert(kho.timTheoMa(\"R1\") != nullptr);"),
+  PJS("Lưu & đọc tệp","Dữ liệu còn sau khi tắt chương trình.","Mỗi lớp tự ghi/đọc một dòng CSV (phương thức ảo luuCSV()). Dùng factory theo cột loại để tạo đúng đối tượng khi đọc.",["Định dạng CSV: loai,ma,sl,giatri","Viết factory tạo đối tượng từ dòng CSV"],"Factory: if(loai==\"R\") return std::make_unique<DienTro>(...); — đây là mẫu thiết kế Factory Method.")]},
+ rlc:{l:"Giải mạch RLC bằng PTVP & Laplace",course:"ECE203",i:"cube",d:"Lập phương trình → nghiệm đặc trưng → biến đổi Laplace → biến đổi ngược → so với mô phỏng",summary:"Tìm điện áp tụ trong mạch RLC nối tiếp khi đóng nguồn bậc thang, bằng hai cách.",steps:[
+  PJS("Lập phương trình vi phân","Viết KVL cho mạch RLC nối tiếp.","L·di/dt + R·i + v_C = V, với i = C·dv_C/dt ⇒ **LC·v_C'' + RC·v_C' + v_C = V**.",["Viết KVL","Đưa về PTVP theo v_C","Ghi điều kiện đầu v_C(0) = 0, v_C'(0) = 0"],"Ví dụ R = 100 Ω, L = 10 mH, C = 10 µF, V = 5 V."),
+  PJS("Phương trình đặc trưng","Biết mạch dao động hay không.","s² + (R/L)s + 1/(LC) = 0. α = R/(2L), ω₀ = 1/√(LC). α < ω₀: dao động tắt dần (underdamped).",["Tính α, ω₀","Phân loại: quá tắt / tới hạn / dao động"],"α = 100/(0,02) = 5000 s⁻¹; ω₀ = 1/√(10⁻⁷) ≈ 3162 rad/s ⇒ α > ω₀ ⇒ **quá tắt dần**."),
+  PJS("Biến đổi Laplace","Giải bằng đại số thay vì PTVP.","V_C(s) = V / (s·(LCs² + RCs + 1)). Phân tích thành phân thức đơn giản theo hai nghiệm s₁, s₂.",["Viết V_C(s)","Tìm s₁, s₂ = −α ± √(α² − ω₀²)","Phân tích phân thức"],"s₁,₂ = −5000 ± 3873 ⇒ s₁ ≈ −1127, s₂ ≈ −8873 s⁻¹."),
+  PJS("Biến đổi ngược & nghiệm","Có v_C(t) dạng tường minh.","v_C(t) = V[1 + (s₂e^{s₁t} − s₁e^{s₂t})/(s₁ − s₂)].",["Thay số","Tính v_C tại t = 1 ms, 5 ms"],"v_C(1 ms) ≈ 5·[1 − 1,145e^{−1,127} + 0,145e^{−8,873}] ≈ 3,15 V; v_C(5 ms) ≈ 4,98 V."),
+  PJS("So sánh với mô phỏng","Xác nhận lời giải.","Mô phỏng mạch RC/RLC, so dạng đáp ứng. Đổi R nhỏ (ví dụ 20 Ω) để thấy dao động tắt dần.",["Chạy mô phỏng","Đổi R để chuyển sang dao động"],"R = 20 Ω ⇒ α = 1000 < ω₀ ⇒ dao động với ω_d = √(ω₀² − α²) ≈ 3000 rad/s.",["sim:rc","m3:e203_fourier"])]}
+};
+const PJ_BLANK={l:"Dự án trống",d:"Tự viết từng bước",summary:"",steps:[PJS("Bước 1","","Mô tả bước này…",[],"")]};
+const pjId=()=>mkid("pj");
+const pjNewStep=o=>({id:mkid("st"),...(o.out!=null?{out:String(o.out)}:{}),...(o.res!=null?{res:String(o.res)}:{}),...(o.viz?{viz:o.viz}:{}),t:o.t||"Bước mới",goal:o.goal||"",guide:o.guide||"",tasks:(o.tasks||[]).map(t=>typeof t==="string"?{t,done:false}:t),sol:o.sol||"",sims:o.sims||[],notes:o.notes||"",done:false});
+async function pjCreate(key,{subj=null,title=null,data=null}={}){const T=data||PJ_TPL[key]||PJ_BLANK;const id=pjId();
+  const ex=key&&typeof PJ_EXTRA!=="undefined"&&PJ_EXTRA[key]||[];const d={type:"proj",title:title||T.title||T.l,summary:T.summary||"",tpl:key||"",subj:subj||null,steps:(T.steps||[]).map((x,k)=>pjNewStep({...x,...(ex[k]||{})})),cur:0,chat:[],created:Date.now(),updated:Date.now()};
+  await Store.put(id,d);UI.projs=[...UI.projs.filter(p=>p.id!==id),{id,...d}];return id}
+const pjGet=id=>UI.projs.find(p=>p.id===id);
+let _pjT=0,_pjPend={};
+function pjSave(p,patch,now){Object.assign(p,patch,{updated:Date.now()});Object.assign(_pjPend[p.id]=_pjPend[p.id]||{},patch,{updated:p.updated});clearTimeout(_pjT);const go=()=>{Object.entries(_pjPend).forEach(([id,v])=>Store.patch(id,v).catch(e=>console.warn(e)));_pjPend={}};if(now)go();else _pjT=setTimeout(go,500)}
+function pjFlush(){clearTimeout(_pjT);Object.entries(_pjPend).forEach(([id,v])=>Store.patch(id,v).catch(()=>{}));_pjPend={}}
+addEventListener("pagehide",pjFlush);
+const pjProg=p=>{const n=(p.steps||[]).length;return n?Math.round(p.steps.filter(s=>s.done).length/n*100):0};
+
+/* ---------------- lớp phủ “Dự án” ---------------- */
+const PJ={view:"hub",id:null,filter:"all",editing:{}};
+function openProjects(o={}){let ov=$("#pjOv");if(!ov){ov=document.createElement("div");ov.id="pjOv";ov.className="pj-ov";ov.setAttribute("role","dialog");ov.setAttribute("aria-label","Dự án");document.body.appendChild(ov)}
+  ov.hidden=false;document.body.classList.add("pj-open");if(o.id){PJ.view="proj";PJ.id=o.id}else if(o.newFor!==undefined){PJ.view="hub";PJ.newFor=o.newFor}else if(!PJ.view)PJ.view="hub";
+  if(o.hub){PJ.view="hub";PJ.newFor=o.newFor===undefined?null:o.newFor}pjRender()}
+function closeProjects(){const ov=$("#pjOv");if(ov)ov.hidden=true;document.body.classList.remove("pj-open");pjFlush();if(UI.view==="subj")renderSubject()}
+document.addEventListener("keydown",e=>{const ov=$("#pjOv");if(e.key==="Escape"&&ov&&!ov.hidden&&!$("#dlg:not([hidden])")&&!$("#modal:not([hidden])")&&!$(".drv-ov")){if(/INPUT|TEXTAREA/.test((document.activeElement||{}).tagName||""))return document.activeElement.blur();e.preventDefault();if(PJ.view==="proj"){PJ.view="hub";pjRender()}else closeProjects()}});
+function pjRender(){const ov=$("#pjOv");if(!ov||ov.hidden)return;if(PJ.view==="proj"&&pjGet(PJ.id))return pjRenderProj(ov);PJ.view="hub";pjRenderHub(ov)}
+const subjOpts=(sel)=>`<option value="">Chưa gắn môn</option>${sjSorted().map(s=>`<option value="${esc(s.id)}" ${s.id===sel?"selected":""}>${esc((s.code?s.code+" · ":"")+s.title)}</option>`).join("")}`;
+function pjRenderHub(ov){const mine=[...UI.projs].sort((a,b)=>(b.updated||0)-(a.updated||0));const nf=PJ.newFor;const fs=PJ.filter;
+  const tpls=Object.entries(PJ_TPL).filter(([,t])=>fs==="all"||t.course===fs);
+  ov.innerHTML=`<div class="pj-card"><div class="pj-h">${ic("proj")}<b>Dự án</b><span class="muted pj-sub">Thiết kế nhiều bước: chỉ dẫn · cách làm · lời giải · mô phỏng · AI hỗ trợ</span><span class="grow"></span><button class="ghost ic" data-pjx aria-label="Đóng">${ic("close")}</button></div>
+    <div class="pj-hub">
+      ${nf!==undefined&&nf!==null?`<div class="pj-for">Đang tạo dự án cho môn <b>${esc((subjOf(nf)||{}).title||"")}</b> <button class="ghost" data-pjnf>${ic("close")} Bỏ chọn môn</button></div>`:""}
+      ${mine.length?`<section><div class="eyebrow">Dự án của bạn</div><div class="pj-grid">${mine.map(p=>{const s=subjOf(p.subj);const pc=pjProg(p);return `<div class="pj-item" data-pjo="${esc(p.id)}" tabindex="0" role="button"><div class="pj-it-h">${ic("proj")}<b>${esc(p.title)}</b><button class="ghost ic pj-del" data-pjdel="${esc(p.id)}" aria-label="Xóa dự án ${esc(p.title)}" title="Xóa dự án">${ic("close")}</button></div><small>${s?`<i class="tag" style="background:${s.color}">${esc(s.code||s.title)}</i> `:""}${(p.steps||[]).length} bước · ${pc}% xong</small><i class="pbar"><i style="width:${pc}%"></i></i></div>`}).join("")}</div></section>`:""}
+      <section class="pj-ai-new"><div class="eyebrow">AI lập kế hoạch dự án</div><div class="pj-ainew"><textarea class="input" id="pjDesc" placeholder="Mô tả dự án bạn muốn làm, ví dụ: Thiết kế bộ khuếch đại âm thanh class-D 10 W, hoặc Robot cánh tay 3 bậc tự do điều khiển bằng ESP32…"></textarea>
+        <div class="row"><select id="pjAiSj" aria-label="Gắn vào môn">${subjOpts(nf||"")}</select><button class="pill-btn primary" data-pjai ${P.sample?"":"disabled title='Cần API key AI trong Cài đặt'"}>${ic("spark")} AI tạo các bước</button></div></div></section>
+      <section><div class="eyebrow">Mẫu dự án</div><div class="rtab pj-flt" role="tablist">${[["all","Tất cả"],...Object.entries(M3_COURSE).map(([k,v])=>[k,"61"+k])].map(([k,l])=>`<button role="tab" data-pjf="${k}" aria-selected="${fs===k}" ${k!=="all"?`title="${esc(M3_COURSE[k].l)}"`:""}>${esc(l)}</button>`).join("")}</div>
+        <div class="pj-grid">${tpls.map(([k,t])=>`<button class="pj-tpl" data-pjt="${k}" style="--c:${(M3_COURSE[t.course]||{}).c||"var(--accent)"}"><span class="pj-tc">61${t.course}</span><b>${esc(t.l)}</b><small>${esc(t.d)}</small><span class="muted" style="font-size:11.5px">${t.steps.length} bước</span></button>`).join("")}<button class="pj-tpl blank" data-pjt="">${ic("plus")}<b>Dự án trống</b><small>Tự viết các bước, AI hỗ trợ từng bước</small></button></div></section>
+    </div></div>`;
+  $("[data-pjx]",ov).onclick=closeProjects;const nb=$("[data-pjnf]",ov);if(nb)nb.onclick=()=>{PJ.newFor=null;pjRender()};
+  $$("[data-pjf]",ov).forEach(b=>b.onclick=()=>{PJ.filter=b.dataset.pjf;pjRender()});
+  $$("[data-pjo]",ov).forEach(b=>{b.onclick=e=>{if(e.target.closest("[data-pjdel]"))return;PJ.view="proj";PJ.id=b.dataset.pjo;pjRender()};b.onkeydown=e=>{if(e.key==="Enter")b.click()}});
+  $$("[data-pjdel]",ov).forEach(b=>b.onclick=e=>{e.stopPropagation();const p=pjGet(b.dataset.pjdel);if(p)confirmDialog("Xóa dự án “"+p.title+"”?","Mọi bước, ghi chú và hội thoại AI của dự án sẽ bị xóa.","Xóa",async()=>{UI.projs=UI.projs.filter(x=>x.id!==p.id);await Store.del(p.id);pjRender()})});
+  $$("[data-pjt]",ov).forEach(b=>b.onclick=async()=>{const id=await pjCreate(b.dataset.pjt||null,{subj:nf||null});PJ.newFor=undefined;PJ.view="proj";PJ.id=id;pjRender();toast(nf?"Đã tạo dự án và gắn vào môn":"Đã tạo dự án",1600)});
+  const ai=$("[data-pjai]",ov);if(ai)ai.onclick=()=>pjAiPlan($("#pjDesc").value.trim(),$("#pjAiSj").value||null,ai)}
+async function pjAiPlan(desc,subj,btn){if(!desc){toast("Mô tả dự án trước đã",1800);$("#pjDesc").focus();return}if(!P.sample)return toast("Cần API key AI trong Cài đặt",2500);
+  btn.disabled=true;btn.innerHTML=`<span class="spin"></span> AI đang lập kế hoạch…`;const s=subjOf(subj);
+  try{const r=await P.sample.json(`Bạn là giảng viên kỹ thuật điện tử – máy tính, hướng dẫn sinh viên đại học làm một dự án thiết kế nhiều bước. Viết bằng tiếng Việt, chính xác về kỹ thuật, có công thức/số liệu/mã khi cần.
+DỰ ÁN: ${desc}${s?`\nMÔN HỌC: ${s.title}${s.syllabus?" — đề cương: "+String(s.syllabus).slice(0,800):""}`:""}
+Trả về JSON: {"title":"tên ngắn","summary":"1–2 câu","steps":[{"t":"tên bước","goal":"mục tiêu 1 câu","guide":"chỉ dẫn markdown 3–6 câu, nêu nguyên lý và cách làm","tasks":["việc cụ thể 1","…"],"out":"sản phẩm của bước, ≤ 8 từ (ví dụ: Sơ đồ khối, tệp main.c, đồ thị Bode)","res":"kết quả mong đợi cụ thể (số liệu, hình dạng tín hiệu, đầu ra chương trình) và tiêu chí đạt/chưa đạt, markdown 2–4 câu","sol":"lời giải mẫu / kết quả mong đợi bằng markdown: công thức, số liệu ví dụ, đoạn mã ngắn nếu cần","sims":[]}]}
+5–9 bước theo đúng trình tự thiết kế thực tế (yêu cầu → thiết kế → tính toán → mô phỏng → chế tạo/lập trình → kiểm thử → báo cáo). "sims" chọn trong: ${["sim:divider","sim:rc","sim:opamp","sim:gates","sim:adder","sim:latch","sim:pwm","sim:spi","sim:rtos","sim:cpu","lab:led","lab:cap","lab:mos","lab:logic","m3:e204_half","m3:e204_mux","m3:e205_rc","m3:e202_wheat","m3:bjt","m3:ledsw"].join(", ")} (có thể để trống).`,{modelTier:"default"});
+    const steps=(Array.isArray(r.steps)?r.steps:[]).slice(0,12).map(x=>({out:x.out?String(x.out):undefined,res:x.res?String(x.res):undefined,t:String(x.t||"Bước"),goal:String(x.goal||""),guide:String(x.guide||""),tasks:(Array.isArray(x.tasks)?x.tasks:[]).slice(0,10).map(String),sol:String(x.sol||""),sims:(Array.isArray(x.sims)?x.sims:[]).map(String).filter(pjRefOk)}));
+    if(!steps.length)throw new Error("AI chưa trả về bước nào");
+    const id=await pjCreate(null,{subj,data:{title:String(r.title||desc).slice(0,90),summary:String(r.summary||desc),steps}});PJ.view="proj";PJ.id=id;pjRender();toast("AI đã lập "+steps.length+" bước",1800)}
+  catch(e){toast(aiErr(e),5000);btn.disabled=false;btn.innerHTML=`${ic("spark")} AI tạo các bước`}}
+function pjRefOk(ref){const [t,k]=String(ref).split(":");return (t==="sim"&&typeof SIM2D!=="undefined"&&SIM2D[k])||(t==="lab"&&typeof LABS!=="undefined"&&LABS[k])||(t==="m3"&&M3_TPL[k])}
+function pjRefLabel(ref){const [t,k]=String(ref).split(":");return (t==="sim"?"Mô phỏng 2D · ":t==="lab"?"Phòng 3D · ":"Mô hình 3D · ")+M3_SIM_L(t,k)}
+function pjSimOptions(){const g=(lab,arr)=>`<optgroup label="${lab}">${arr.map(([v,l])=>`<option value="${v}">${esc(l)}</option>`).join("")}</optgroup>`;
+  return `<option value="">+ Gắn mô phỏng / mô hình…</option>`+g("Mô phỏng 2D",Object.entries(SIM2D).map(([k,v])=>["sim:"+k,v[0]]))+g("Phòng thí nghiệm 3D",Object.entries(LABS).map(([k,v])=>["lab:"+k,v.name]))+g("Mô hình 3D",Object.entries(M3_TPL).filter(([k])=>k!=="blank").map(([k,v])=>["m3:"+k,v.l]))}
+function pjRenderProj(ov){const p=pjGet(PJ.id);if(typeof pjExtraFill==="function")pjExtraFill(p);const n=p.steps.length;let i=Math.max(0,Math.min(n-1,p.cur||0));const st=p.steps[i];const s=subjOf(p.subj);const pc=pjProg(p);const E=PJ.editing;
+  const md=t=>t?mdBlock(t,[]):`<span class="muted">Chưa có nội dung.</span>`;
+  ov.innerHTML=`<div class="pj-card"><div class="pj-h"><button class="ghost ic" data-pjb aria-label="Về danh sách dự án" title="Danh sách dự án">${ic("back")}</button><input class="pj-title" value="${esc(p.title)}" aria-label="Tên dự án">
+      <select class="pj-sj" aria-label="Gắn vào môn">${subjOpts(p.subj)}</select><span class="pj-pc" title="Tiến độ"><i class="pbar"><i style="width:${pc}%"></i></i>${pc}%</span><span class="grow"></span>
+      <button class="ghost ic" data-pjmore aria-label="Tùy chọn dự án" title="Tùy chọn">${ic("more")}</button><button class="ghost ic" data-pjx aria-label="Đóng">${ic("close")}</button></div>
+    <div class="pj-main">
+      <aside class="pj-steps" aria-label="Các bước"><div class="pj-sum">${esc(p.summary||"")}</div><ol>${p.steps.map((x,k)=>`<li class="${k===i?"on":""} ${x.done?"done":""}"><button data-pjs="${k}"><span class="n">${x.done?ic("check"):k+1}</span><span class="t">${esc(x.t)}</span></button><button class="pj-sx" data-pjsx="${k}" aria-label="Xóa bước ${k+1}" title="Xóa bước">${ic("close")}</button></li>`).join("")}</ol>
+        <button class="btn pj-addst" data-pjadd>${ic("plus")} Thêm bước</button></aside>
+      <section class="pj-step">${typeof pjRoadHTML==="function"&&n>1?pjRoadHTML(p,i):""}${st?`<div class="pj-sh"><span class="pj-k">Bước ${i+1}/${n}</span><input class="pj-st" value="${esc(st.t)}" aria-label="Tên bước"><label class="pj-dn"><input type="checkbox" class="chk" data-pjdone ${st.done?"checked":""}> Xong bước này</label></div>
+        <div class="pj-goal">${ic("flag")}<input class="input" data-pjf2="goal" value="${esc(st.goal||"")}" placeholder="Mục tiêu của bước này…" aria-label="Mục tiêu"></div>
+        <div class="pj-blk"><div class="pj-bh"><b>Chỉ dẫn</b><button class="ghost" data-pjed="guide">${ic("edit")} ${E.guide?"Xong":"Sửa"}</button></div>${E.guide?`<textarea class="input pj-ta" data-pjf2="guide" rows="8">${esc(st.guide||"")}</textarea>`:`<div class="pj-md">${md(st.guide)}</div>`}</div>
+        <div class="pj-blk"><div class="pj-bh"><b>Cách làm</b><span class="muted" style="font-size:12px">${st.tasks.filter(t=>t.done).length}/${st.tasks.length}</span></div><ul class="pj-tasks">${st.tasks.map((t,k)=>`<li class="${t.done?"done":""}"><input type="checkbox" class="chk" data-pjtk="${k}" ${t.done?"checked":""} aria-label="Đã làm: ${esc(t.t)}"><input class="pj-tt" data-pjtt="${k}" value="${esc(t.t)}" aria-label="Việc ${k+1}"><button class="ghost ic" data-pjtx="${k}" aria-label="Xóa việc" title="Xóa việc">${ic("close")}</button></li>`).join("")}</ul>
+          <form class="pj-tadd" data-pjtadd><input class="input" placeholder="+ Thêm việc cần làm cho bước này (Enter)" aria-label="Thêm việc"></form></div>
+        ${typeof pjResHTML==="function"?pjResHTML(st,E):""}
+        <details class="pj-blk pj-sol" ${E.sol||PJ.solOpen?"open":""}><summary><b>Cách giải / lời giải mẫu</b><span class="muted" style="font-size:12px">— thử tự làm trước khi mở</span></summary><div class="pj-bh"><span></span><button class="ghost" data-pjed="sol">${ic("edit")} ${E.sol?"Xong":"Sửa"}</button></div>${E.sol?`<textarea class="input pj-ta" data-pjf2="sol" rows="8">${esc(st.sol||"")}</textarea>`:`<div class="pj-md">${md(st.sol)}</div>`}</details>
+        <div class="pj-blk"><div class="pj-bh"><b>Mô phỏng & mô hình</b></div><div class="pj-sims">${(st.sims||[]).filter(pjRefOk).map((r,k)=>`<span class="pj-sim"><button class="chip" data-pjsim="${esc(r)}">${ic("cube")} ${esc(pjRefLabel(r))}</button><button class="ghost ic" data-pjsimx="${k}" aria-label="Bỏ mô phỏng">${ic("close")}</button></span>`).join("")}<select class="pj-simadd" data-pjsimadd aria-label="Gắn mô phỏng">${pjSimOptions()}</select></div></div>
+        <div class="pj-blk"><div class="pj-bh"><b>Ghi chú / bài làm của bạn</b><span class="muted" style="font-size:12px">tự lưu · AI đọc được khi bạn nhờ kiểm tra</span></div><textarea class="input pj-ta" data-pjf2="notes" rows="6" placeholder="Ghi kết quả tính toán, mã, số đo, câu hỏi…">${esc(st.notes||"")}</textarea></div>
+        <div class="pj-nav"><button class="pill-btn" data-pjnav="-1" ${i?"":"disabled"}>${ic("back")} Bước trước</button><span class="grow"></span><button class="pill-btn primary" data-pjnav="1" ${i<n-1?"":"disabled"}>Bước tiếp ${ic("next")}</button></div>`:`<div class="empty">Dự án chưa có bước nào. Bấm “Thêm bước” hoặc nhờ AI viết.</div>`}</section>
+      <aside class="pj-ai" aria-label="Trợ lý AI"><div class="pj-aih">${ic("spark")}<b>Trợ lý AI</b><span class="muted">bám theo bước ${st?i+1:"—"}</span></div>
+        <div class="pj-chips">${[["how","Cách thực hiện chi tiết"],["res","Kết quả mong đợi"],["exp","Giải thích bước này"],["hint","Gợi ý cách làm"],["sol","Cho lời giải mẫu"],["check","Kiểm tra bài làm của tôi"],["more","Chi tiết hóa thành việc nhỏ"],["quiz","Hỏi tôi 3 câu kiểm tra"]].map(([k,l])=>`<button class="chip" data-pjq="${k}">${l}</button>`).join("")}</div>
+        <div class="pj-msgs" id="pjMsgs">${(p.chat||[]).length?p.chat.map((m,k)=>`<div class="pj-msg ${m.role==="user"?"u":"a"}">${m.role==="user"?esc(m.content):mdBlock(m.content,[])}${m.role!=="user"?`<button class="ghost pj-ins" data-pjins="${k}" title="Chèn vào ghi chú của bước đang mở">${ic("plus")} Chèn vào ghi chú</button>`:""}</div>`).join(""):`<div class="muted pj-empty">Hỏi bất cứ điều gì về dự án. AI đọc mục tiêu, chỉ dẫn, việc cần làm và ghi chú của bước đang mở.${P.sample?"":"<br><b>Cần API key AI (Cài đặt → AI) để dùng trợ lý.</b>"}</div>`}</div>
+        <form class="pj-ask" data-pjask><textarea class="input" rows="2" placeholder="Hỏi AI về bước này… (Enter để gửi, Shift+Enter xuống dòng)" aria-label="Hỏi AI"></textarea><button class="pill-btn primary" aria-label="Gửi">${ic("send")}</button></form></aside>
+    </div></div>`;
+  const q=(s,f)=>{const b=$(s,ov);if(b)f(b)};const step=()=>p.steps[p.cur||0];
+  q("[data-pjx]",b=>b.onclick=closeProjects);q("[data-pjb]",b=>b.onclick=()=>{PJ.view="hub";pjRender()});
+  q(".pj-title",x=>x.onchange=()=>pjSave(p,{title:x.value.trim()||"Dự án"}));
+  q(".pj-sj",x=>x.onchange=()=>{pjSave(p,{subj:x.value||null},true);toast(x.value?"Đã gắn dự án vào "+(subjOf(x.value)||{}).title:"Đã bỏ gắn môn",1600)});
+  q("[data-pjmore]",b=>b.onclick=()=>{const m=popMenu(b,`<button data-a="ai">${ic("spark")}AI viết thêm các bước còn thiếu</button><button data-a="md">${ic("dl")}Tải về dạng Markdown</button><button data-a="rs">${ic("undo")}Đặt lại tiến độ</button><div class="sep"></div><button data-a="d" style="color:var(--bad)">${ic("trash")}Xóa dự án</button>`);
+    $("[data-a=ai]",m).onclick=()=>pjAiMoreSteps(p);$("[data-a=md]",m).onclick=()=>pjExport(p);$("[data-a=rs]",m).onclick=()=>{p.steps.forEach(x=>{x.done=false;x.tasks.forEach(t=>t.done=false)});pjSave(p,{steps:p.steps},true);pjRender()};
+    $("[data-a=d]",m).onclick=()=>confirmDialog("Xóa dự án “"+p.title+"”?","Mọi bước, ghi chú và hội thoại AI sẽ bị xóa.","Xóa",async()=>{UI.projs=UI.projs.filter(x=>x.id!==p.id);await Store.del(p.id);PJ.view="hub";pjRender()})});
+  $$("[data-pjs]",ov).forEach(b=>b.onclick=()=>{p.cur=+b.dataset.pjs;PJ.editing={};PJ.solOpen=false;pjSave(p,{cur:p.cur});pjRender();const sc=$(".pj-step",ov);if(sc)sc.scrollTop=0});
+  $$("[data-pjsx]",ov).forEach(b=>b.onclick=e=>{e.stopPropagation();const k=+b.dataset.pjsx;const x=p.steps[k];confirmDialog(`Xóa bước “${x.t}”?`,"Nội dung và ghi chú của bước này sẽ bị xóa.","Xóa bước",()=>{p.steps.splice(k,1);p.cur=Math.max(0,Math.min(p.steps.length-1,(p.cur||0)-(k<(p.cur||0)?1:0)));pjSave(p,{steps:p.steps,cur:p.cur},true);pjRender()})});
+  q("[data-pjadd]",b=>b.onclick=()=>{p.steps.splice((p.cur||0)+1,0,pjNewStep({t:"Bước "+(p.steps.length+1)}));p.cur=(p.cur||0)+(p.steps.length>1?1:0);PJ.editing={guide:true};pjSave(p,{steps:p.steps,cur:p.cur},true);pjRender();setTimeout(()=>{const t=$(".pj-st",ov);if(t){t.focus();t.select()}},30)});
+  if(!st)return pjBindAI(ov,p);
+  q(".pj-st",x=>x.onchange=()=>{st.t=x.value.trim()||st.t;pjSave(p,{steps:p.steps});const li=$(`[data-pjs="${i}"] .t`,ov);if(li)li.textContent=st.t});
+  q("[data-pjdone]",x=>x.onchange=()=>{st.done=x.checked;pjSave(p,{steps:p.steps},true);pjRender();if(x.checked&&i<n-1)toast("Xong bước "+(i+1)+" ✓",1400);if(x.checked&&p.steps.every(s=>s.done))toast("Hoàn thành dự án! 🎉",2600)});
+  $$("[data-pjf2]",ov).forEach(x=>x.oninput=()=>{st[x.dataset.pjf2]=x.value;pjSave(p,{steps:p.steps})});
+  $$("[data-pjed]",ov).forEach(b=>b.onclick=e=>{e.preventDefault();const k=b.dataset.pjed;PJ.editing[k]=!PJ.editing[k];pjRender()});
+  $$("[data-pjtk]",ov).forEach(x=>x.onchange=()=>{st.tasks[+x.dataset.pjtk].done=x.checked;x.closest("li").classList.toggle("done",x.checked);if(st.tasks.length&&st.tasks.every(t=>t.done)&&!st.done){st.done=true;pjSave(p,{steps:p.steps},true);pjRender();toast("Đã làm hết việc của bước — đánh dấu xong ✓",1800);return}pjSave(p,{steps:p.steps})});
+  $$("[data-pjtt]",ov).forEach(x=>x.onchange=()=>{const k=+x.dataset.pjtt;if(!x.value.trim()){st.tasks.splice(k,1);pjSave(p,{steps:p.steps},true);return pjRender()}st.tasks[k].t=x.value.trim();pjSave(p,{steps:p.steps})});
+  $$("[data-pjtx]",ov).forEach(b=>b.onclick=()=>{st.tasks.splice(+b.dataset.pjtx,1);pjSave(p,{steps:p.steps},true);pjRender()});
+  q("[data-pjtadd]",f=>f.onsubmit=e=>{e.preventDefault();const inp=$("input",f);const v=inp.value.trim();if(!v)return;st.tasks.push({t:v,done:false});pjSave(p,{steps:p.steps},true);pjRender();setTimeout(()=>{const i2=$("[data-pjtadd] input",ov);if(i2)i2.focus()},20)});
+  q(".pj-sol",d=>d.addEventListener("toggle",()=>{PJ.solOpen=d.open}));
+  $$("[data-pjsim]",ov).forEach(b=>b.onclick=()=>m3OpenRef(b.dataset.pjsim));
+  $$("[data-pjsimx]",ov).forEach(b=>b.onclick=()=>{st.sims.splice(+b.dataset.pjsimx,1);pjSave(p,{steps:p.steps},true);pjRender()});
+  q("[data-pjsimadd]",x=>x.onchange=()=>{if(!x.value)return;st.sims=st.sims||[];if(!st.sims.includes(x.value))st.sims.push(x.value);pjSave(p,{steps:p.steps},true);pjRender()});
+  $$("[data-pjnav]",ov).forEach(b=>b.onclick=()=>{p.cur=Math.max(0,Math.min(n-1,i+ +b.dataset.pjnav));PJ.editing={};PJ.solOpen=false;pjSave(p,{cur:p.cur});pjRender();const sc=$(".pj-step",ov);if(sc)sc.scrollTop=0});
+  pjBindAI(ov,p)}
+function pjCtx(p){const i=p.cur||0;const st=p.steps[i];const s=subjOf(p.subj);
+  return `Bạn là trợ lý hướng dẫn dự án kỹ thuật điện tử – máy tính cho sinh viên (VGU). Trả lời bằng tiếng Việt, rõ ràng, theo từng bước; dùng công thức, số liệu, mã khi cần; định dạng markdown ngắn gọn. Khi sinh viên xin gợi ý thì gợi ý từng bậc, chưa đưa ngay đáp án cuối trừ khi được yêu cầu lời giải.
+DỰ ÁN: ${p.title}${p.summary?" — "+p.summary:""}${s?"\nMÔN: "+s.title:""}
+CÁC BƯỚC: ${p.steps.map((x,k)=>`${k+1}. ${x.t}${x.done?" (xong)":""}`).join("; ")}
+${st?`BƯỚC ĐANG MỞ (${i+1}): ${st.t}\nMục tiêu: ${st.goal||"—"}\nChỉ dẫn: ${(st.guide||"—").slice(0,2500)}\nViệc cần làm: ${st.tasks.map(t=>(t.done?"[x] ":"[ ] ")+t.t).join("; ")||"—"}\nSản phẩm / kết quả mong đợi: ${(st.out||"")+" "+(st.res||"—").slice(0,1500)}\nGhi chú / bài làm của sinh viên: ${(st.notes||"(trống)").slice(0,3000)}`:""}`}
+const PJ_Q={res:"Mô tả KẾT QUẢ MONG ĐỢI của bước này: sản phẩm làm ra, số liệu/hình dạng tín hiệu/đầu ra cụ thể, và tiêu chí để biết đạt hay chưa. Viết gọn, có ví dụ số.",how:"Hướng dẫn THỰC HIỆN bước này thật cụ thể như làm trong phòng lab: dụng cụ/phần mềm, thao tác từng bước đánh số, giá trị cần đặt, và cách đọc kết quả.",exp:"Giải thích nguyên lý và mục đích của bước này một cách dễ hiểu, kèm ví dụ số.",hint:"Gợi ý cách làm bước này theo từng bậc nhỏ (chưa đưa đáp án cuối).",sol:"Cho lời giải mẫu đầy đủ của bước này, có công thức, số liệu và mã nếu cần.",check:"Kiểm tra bài làm trong phần ghi chú của tôi: chỉ ra chỗ đúng, chỗ sai và cách sửa. Nếu ghi chú trống, hướng dẫn tôi nên ghi gì.",more:"Chia bước này thành 4–7 việc nhỏ, cụ thể, làm được ngay. Trả lời dạng danh sách gạch đầu dòng ngắn.",quiz:"Hỏi tôi 3 câu kiểm tra hiểu bài về bước này (chưa kèm đáp án)."};
+function pjBindAI(ov,p){const f=$("[data-pjask]",ov);if(!f)return;const ta=$("textarea",f);const box=$("#pjMsgs",ov);if(box)box.scrollTop=box.scrollHeight;
+  ta.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();f.requestSubmit()}};
+  f.onsubmit=e=>{e.preventDefault();const v=ta.value.trim();if(!v)return;ta.value="";pjAsk(p,v)};
+  $$("[data-pjq]",ov).forEach(b=>b.onclick=()=>pjAsk(p,PJ_Q[b.dataset.pjq],b.dataset.pjq));
+  $$("[data-pjins]",ov).forEach(b=>b.onclick=()=>{const m=p.chat[+b.dataset.pjins];const st=p.steps[p.cur||0];if(!m||!st)return;st.notes=(st.notes?st.notes+"\n\n":"")+m.content;pjSave(p,{steps:p.steps},true);pjRender();toast("Đã chèn vào ghi chú bước "+((p.cur||0)+1),1500)})}
+async function pjAsk(p,text,kind){if(!P.sample)return toast("Cần API key AI trong Cài đặt",2500);if(PJ.busy)return;PJ.busy=true;p.chat=p.chat||[];p.chat.push({role:"user",content:text});const ai={role:"assistant",content:""};p.chat.push(ai);pjRender();
+  const el=()=>{const ms=$$("#pjMsgs .pj-msg.a");return ms[ms.length-1]};{const e=el();if(e)e.innerHTML=`<span class="spin"></span>`}
+  const turns=[{role:"user",content:pjCtx(p)},{role:"assistant",content:"Mình đã đọc dự án và bước đang mở. Bạn cần gì?"},...p.chat.slice(0,-1).slice(-12).map(m=>({role:m.role,content:m.content}))];
+  try{const r=await P.sample(turns,{cache:false,onText:({text})=>{ai.content=text;const e=el();if(e){e.innerHTML=mdBlock(text,[]);const b=$("#pjMsgs");if(b)b.scrollTop=b.scrollHeight}}});ai.content=r.text||ai.content;
+}
+  catch(e){ai.content=(e&&e.text?e.text+"\n\n":"")+aiErr(e)}
+  PJ.busy=false;p.chat=p.chat.slice(-40);pjSave(p,{chat:p.chat},true);pjRender();
+  if(kind==="res"&&ai.content&&!/^Lỗi|API key/.test(ai.content)){const st=p.steps[p.cur||0];const m=$$("#pjMsgs .pj-msg.a");const last=m[m.length-1];if(st&&last){const b=document.createElement("button");b.className="btn pj-ins";b.innerHTML=`${ic("flag")} Dùng làm “Kết quả của bước”`;b.onclick=()=>{st.res=ai.content;pjSave(p,{steps:p.steps},true);pjRender();toast("Đã cập nhật kết quả của bước",1500)};last.appendChild(b)}}
+  if(kind==="more"){const st=p.steps[p.cur||0];const lines=String(ai.content).split(/\n/).filter(l=>/^\s*(?:[-*•]|\d+[.)])\s+/.test(l)).map(l=>l.replace(/^\s*(?:[-*•]|\d+[.)])\s+/,"").replace(/\*\*/g,"").trim()).filter(Boolean).slice(0,8);
+    if(st&&lines.length){const m=$$("#pjMsgs .pj-msg.a");const last=m[m.length-1];if(last){const b=document.createElement("button");b.className="btn pj-ins";b.innerHTML=`${ic("plus")} Thêm ${lines.length} việc vào “Cách làm”`;b.onclick=()=>{lines.forEach(t=>st.tasks.push({t,done:false}));pjSave(p,{steps:p.steps},true);pjRender();toast("Đã thêm "+lines.length+" việc",1500)};last.appendChild(b)}}}}
+async function pjAiMoreSteps(p){if(!P.sample)return toast("Cần API key AI trong Cài đặt",2500);toast("AI đang viết thêm các bước…",2500);
+  try{const r=await P.sample.json(`${pjCtx(p)}\n\nNHIỆM VỤ: Đề xuất các bước CÒN THIẾU để dự án hoàn chỉnh (không lặp bước đã có). Trả về JSON {"steps":[{"t":"…","goal":"…","guide":"markdown","tasks":["…"],"sol":"markdown"}]} với 1–4 bước.`,{modelTier:"default"});
+    const add=(Array.isArray(r.steps)?r.steps:[]).slice(0,4).map(x=>pjNewStep({t:String(x.t||"Bước mới"),goal:String(x.goal||""),guide:String(x.guide||""),tasks:(x.tasks||[]).map(String),sol:String(x.sol||"")}));
+    if(!add.length)return toast("AI thấy dự án đã đủ bước",2000);p.steps.push(...add);pjSave(p,{steps:p.steps},true);pjRender();toast("Đã thêm "+add.length+" bước",1800)}catch(e){toast(aiErr(e),4000)}}
+function pjExport(p){const s=subjOf(p.subj);const md=`# ${p.title}\n\n${p.summary||""}${s?`\n\nMôn: ${s.title}`:""}\n\n`+p.steps.map((x,k)=>`## ${k+1}. ${x.t}${x.done?" ✓":""}\n\n${x.goal?`**Mục tiêu:** ${x.goal}\n\n`:""}${x.guide||""}\n\n${x.out||x.res?"**Kết quả của bước**"+(x.out?" — "+x.out:"")+"\n\n"+(x.res||"")+"\n\n":""}${x.tasks.length?"**Cách làm**\n\n"+x.tasks.map(t=>`- [${t.done?"x":" "}] ${t.t}`).join("\n")+"\n\n":""}${x.sol?"**Lời giải mẫu**\n\n"+x.sol+"\n\n":""}${x.notes?"**Ghi chú**\n\n"+x.notes+"\n":""}`).join("\n");
+  const b=new Blob([md],{type:"text/markdown"});if(P.downloads&&P.downloads.save)P.downloads.save({filename:(p.title||"du-an").replace(/[\\/:*?"<>|]/g," ")+".md",data:b});else{const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=(p.title||"du-an")+".md";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}}
+
+/* ---------------- gắn vào thanh bên + môn học ---------------- */
+RAIL_ALL.proj=["Dự án: thiết kế từng bước, AI hỗ trợ","proj"];
+{const d=UI.dash;if(d&&d.rail&&!d.rail.order.includes("proj"))d.rail.order.splice(Math.max(0,d.rail.order.indexOf("lab")+1),0,"proj")}
+{const _ra34=railAct;railAct=function(k,btn){if(k==="proj"){hideTip();closeFly();return openProjects({hub:true})}return _ra34(k,btn)}}
+TOP_ALL.proj=["Dự án","proj"];{const _ta34=topAct;topAct=function(k){if(k==="proj")return openProjects({hub:true});return _ta34(k)}}
+/* thẻ môn: nút + → “Dự án mới…” và “Mở dự án của môn” */
+{const _alm34=addLessonMenu;addLessonMenu=function(btn,sid){_alm34.apply(this,arguments);const m=$(".popmenu");if(!m||sid==="none")return;const L=UI.projs.filter(p=>p.subj===sid);
+  m.insertAdjacentHTML("beforeend",`<div class="sep"></div><button data-a="pjn">${ic("proj")}Dự án mới cho môn này…</button>${L.length?L.slice(0,5).map(p=>`<button data-pjgo="${esc(p.id)}">${ic("proj")}<span style="flex:1;overflow:hidden;text-overflow:ellipsis">${esc(p.title)}</span><small class="muted">${pjProg(p)}%</small></button>`).join(""):""}`);
+  $("[data-a=pjn]",m).onclick=()=>{closePop();openProjects({hub:true,newFor:sid})};$$("[data-pjgo]",m).forEach(b=>b.onclick=()=>{closePop();openProjects({id:b.dataset.pjgo})})}}
+/* trang môn: tab “Dự án” */
+{const _rs34=renderSubject;renderSubject=function(treeOnly){_rs34.apply(this,arguments);if(UI.view!=="subj"||UI.curSubj==="none")return;const tabs=$("#main .rtab");if(!tabs||$("[data-stab=proj]",tabs))return;
+  const b=document.createElement("button");b.setAttribute("role","tab");b.dataset.stab="proj";b.setAttribute("aria-selected",UI.subjTab==="proj");const cnt=UI.projs.filter(p=>p.subj===UI.curSubj).length;b.innerHTML=`Dự án${cnt?` <small class="muted">${cnt}</small>`:""}`;
+  const g=$(".grow",tabs);tabs.insertBefore(b,g||null);b.onclick=()=>{UI.subjTab="proj";$$("[data-stab]",tabs).forEach(x=>x.setAttribute("aria-selected",x===b));subjBody(subjOf(UI.curSubj))};
+  $$("[data-stab]",tabs).forEach(x=>{if(x!==b)x.addEventListener("click",()=>b.setAttribute("aria-selected","false"))});if(UI.subjTab==="proj")subjBody(subjOf(UI.curSubj))}}
+{const _sb34=subjBody;subjBody=function(s){if(UI.subjTab!=="proj"||!s||s.id==="none")return _sb34.apply(this,arguments);const b=$("#sjBody");if(!b)return;const L=UI.projs.filter(p=>p.subj===s.id).sort((a,c)=>(c.updated||0)-(a.updated||0));const other=UI.projs.filter(p=>p.subj!==s.id);
+  b.innerHTML=`<div class="chap-bar"><button class="pill-btn primary" data-spjn>${ic("plus")} Dự án mới</button>${other.length?`<select data-spja aria-label="Gắn dự án đã có"><option value="">+ Gắn dự án đã có…</option>${other.map(p=>`<option value="${esc(p.id)}">${esc(p.title)}</option>`).join("")}</select>`:""}<span class="muted" style="font-size:12.5px">Dự án thiết kế nhiều bước có chỉ dẫn, lời giải, mô phỏng và AI hỗ trợ.</span></div>
+    <div class="pj-grid">${L.map(p=>{const pc=pjProg(p);const nx=p.steps.find(x=>!x.done);return `<div class="pj-item" data-spjo="${esc(p.id)}" tabindex="0" role="button"><div class="pj-it-h">${ic("proj")}<b>${esc(p.title)}</b><button class="ghost ic pj-del" data-spjx="${esc(p.id)}" aria-label="Bỏ dự án khỏi môn" title="Bỏ khỏi môn">${ic("close")}</button></div><small>${p.steps.length} bước · ${pc}% xong${nx?` · tiếp theo: ${esc(nx.t)}`:" · đã hoàn thành"}</small><i class="pbar"><i style="width:${pc}%"></i></i></div>`}).join("")||`<div class="empty">Môn này chưa có dự án. Bấm “Dự án mới” để chọn mẫu (thiết kế chip, mạch in, robot…) hoặc nhờ AI lập kế hoạch.</div>`}</div>`;
+  $("[data-spjn]",b).onclick=()=>openProjects({hub:true,newFor:s.id});const sel=$("[data-spja]",b);if(sel)sel.onchange=()=>{const p=pjGet(sel.value);if(p){pjSave(p,{subj:s.id},true);toast("Đã gắn “"+p.title+"” vào môn",1600);subjBody(s)}};
+  $$("[data-spjo]",b).forEach(x=>{x.onclick=e=>{if(e.target.closest("[data-spjx]"))return;openProjects({id:x.dataset.spjo})};x.onkeydown=e=>{if(e.key==="Enter")x.click()}});
+  $$("[data-spjx]",b).forEach(x=>x.onclick=e=>{e.stopPropagation();const p=pjGet(x.dataset.spjx);if(p){pjSave(p,{subj:null},true);subjBody(s)}})}}
+if(typeof BLK_DEPS!=="undefined")BLK_DEPS.proj=[];
+
+function pjOnWatch(){const ov=$("#pjOv");if(!ov||ov.hidden)return;if(PJ.view==="hub")pjRender()}
+
+/* =====================================================================
+   v31 — Xưởng mô hình: tab “Hướng dẫn”
+   - Nguyên lý: vì sao mạch cho ra kết quả như vậy (tính từ mô phỏng: dòng, áp, mức logic)
+   - Cách nối dây từng bước, sinh tự động từ chính mạch đang mở (mô hình có sẵn hoặc tự làm)
+   - Kiểm tra lỗi nối: chân hở, đoản mạch, LED thiếu điện trở, LED/tụ cắm ngược, IC thiếu nguồn
+   - Mô hình trống: hướng dẫn nối mạch đầu tiên + chèn bộ linh kiện để tập nối
+   ===================================================================== */
+const M3_BAND=["đen","nâu","đỏ","cam","vàng","lục","lam","tím","xám","trắng"];
+function m3BandText(R){R=+R||0;if(R<10)return "";const e=Math.max(0,Math.floor(Math.log10(R))-1);const two=Math.round(R/10**e);return [M3_BAND[Math.floor(two/10)%10],M3_BAND[two%10],M3_BAND[Math.min(9,e)],"vàng kim (±5%)"].join(" – ")}
+const fOhm=r=>r>=1e6?(r/1e6).toLocaleString("vi-VN",{maximumFractionDigits:2})+" MΩ":r>=1e3?(r/1e3).toLocaleString("vi-VN",{maximumFractionDigits:2})+" kΩ":(+r).toLocaleString("vi-VN")+" Ω";
+const fI=i=>{const a=Math.abs(i);return a>=1?a.toFixed(2)+" A":a>=1e-3?(a*1e3).toLocaleString("vi-VN",{maximumFractionDigits:1})+" mA":a>=1e-6?Math.round(a*1e6)+" µA":"0 A"};
+const fV=v=>(Math.abs(v)<.005?0:v).toLocaleString("vi-VN",{maximumFractionDigits:2})+" V";
+const GATE_FN={"74HC00":["NAND","Y = (A·B)'",(a,b)=>+!(a&&b)],"74HC08":["AND","Y = A·B",(a,b)=>+(a&&b)],"74HC32":["OR","Y = A + B",(a,b)=>+(a||b)],"74HC86":["XOR","Y = A ⊕ B",(a,b)=>+(a!==b)],"74HC02":["NOR","Y = (A + B)'",(a,b)=>+!(a||b)],"74HC04":["NOT","Y = A'",a=>+!a]};
+const gateKey=lab=>{const m=String(lab||"").toUpperCase().replace(/\s/g,"").match(/74(?:HC|HCT|LS|AC|ACT|F|)?(00|02|04|08|32|86)/);return m?"74HC"+m[1]:null};
+function m3PinDesc(p,pin){const t=p.type;
+  if(t==="battery")return pin==="+"?"cực (+)":"cực (−)";if(t==="led")return pin==="A"?"chân dài – anode (+)":"chân ngắn – cathode (−)";if(t==="capacitor")return pin==="+"?"chân (+) dài":"chân (−) có vạch";
+  if(t==="transistor")return {C:"cực C (collector)",B:"cực B (base)",E:"cực E (emitter)"}[pin]||pin;if(t==="resistor"||t==="switch")return pin==="a"?"chân 1":"chân 2";
+  if(t==="ic"){const n=p.props.pins||14;const pw=ICPWR[n];if(+pin===pw[0])return "chân "+pin+" (VCC)";if(+pin===pw[1])return "chân "+pin+" (GND)";const G=gateOf(p.props.label);if(G){for(let gi=0;gi<G.g.length;gi++){const g=G.g[gi];const k=g.indexOf(+pin);if(k>=0)return `chân ${pin} (${gi+1}${k===g.length-1?"Y":["A","B"][k]})`}}return "chân "+pin}
+  return pin}
+/* ---------- phân tích mạch: các nút điện, thứ tự nối, lỗi thường gặp ---------- */
+function m3Analyze(spec){const N=m3Netlist(spec);const P=new Map(spec.parts.map(p=>[p.id,p]));const groups=new Map();
+  /* dây dẫn là một phần tử nối hai nút — gộp hai đầu dây thành cùng một nút điện */
+  const up=new Map();const fd=x=>{let g=0;while(up.has(x)&&up.get(x)!==x&&g++<999)x=up.get(x);return x};const un=(a,b)=>{a=fd(a);b=fd(b);if(a!==b)up.set(a,b)};
+  N.wires.forEach(w=>{const a=N.node(w.id+"|a"),b=N.node(w.id+"|b");if(a>=0&&b>=0)un(a,b)});
+  const gOf=(pid,pin)=>{const k=N.node(pid+"|"+pin);return k<0?k:fd(k)};
+  N.terms.forEach(t=>{const k=gOf(t.pid,t.pin);if(k<0)return;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(t)});
+  const bat=spec.parts.find(p=>p.type==="battery");
+  const plus=bat?gOf(bat.id,"+"):-1,minus=bat?gOf(bat.id,"-"):-1;
+  /* thứ tự: từ cực + đi qua linh kiện (BFS), cuối cùng là cực − */
+  const order=[];const seen=new Set();const q=[];if(plus>=0){q.push(plus);seen.add(plus)}
+  const partNets=new Map();N.terms.forEach(t=>{const k=gOf(t.pid,t.pin);if(!partNets.has(t.pid))partNets.set(t.pid,new Set());partNets.get(t.pid).add(k)});
+  while(q.length){const k=q.shift();if(k!==minus)order.push(k);(groups.get(k)||[]).forEach(t=>(partNets.get(t.pid)||[]).forEach(k2=>{if(!seen.has(k2)&&k2>=0){seen.add(k2);q.push(k2)}}))}
+  [...groups.keys()].forEach(k=>{if(!seen.has(k)&&k!==minus){order.push(k);seen.add(k)}});if(minus>=0)order.push(minus);
+  const nets=order.map(k=>({k,terms:groups.get(k)||[],plus:k===plus,minus:k===minus})).filter(n=>n.terms.length>1);
+  const issues=[];const opens=[];
+  N.terms.forEach(t=>{const k=gOf(t.pid,t.pin);const alone=(groups.get(k)||[]).length<2;if(!alone)return;const p=t.part;if(p.type==="ic"){const pw=ICPWR[p.props.pins||14];if(+t.pin===pw[0]||+t.pin===pw[1])opens.push(t);return}opens.push(t)});
+  opens.forEach(t=>issues.push({lv:"warn",t:`${t.part.name}: ${m3PinDesc(t.part,t.pin)} chưa nối với gì.`,pid:t.pid}));
+  if(bat&&plus===minus&&plus>=0)issues.push({lv:"bad",t:`Đoản mạch: cực (+) và (−) của ${bat.name} đang nối thẳng với nhau.`,pid:bat.id});
+  spec.parts.filter(p=>p.type==="led").forEach(d=>{const a=gOf(d.id,"A"),k=gOf(d.id,"K");if(bat&&a===plus&&k===minus)issues.push({lv:"bad",t:`${d.name} nối thẳng vào pin, không có điện trở hạn dòng → LED sẽ cháy. Thêm điện trở 330–470 Ω nối tiếp.`,pid:d.id});
+    if(bat&&(a===minus||k===plus)&&a!==k)issues.push({lv:"warn",t:`${d.name} có vẻ cắm ngược: anode (chân dài) phải về phía (+), cathode về phía (−).`,pid:d.id})});
+  spec.parts.filter(p=>p.type==="capacitor").forEach(c=>{if(bat&&(gOf(c.id,"+")===minus||gOf(c.id,"-")===plus))issues.push({lv:"bad",t:`${c.name} cắm ngược cực: chân (+) phải về phía điện áp cao hơn.`,pid:c.id})});
+  spec.parts.filter(p=>p.type==="ic").forEach(u=>{const pw=ICPWR[u.props.pins||14];if(!bat)return;if(gOf(u.id,String(pw[0]))!==plus)issues.push({lv:"bad",t:`${u.name}: chân ${pw[0]} (VCC) chưa nối cực (+) → IC không chạy.`,pid:u.id});if(gOf(u.id,String(pw[1]))!==minus)issues.push({lv:"bad",t:`${u.name}: chân ${pw[1]} (GND) chưa nối cực (−) → IC không chạy.`,pid:u.id})});
+  spec.parts.filter(p=>p.type==="transistor").forEach(qq=>{if(bat&&gOf(qq.id,"B")===plus)issues.push({lv:"bad",t:`${qq.name}: cực B nối thẳng vào (+), thiếu điện trở R_B → dòng B quá lớn.`,pid:qq.id})});
+  if(!bat&&spec.parts.some(p=>M3_PINS[p.type]))issues.push({lv:"warn",t:"Chưa có pin — thêm Pin (tab Linh kiện) để cấp điện cho mạch."});
+  return {N,nets,issues,plus,minus,bat,P,node:gOf,conn:(pid,pin)=>(groups.get(gOf(pid,pin))||[]).length>1}}
+function m3SimSettle(spec){try{const s=JSON.parse(JSON.stringify(spec));const S={};let r=m3Simulate(s,S,0);const hasC=s.parts.some(p=>p.type==="capacitor");for(let i=0;i<(hasC?250:3);i++)r=m3Simulate(s,S,.02);return r}catch(e){console.warn(e);return null}}
+/* ---------- nguyên lý từng loại linh kiện ---------- */
+function m3WhyPart(p,r,A){const t=p.type,P=p.props||{};
+  if(t==="battery")return `<b>${esc(p.name)}</b> tạo hiệu điện thế ${P.kind==="aa"?"1,5":"9"} V giữa hai cực. Dòng điện quy ước đi từ cực (+) qua mạch rồi về cực (−); electron chạy theo chiều ngược lại.${r?` Hiện pin cấp ${fI(r.i)}.`:""}`;
+  if(t==="resistor")return `<b>${esc(p.name)}</b> = ${fOhm(P.ohm)} (vòng màu: ${m3BandText(P.ohm)}). Điện trở hạn dòng theo định luật Ohm: I = U / R.${r?` Hiện có ${fI(r.i)} chạy qua, sụt áp ${fV(Math.abs(r.v))}, tỏa nhiệt ${(r.pw*1000||0).toLocaleString("vi-VN",{maximumFractionDigits:1})} mW.`:""}`;
+  if(t==="led"){const vf=M3_VF[P.color]||2;let s=`<b>${esc(p.name)}</b> là điốt phát quang: chỉ dẫn điện khi <b>phân cực thuận</b> (anode cao hơn cathode khoảng ${String(vf).replace(".",",")} V) và cần điện trở nối tiếp để giới hạn dòng 5–20 mA.`;
+    if(r){if(r.burn)s+=` <b class="bad">LED đã cháy</b> vì dòng vượt ~35 mA — tăng điện trở rồi bấm Đặt lại.`;else if(r.on)s+=` <b class="ok">LED sáng</b> với I ≈ ${fI(r.i)}: dòng đi từ (+) qua các linh kiện vào anode, ra cathode về (−). I ≈ (U nguồn − ${String(vf).replace(".",",")} V − sụt áp trên linh kiện khác) / R.`;
+      else{const why=[];const an=A.node(p.id,"A");const drv=(A.nets.find(n=>n.k===an)||{terms:[]}).terms.find(x=>x.part.type==="ic");if(drv)why.push(`ngõ ra ${m3PinDesc(drv.part,drv.pin)} của ${drv.part.name} đang ở mức 0`);if(r.open)why.push("một chân LED chưa nối kín mạch");if(A.issues.some(x=>x.pid===p.id&&/ngược/.test(x.t)))why.push("LED cắm ngược");if(A.P&&[...A.P.values()].some(x=>x.type==="switch"&&!x.props.on))why.push("có công tắc đang mở");s+=` <b>LED tắt</b>${why.length?" vì "+why.join(", "):" — chưa có dòng chạy qua (mạch hở hoặc điện áp chưa đủ)"}.`}}return s}
+  if(t==="capacitor")return `<b>${esc(p.name)}</b> tích điện khi có dòng nạp: điện áp tăng theo v(t) = V(1 − e^(−t/τ)) với τ = R·C; sau khoảng 5τ coi như đầy. Tụ hóa có cực: chân dài (+), chân có vạch là (−).${r?` Sau vài giây mô phỏng: U ≈ ${fV(r.v)}.`:""}`;
+  if(t==="switch")return `<b>${esc(p.name)}</b> ${P.on?"đang <b>đóng</b>: nối kín hai chân, dòng chạy qua được":"đang <b>mở</b>: ngắt mạch, không có dòng"}. Khi chạy mô phỏng, bấm vào công tắc để gạt.`;
+  if(t==="transistor")return `<b>${esc(p.name)}</b> (${esc(P.label||"NPN")}) là công tắc điều khiển bằng dòng: dòng nhỏ vào cực B (qua R_B) cho phép dòng lớn I_C ≈ β·I_B chạy từ C xuống E. Khi I_B đủ lớn, transistor <b>bão hòa</b> (U_CE ≈ 0,2 V) và hoạt động như công tắc đóng.${r?` Hiện: ${!r.on?"<b>tắt</b> (chưa có dòng vào B)":r.sat?`<b class="ok">dẫn bão hòa</b>, I_C ≈ ${fI(r.ic)}`:`khuếch đại, I_C ≈ ${fI(r.ic)}`}.`:""}`;
+  if(t==="ic"){const k=gateKey(P.label);const F=GATE_FN[k];const G=gateOf(P.label);const pw=ICPWR[P.pins||14];if(!F)return `<b>${esc(p.name)}</b>: nối chân ${pw[0]} vào (+) và chân ${pw[1]} vào (−) để cấp nguồn. Mô phỏng hỗ trợ 74HC00/02/04/08/32/86.`;
+    const tt=F[2].length===1?[[0],[1]]:[[0,0],[0,1],[1,0],[1,1]];
+    let s=`<b>${esc(p.name)}</b> chứa ${G.g.length} cổng <b>${F[0]}</b> (${F[1]}). Cấp nguồn: chân ${pw[0]} = VCC (+), chân ${pw[1]} = GND (−). Mức 1 khi điện áp vào > VCC/2, mức 0 khi gần 0 V; ngõ vào CMOS không được để hở (dùng điện trở kéo xuống 10 kΩ).
+      <div class="m3g-tt"><table><tr>${F[2].length===1?"<th>A</th>":"<th>A</th><th>B</th>"}<th>Y</th></tr>${tt.map(v=>`<tr>${v.map(x=>`<td>${x}</td>`).join("")}<td><b>${F[2](...v)}</b></td></tr>`).join("")}</table>
+      <div class="m3g-pins">${G.g.map((g,gi)=>`<span>Cổng ${gi+1}: vào ${g.slice(0,-1).map(x=>"chân "+x).join(", ")} → ra chân ${g[g.length-1]}</span>`).join("")}</div></div>`;
+    if(r&&r.gates){const used=r.gates.map((g,gi)=>({g,gi})).filter(({g})=>g.pins.some(pin=>A.conn(p.id,String(pin))));if(r.sup<2)s+=` <b class="bad">IC chưa có nguồn</b>.`;else if(used.length)s+=`<div class="m3g-now">Đang chạy: ${used.map(({g,gi})=>`cổng ${gi+1}: ${g.ins.join(F[2].length===1?"":" , ")} → <b>${g.out}</b>`).join(" · ")}</div>`}return s}
+  return ""}
+function m3GuideHTML(st,A,R){const spec=st.spec;const elec=spec.parts.filter(p=>M3_PINS[p.type]);const wires=spec.parts.filter(p=>p.type==="wire");
+  const notes=spec.notes?`<p>${esc(spec.notes)}</p>`:"";
+  if(!elec.length){const shapes=spec.parts.filter(p=>p.type!=="breadboard");
+    return `<div class="m3g"><section><h4>${ic("info")} Mô hình này nói gì?</h4>${notes||`<p class="muted">Mô hình chưa có ghi chú. Thêm chữ chú thích (tab Linh kiện → Chữ) để giải thích.</p>`}
+      ${shapes.length?`<details><summary>Các thành phần (${shapes.length})</summary><ul class="m3g-ls">${shapes.slice(0,40).map(p=>`<li><button class="linkbtn" data-gsel="${esc(p.id)}">${esc(p.name)}</button>${p.label?` — ${esc(p.label)}`:""}</li>`).join("")}</ul></details>`:""}</section>
+      <section><h4>${ic("cube")} Tự dựng mô hình 3D</h4><ol class="m3g-steps plain"><li>Tab <b>Linh kiện</b>: bấm Hộp, Trụ, Cầu, Mũi tên, Chữ… để thêm khối.</li><li>Kéo khối trên sân khấu để đặt vị trí; tab <b>Thuộc tính</b> để chỉnh kích thước, góc xoay, màu, chữ ghi chú.</li><li>Mũi tên dùng để chỉ hướng (dòng điện, kế thừa lớp, luồng dữ liệu); dây dẫn vẽ được đường cong bất kỳ.</li><li>Bấm <b>Lưu vào Studio</b> để giữ mô hình trong bài học.</li></ol>
+      <h4 style="margin-top:12px">${ic("link")} Muốn làm mạch điện?</h4>${m3StarterHTML()}</section></div>`}
+  const ledOn=R?elec.filter(p=>p.type==="led"&&R.parts[p.id]&&R.parts[p.id].on).length:0;const leds=elec.filter(p=>p.type==="led").length;
+  const summary=R?`<div class="m3g-sum ${A.issues.some(i=>i.lv==="bad")?"bad":A.issues.length?"warn":"ok"}">${A.issues.some(i=>i.lv==="bad")?ic("info")+" Mạch còn lỗi cần sửa trước khi chạy.":A.issues.length?ic("info")+" Mạch chạy được nhưng còn chỗ chưa nối/chưa chuẩn.":ic("check")+" Mạch nối đúng."}${leds?` · ${ledOn}/${leds} LED sáng`:""}</div>`:"";
+  const col=n=>n.plus?"#e05a4f":n.minus?"#2f3640":null;const ws=["vàng","xanh lá","xanh dương","tím","cam","trắng"];let wi=0;
+  const stepTxt=n=>{const L=n.terms.map(t=>`<b>${esc(t.part.name)}</b> · ${esc(m3PinDesc(t.part,t.pin))}`);const c=n.plus?"đỏ":n.minus?"đen":ws[wi++%ws.length];
+    const head=n.plus?"Đường nguồn (+)":n.minus?"Đường mát GND (−)":"Nút tín hiệu";
+    return `<div class="m3g-h"><i class="dot" style="background:${col(n)||["#e8b04a","#4caf7d","#5b8def","#c77dff","#ff8a3d","#eee"][(wi-1)%6]}"></i><b>${head}</b><small>dây ${c}</small></div><div>${L.length===2?`Nối ${L[0]} ↔ ${L[1]}`:`Nối chung ${L.length} chân: ${L.join(" · ")}`}</div><small class="muted">${n.terms.length>2&&(n.plus||n.minus)?"Trên breadboard: cắm các chân này vào thanh nguồn "+(n.plus?"đỏ (+)":"xanh (−)")+" chạy dọc mép bo.":"Trên breadboard: cắm các chân vào cùng một cột 5 lỗ, hoặc nối bằng dây nhảy."}</small>`};
+  const done=st._gDone||(st._gDone={});
+  return `<div class="m3g">${summary}
+    <section><h4>${ic("spark")} Nguyên lý — vì sao ra kết quả này</h4>${notes}<div class="m3g-why">${elec.map(p=>{const h=m3WhyPart(p,R&&R.parts[p.id],A);return h?`<div class="m3g-w" data-gsel="${esc(p.id)}">${h}</div>`:""}).join("")}</div>
+      ${R&&R.warn&&R.warn.length?`<div class="m3g-warn">${R.warn.slice(0,4).map(w=>`<div>⚠ ${esc(w)}</div>`).join("")}</div>`:""}</section>
+    <section><h4>${ic("link")} Cách nối dây từng bước${wires.length?"":" (chưa có dây)"}</h4>
+      ${A.nets.length?`<ol class="m3g-steps">${A.nets.map((n,i)=>`<li class="${done[i]?"done":""}"><label class="m3g-ck"><input type="checkbox" class="chk" data-gdone="${i}" ${done[i]?"checked":""} aria-label="Đã nối bước ${i+1}"></label><div class="m3g-st" data-gsel="${esc(n.terms[0].pid)}">${stepTxt(n)}</div></li>`).join("")}</ol>
+        <p class="muted" style="font-size:12px;margin:6px 0 0">Thứ tự đi từ cực (+) của pin qua từng linh kiện rồi về cực (−). Bấm một bước để chọn linh kiện trên sân khấu.</p>`:`<p class="muted">Chưa có chân nào được nối. ${m3HowWire()}</p>`}</section>
+    <section><h4>${ic("check")} Kiểm tra mạch</h4>${A.issues.length?`<ul class="m3g-iss">${A.issues.map(x=>`<li class="${x.lv}" ${x.pid?`data-gsel="${esc(x.pid)}"`:""}>${esc(x.t)}</li>`).join("")}</ul>`:`<p class="ok-t">${ic("check")} Không thấy lỗi nối: không chân hở, không đoản mạch, LED có điện trở, IC đủ nguồn.</p>`}
+      <p class="muted" style="font-size:12px;margin:6px 0 0">Bấm <b>Mô phỏng</b> trên thanh công cụ để thấy dòng điện chạy; bấm công tắc để gạt.</p></section>
+    <section><h4>${ic("edit")} Tự nối hoặc sửa dây</h4>${m3HowWire()}</section></div>`}
+const m3HowWire=()=>`<ol class="m3g-steps plain"><li>Bấm <b>Nối dây</b> trên thanh công cụ — các chân hiện thành chấm màu (đỏ = +, xanh = −, vàng = chưa nối, xanh lá = đã nối).</li><li>Bấm chấm của chân thứ nhất, rồi bấm chấm của chân thứ hai: dây được vẽ tự động.</li><li>Muốn bỏ dây: chọn dây (tab Danh sách) rồi nhấn Delete.</li><li>Nối xong, bấm <b>Mô phỏng</b> để kiểm tra; tab này tự cập nhật hướng dẫn và lỗi.</li></ol>`;
+const m3StarterHTML=()=>`<p style="margin:4px 0">Mạch đầu tiên nên thử: <b>Pin (+) → điện trở 470 Ω → anode LED; cathode LED → Pin (−)</b>. Dòng I = (9 − 2) / 470 ≈ 15 mA, LED sáng vừa đủ.</p><button class="btn" data-gstarter>${ic("plus")} Chèn pin, điện trở, LED để tập nối</button>`;
+M3_PLUG.push(function(st){const {rebuild,select,snap}=st.api;const side=$(".m3d-side .rtab");if(!side)return;
+  const b=document.createElement("button");b.setAttribute("role","tab");b.dataset.m3tab="guide";b.setAttribute("aria-selected","false");b.textContent="Hướng dẫn";side.insertBefore(b,side.firstChild);
+  const tabs=()=>$$(".m3d-side [data-m3tab]");
+  const render=()=>{if(st.tab!=="guide")return;st._gsig=sig();const box=$("#m3P");if(!box)return;const keep=box.scrollTop;const A=m3Analyze(st.spec);const R=st.spec.parts.some(p=>M3_PINS[p.type])?m3SimSettle(st.spec):null;
+    box.innerHTML=m3GuideHTML(st,A,R);box.scrollTop=keep;
+    $$("[data-gsel]",box).forEach(x=>x.addEventListener("click",e=>{if(e.target.closest("input,button:not(.linkbtn)"))return;const id=x.dataset.gsel;if(id){const t=st.tab;select(id);st.tab=t;tabs().forEach(y=>y.setAttribute("aria-selected",y.dataset.m3tab==="guide"));render()}}));
+    $$("[data-gdone]",box).forEach(x=>x.onchange=()=>{(st._gDone=st._gDone||{})[x.dataset.gdone]=x.checked;x.closest("li").classList.toggle("done",x.checked)});
+    const s0=$("[data-gstarter]",box);if(s0)s0.onclick=()=>{snap();const ids=new Set(st.spec.parts.map(p=>p.id));const add=o=>{const p=m3CleanPart(o,0,ids);if(p){st.spec.parts.push(p);rebuild(p.id)}};
+      if(!st.spec.parts.some(p=>p.type==="breadboard"))add({id:"bb",type:"breadboard",name:"Breadboard",pos:[0,0,0],props:{w:10,d:5}});
+      add({id:"bat",type:"battery",name:"Pin 9 V",pos:[-6.4,-.35,0],props:{kind:"9v"}});add({id:"r1",type:"resistor",name:"Điện trở 470 Ω",pos:[-1.2,0,-.6],props:{ohm:470},label:"R = 470 Ω"});add({id:"d1",type:"led",name:"LED đỏ",pos:[1.8,0,-.6],props:{color:"red",on:false},label:"LED"});
+      toast("Đã chèn linh kiện. Bấm “Nối dây” rồi làm theo các bước bên phải.",3200);render()}};
+  b.onclick=()=>{st.tab="guide";tabs().forEach(y=>y.setAttribute("aria-selected",y===b));render()};
+  tabs().forEach(x=>{if(x!==b)x.addEventListener("click",()=>b.setAttribute("aria-selected","false"))});
+  let rt=0;const later=()=>{clearTimeout(rt);rt=setTimeout(render,250)};
+  const r0=st.hook.rebuilt;st.hook.rebuilt=function(){const v=r0&&r0.apply(this,arguments);if(st.tab==="guide")later();return v};
+  const sig=()=>JSON.stringify(st.spec.parts.map(p=>[p.id,p.type==="wire"?[(p.props.a||{}).id,(p.props.a||{}).pin,(p.props.b||{}).id,(p.props.b||{}).pin,p.props.pts.length,p.props.pts[0],p.props.pts[p.props.pts.length-1]]:0,p.props.on,p.props.ohm,p.props.label,p.props.color,p.pos.map(x=>Math.round(x*20)),p.name]));
+  const iv=setInterval(()=>{if(!document.body.contains(side)){clearInterval(iv);return}if(st.tab!=="guide")return;const g=sig();if(g!==st._gsig){st._gsig=g;render()}},900);
+  const d0=st.hook.dispose;st.hook.dispose=function(){clearInterval(iv);return d0&&d0.apply(this,arguments)};
+  if(st.spec.parts.length>1){st.tab="guide";tabs().forEach(y=>y.setAttribute("aria-selected",y===b));setTimeout(render,60)}});
+
+/* =====================================================================
+   v31 — Dự án: lộ trình thực hiện + kết quả của từng bước (kèm đồ thị / dạng sóng minh họa)
+   ===================================================================== */
+/* ---------- đồ thị SVG nhỏ ---------- */
+function vzPlot({w=520,h=210,x0,x1,y0,y1,xlog=false,series=[],xl="",yl="",hl=[],vl=[],xt=null,yt=null}){const L=46,Rr=12,T=12,B=30,W=w-L-Rr,H=h-T-B;
+  const X=x=>L+(xlog?(Math.log10(x)-Math.log10(x0))/(Math.log10(x1)-Math.log10(x0)):(x-x0)/(x1-x0))*W,Y=y=>T+(1-(y-y0)/(y1-y0))*H;
+  const xs=xt||(xlog?(()=>{const o=[];for(let e=Math.ceil(Math.log10(x0));e<=Math.floor(Math.log10(x1));e++)o.push(10**e);return o})():[0,1,2,3,4].map(i=>x0+(x1-x0)*i/4));const ys=yt||[0,1,2,3,4].map(i=>y0+(y1-y0)*i/4);
+  const fmt=v=>{const a=Math.abs(v);return a>=1e3?(v/1e3).toLocaleString("vi-VN",{maximumFractionDigits:1})+"k":(+v.toFixed(a<1&&a>0?2:a<10?1:0)).toLocaleString("vi-VN")};
+  const path=s=>{let d="",n=s.n||200;for(let i=0;i<=n;i++){const x=xlog?10**(Math.log10(x0)+(Math.log10(x1)-Math.log10(x0))*i/n):x0+(x1-x0)*i/n;let y=s.f(x);if(!isFinite(y))continue;y=Math.max(y0-(y1-y0)*.1,Math.min(y1+(y1-y0)*.1,y));d+=(d?"L":"M")+X(x).toFixed(1)+" "+Y(y).toFixed(1)}return d};
+  return `<svg class="vz" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(yl)} theo ${esc(xl)}"><defs><clipPath id="vzc${w}${h}"><rect x="${L}" y="${T}" width="${W}" height="${H}"/></clipPath></defs>
+    ${ys.map(v=>`<line class="g" x1="${L}" x2="${L+W}" y1="${Y(v)}" y2="${Y(v)}"/><text class="t" x="${L-6}" y="${Y(v)+4}" text-anchor="end">${fmt(v)}</text>`).join("")}
+    ${xs.map(v=>`<line class="g" y1="${T}" y2="${T+H}" x1="${X(v)}" x2="${X(v)}"/><text class="t" x="${X(v)}" y="${T+H+14}" text-anchor="middle">${fmt(v)}</text>`).join("")}
+    ${hl.map(([v,l])=>`<line class="hl" x1="${L}" x2="${L+W}" y1="${Y(v)}" y2="${Y(v)}"/><text class="hlt" x="${L+W-4}" y="${Y(v)-4}" text-anchor="end">${esc(l)}</text>`).join("")}
+    ${vl.map(([v,l])=>`<line class="hl" y1="${T}" y2="${T+H}" x1="${X(v)}" x2="${X(v)}"/><text class="hlt" x="${X(v)+4}" y="${T+12}">${esc(l)}</text>`).join("")}
+    <g clip-path="url(#vzc${w}${h})">${series.map(s=>`<path d="${path(s)}" fill="none" stroke="${s.c}" stroke-width="${s.w||2.2}" ${s.dash?`stroke-dasharray="${s.dash}"`:""} stroke-linejoin="round"/>`).join("")}</g>
+    <text class="ax" x="${L+W/2}" y="${h-4}" text-anchor="middle">${esc(xl)}</text><text class="ax" x="12" y="${T+H/2}" text-anchor="middle" transform="rotate(-90 12 ${T+H/2})">${esc(yl)}</text></svg>
+    ${series.some(s=>s.n_)?`<div class="vz-lg">${series.filter(s=>s.n_).map(s=>`<span><i style="background:${s.c}"></i>${esc(s.n_)}</span>`).join("")}</div>`:""}`}
+/* dạng sóng số: signals [{n, v:"0101…"} | {n, bus:["0","1",…]}] */
+function vzWave({sig,cw=26,lab=56}){const n=Math.max(...sig.map(s=>s.v?s.v.length:s.bus.length*(s.span||1)));const w=lab+n*cw+8,rh=30,h=sig.length*rh+8;
+  return `<svg class="vz wave" viewBox="0 0 ${w} ${h}" role="img" aria-label="Dạng sóng">${sig.map((s,r)=>{const y=r*rh+6,hi=y+3,lo=y+rh-9;let d="";
+    if(s.v){[...s.v].forEach((b,i)=>{const yy=b==="1"?hi:lo;const x=lab+i*cw;d+=(i?"L"+x+" "+yy:"M"+x+" "+yy)+"L"+(x+cw)+" "+yy});return `<text class="wn" x="${lab-8}" y="${y+rh/2+1}" text-anchor="end">${esc(s.n)}</text><path d="${d}" fill="none" stroke="${s.c||"var(--accent)"}" stroke-width="2"/>`}
+    const sp=s.span||1,bw=cw*sp;return `<text class="wn" x="${lab-8}" y="${y+rh/2+1}" text-anchor="end">${esc(s.n)}</text>`+s.bus.map((v,i)=>{const x=lab+i*bw;return `<path d="M${x+2} ${hi}L${x+bw-2} ${hi}L${x+bw} ${(hi+lo)/2}L${x+bw-2} ${lo}L${x+2} ${lo}L${x} ${(hi+lo)/2}Z" fill="color-mix(in srgb,${s.c||"#5b8def"} 22%,transparent)" stroke="${s.c||"#5b8def"}" stroke-width="1.3"/><text class="wv" x="${x+bw/2}" y="${(hi+lo)/2+4}" text-anchor="middle">${esc(v)}</text>`}).join("")}).join("")}</svg>`}
+const VIZ={
+  chip_wave:()=>vzWave({sig:[{n:"clk",v:"0101010101010101010101010101010101010101".slice(0,36),c:"#9aa0ab"},{n:"rst_n",v:"001111111111111111111111111111111111"},{n:"en",v:"000011111111111111111111111111111111"},{n:"q",bus:["0","0","1","2","3","4","5","6","7","8","9","A","B","C","D","E","F","0"],span:2,c:"#5b8def"},{n:"tc",v:"000000000000000000000000000000001100",c:"#e5484d"}].map(s=>s.v?{...s,v:s.v.slice(0,36)}:s),cw:13,lab:50})+`<p class="vz-cap">Mỗi ô của q ứng với 1 chu kỳ clock. tc lên 1 đúng chu kỳ q = F, rồi q quay về 0.</p>`,
+  pcb_555:()=>{const T=1.01,tH=.54;const vc=t=>{const u=t%T;return u<tH?9-6*Math.exp(-u/.78):6*Math.exp(-(u-tH)/.68)};return vzPlot({x0:0,x1:3,y0:0,y1:10,xl:"t (s)",yl:"U (V)",hl:[[6,"2/3 VCC = 6 V"],[3,"1/3 VCC = 3 V"]],series:[{f:vc,c:"#5b8def",n_:"Điện áp tụ v_C (3 ↔ 6 V)",n:400},{f:t=>t%T<tH?8.6:.2,c:"#e5484d",n_:"Ngõ ra chân 3",w:1.6,n:600}]})},
+  filt_bode:()=>vzPlot({x0:10,x1:1e5,xlog:true,y0:-60,y1:5,xl:"Tần số f (Hz)",yl:"|H| (dB)",yt:[-60,-40,-20,-3,0],hl:[[-3,"−3 dB"]],vl:[[1000,"f_c = 1 kHz"]],series:[{f:f=>-10*Math.log10(1+(f/1000)**2),c:"#5b8def",n_:"RC bậc 1 (−20 dB/decade)"},{f:f=>-10*Math.log10(1+(f/1000)**4),c:"#e5484d",n_:"Sallen-Key bậc 2 Butterworth (−40 dB/decade)"}]}),
+  robot_pid:()=>vzPlot({x0:0,x1:3,y0:-1.2,y1:1.2,xl:"t (s)",yl:"Sai số e",hl:[[0,"bám đúng vạch"]],series:[{f:t=>Math.exp(-.35*t)*Math.cos(9*t),c:"#ff8a3d",n_:"Chỉ P: lắc qua lại lâu"},{f:t=>Math.exp(-3.2*t)*Math.cos(7*t),c:"#4caf7d",n_:"P + D: dao động tắt nhanh"}]}),
+  meas_ntc:()=>vzPlot({x0:0,x1:100,y0:0,y1:35,xl:"Nhiệt độ T (°C)",yl:"R (kΩ)",vl:[[25,"10 kΩ @ 25 °C"]],series:[{f:T=>10*Math.exp(3950*(1/(T+273.15)-1/298.15)),c:"#e5484d",n_:"R_NTC (β = 3950)"},{f:T=>{const R=10*Math.exp(3950*(1/(T+273.15)-1/298.15));return 10*3.3*R/(R+10)},c:"#5b8def",n_:"U_ra × 10 (V) — chia áp với 10 kΩ, nguồn 3,3 V"}]}),
+  fsm_wave:()=>vzWave({sig:[{n:"BN xanh",v:"11111"+"0000000"+"11111111",c:"#35c26b"},{n:"BN vàng",v:"000001000000000"+"00000",c:"#e8b04a"},{n:"BN đỏ",v:"000000111111000"+"00000".replace(/0/g,"0"),c:"#e5484d"},{n:"ĐT xanh",v:"000000111110000"+"00000",c:"#35c26b"},{n:"ĐT vàng",v:"000000000001000"+"00000",c:"#e8b04a"},{n:"trạng thái",bus:["S0","S0","S0","S0","S0","S1","S2","S2","S2","S2","S2","S3","S0","S0","S0","S0","S0","S0","S0","S0"].slice(0,20)}],cw:22,lab:74})+`<p class="vz-cap">Rút gọn: xanh 5 ô, vàng 1 ô. Hai hướng không bao giờ cùng xanh.</p>`,
+  rlc_vc:()=>vzPlot({x0:0,x1:8,y0:0,y1:8,xl:"t (ms)",yl:"v_C (V)",hl:[[5,"V = 5 V"]],series:[{f:t=>{t/=1e3;const s1=-1127,s2=-8873;return 5*(1+(s2*Math.exp(s1*t)-s1*Math.exp(s2*t))/(s1-s2))},c:"#5b8def",n_:"R = 100 Ω: quá tắt dần"},{f:t=>{t/=1e3;const a=1000,wd=Math.sqrt(1e7-1e6);return 5*(1-Math.exp(-a*t)*(Math.cos(wd*t)+a/wd*Math.sin(wd*t)))},c:"#e5484d",n_:"R = 20 Ω: dao động tắt dần"}]}),
+  rc_step:()=>vzPlot({x0:0,x1:5,y0:0,y1:1.05,xl:"t / τ",yl:"v_C / V",hl:[[.632,"63,2% tại t = τ"]],series:[{f:t=>1-Math.exp(-t),c:"#5b8def",n_:"v_C(t) = V(1 − e^(−t/τ))"}]})
+};
+/* ---------- kết quả từng bước của các mẫu ---------- */
+const PJ_EXTRA={
+ chip:[{out:"Bảng I/O + 3 yêu cầu",res:"Một bảng 5 tín hiệu (clk, rst_n, en, q[3:0], tc) và 3 câu yêu cầu. **Đạt** khi mỗi yêu cầu viết được thành một phép thử ở bước 4."},
+  {out:"Sơ đồ khối",res:"Sơ đồ có: thanh ghi 4 bit → bộ cộng +1 → MUX (en) → quay lại D; khối so sánh q = 15 AND en → tc. **Đạt** khi mọi mũi tên có độ rộng bus và chỉ ra được đường tới hạn."},
+  {out:"counter4.v",res:"Tệp ~10 dòng biên dịch không lỗi: `iverilog -o sim counter4.v tb.v` không báo gì. **Đạt** khi không có cảnh báo *latch* và mọi ngõ ra đều được gán."},
+  {out:"Dạng sóng + “PASS”",res:"Sau reset q = 0; mỗi sườn lên khi en = 1 thì q tăng 1; tại q = F thì tc = 1 đúng một chu kỳ, sau đó q = 0. Testbench in **“Xong”** và **không có dòng “LỖI”**.",viz:"chip_wave"},
+  {out:"Báo cáo tài nguyên",res:"| Tài nguyên | Kết quả mong đợi |\n|---|---|\n| Flip-flop | 4 |\n| Latch | 0 |\n| LUT / cell | khoảng 5–8 |\n\nNếu thấy latch hoặc nhiều hơn 4 FF → quay lại sửa RTL."},
+  {out:"Báo cáo STA (WNS ≥ 0)",res:"Ví dụ ở 100 MHz: **WNS = +7,2 ns**, TNS = 0, không vi phạm hold. Báo cáo chỉ ra đường tới hạn q → bộ cộng → D."},
+  {out:"Bitstream / GDSII",res:"FPGA: có tệp `.bit` và 4 LED đếm nhị phân 0000 → 1111 (sau bộ chia ~2 Hz). ASIC: DRC = 0 lỗi, LVS khớp, có tệp GDSII."},
+  {out:"Báo cáo hoàn chỉnh",res:"Bảng đối chiếu: yêu cầu (1) reset ✓ · (2) đếm khi en ✓ · (3) quay vòng ✓, kèm dạng sóng, báo cáo tài nguyên/timing và ảnh chạy thật."}],
+ pcb:[{out:"Bảng tiêu chí",res:"f = 0,9–1,1 Hz · I_LED ≈ 15 mA · bo ≤ 40 × 30 mm. Mỗi tiêu chí có cách đo ở bước 7."},
+  {out:"Sơ đồ nguyên lý (ERC 0 lỗi)",res:"Sơ đồ NE555 chế độ dao động: chân 4, 8 → VCC; 1 → GND; R1 giữa VCC–7; R2 giữa 7–6/2; C từ 6/2 xuống GND; chân 5 qua 10 nF; chân 3 → R → LED. **ERC báo 0 lỗi.**"},
+  {out:"BOM",res:"| Mã | Giá trị | SL |\n|---|---|---|\n| U1 | NE555 | 1 |\n| R1 | 10 kΩ | 1 |\n| R2 | 68 kΩ | 1 |\n| R3 | 470 Ω | 1 |\n| C1 | 10 µF điện phân | 1 |\n| C2 | 10 nF | 1 |\n| D1 | LED 5 mm | 1 |\n\nf ≈ 1,44 / (146 kΩ · 10 µF) ≈ **0,99 Hz**."},
+  {out:"Đồ thị mô phỏng",res:"v_C dao động giữa **3 V và 6 V** (1/3 – 2/3 VCC); ngõ ra chân 3 là xung vuông 0 / ~8,6 V; chu kỳ ≈ 1,0 s (t_H ≈ 0,54 s, t_L ≈ 0,47 s).",viz:"pcb_555"},
+  {out:"Layout PCB",res:"Bo 2 lớp khoảng 35 × 25 mm, IC ở giữa, tụ sát chân nguồn, LED ở mép, GND phủ đồng mặt dưới, **không còn đường ratsnest**."},
+  {out:"Bộ Gerber",res:"Thư mục gồm F.Cu, B.Cu, F.Mask, B.Mask, F.Silkscreen, Edge.Cuts và tệp khoan `.drl`. **DRC 0 lỗi**, xem lại trong Gerber viewer khớp với layout."},
+  {out:"Mạch chạy + số đo",res:"LED nháy khoảng **1 lần/giây**; dòng nguồn 15–20 mA; chu kỳ đo được 0,95–1,05 s (nằm trong tiêu chí)."}],
+ robot:[{out:"Thông số cơ khí",res:"Tốc độ lý thuyết ≈ **0,68 m/s**; bản vẽ bố trí khung, vị trí pin thấp gần trục, cảm biến cách mặt đất 5–10 mm."},
+  {out:"Bảng đọc cảm biến",res:"| Bề mặt | ADC (10 bit) |\n|---|---|\n| Nền trắng | ≈ 850–950 |\n| Vạch đen | ≈ 100–250 |\n\nSai số e chạy từ −2 (vạch ở mép trái) đến +2 (mép phải), e = 0 khi vạch ở giữa."},
+  {out:"Sơ đồ nối dây driver",res:"PWM 50% → động cơ quay khoảng nửa tốc; đảo IN1/IN2 → động cơ quay ngược. Không nóng driver khi chạy không tải."},
+  {out:"Chương trình đọc e",res:"Serial Monitor in e ≈ 0 khi vạch ở giữa, âm khi lệch trái, dương khi lệch phải; vòng lặp đều 5 ms (200 Hz)."},
+  {out:"Robot bám vạch bằng PID",res:"Chỉ dùng P: robot lắc qua lại quanh vạch. Thêm D: dao động tắt nhanh, robot bám êm cả khúc cua.",viz:"robot_pid"},
+  {out:"Bảng hiệu chỉnh",res:"| Kp | Kd | Thời gian 1 vòng | Lạc vạch |\n|---|---|---|---|\n| 40 | 0 | 14,2 s | 2 |\n| 60 | 5 | 11,8 s | 0 |\n| 60 | 8 | **11,1 s** | 0 |\n\n(Ví dụ — số của bạn sẽ khác.)"}],
+ filter:[{out:"Quyết định: bậc 2",res:"Bậc 1 chỉ giảm −20 dB tại 10 kHz (chưa đạt 30 dB) → chọn **bậc 2 Butterworth** (−40 dB)."},
+  {out:"R = 1,6 kΩ · C = 100 nF",res:"f_c ≈ 995 Hz; tại f_c biên độ giảm −3 dB (còn 70,7%), pha −45°; trên f_c giảm 20 dB mỗi decade.",viz:"filt_bode"},
+  {out:"R ≈ 11 kΩ · C1 = 22 nF · C2 = 10 nF",res:"Đáp ứng phẳng tới ~700 Hz, −3 dB tại ~1 kHz, sau đó giảm 40 dB/decade, không có đỉnh cộng hưởng (Q = 0,707)."},
+  {out:"Đồ thị Bode",res:"Tại 10 kHz: bậc 1 ≈ −20 dB, bậc 2 ≈ **−40 dB** (đạt yêu cầu ≥ 30 dB).",viz:"filt_bode"},
+  {out:"Bảng đo",res:"| f | V_out (V_in = 1 Vpp) | dB |\n|---|---|---|\n| 100 Hz | 1,00 V | 0 |\n| 1 kHz | 0,71 V | −3 |\n| 3 kHz | 0,11 V | −19 |\n| 10 kHz | 0,01 V | −40 |"},
+  {out:"Bảng so sánh sai số",res:"f_c đo ≈ 1,05 kHz so với 1 kHz lý thuyết (lệch 5%) — nằm trong dung sai tụ ±10%. Nêu được 3 nguồn sai số và cách cải tiến (tụ phim ±1%)."}],
+ meas:[{out:"Bảng R(T)",res:"R giảm mạnh khi nhiệt độ tăng: **33,6 kΩ (0 °C) → 10 kΩ (25 °C) → 0,68 kΩ (100 °C)** — quan hệ phi tuyến (hàm mũ).",viz:"meas_ntc"},
+  {out:"Bảng U_ra(T)",res:"| T | R_NTC | U_ra (3,3 V, R = 10 kΩ) |\n|---|---|---|\n| 0 °C | 33,6 kΩ | 2,54 V |\n| 25 °C | 10 kΩ | 1,65 V |\n| 50 °C | 3,6 kΩ | 0,87 V |\n| 100 °C | 0,68 kΩ | 0,21 V |"},
+  {out:"Mạch khuếch đại & lọc",res:"Tín hiệu ra phủ gần hết dải ADC (0,2–3,1 V), nhiễu giảm còn vài mV nhờ lọc thông thấp ~5 Hz."},
+  {out:"Độ phân giải",res:"LSB ≈ 0,8 mV ↔ ≈ **0,02 °C** tại 25 °C (lý thuyết); kém hơn ở hai đầu dải vì đường cong dẹt lại."},
+  {out:"Hệ số hiệu chuẩn",res:"Sau hiệu chuẩn 2 điểm (0 °C, 100 °C) sai số < 0,5 °C trong toàn dải; kiểm tra ở điểm thứ 3 (ví dụ 37 °C) lệch < 0,3 °C."},
+  {out:"Kết quả T = x ± U",res:"Ví dụ cách ghi chuẩn: **T = 36,8 °C ± 0,5 °C (k = 2, mức tin cậy ~95%)**, kèm bảng các thành phần độ không đảm bảo."}],
+ fsm:[{out:"Sơ đồ 4 trạng thái",res:"S0 (BN xanh) → S1 (BN vàng) → S2 (ĐT xanh) → S3 (ĐT vàng) → S0, mỗi mũi tên ghi điều kiện “hết giờ”."},
+  {out:"Bảng chuyển trạng thái",res:"| Hiện tại | Hết giờ? | Kế tiếp | Đèn BN | Đèn ĐT |\n|---|---|---|---|---|\n| S0 | t = 20 | S1 | xanh | đỏ |\n| S1 | t = 3 | S2 | vàng | đỏ |\n| S2 | t = 20 | S3 | đỏ | xanh |\n| S3 | t = 3 | S0 | đỏ | vàng |"},
+  {out:"traffic.v",res:"Mã biên dịch không lỗi, có `default` trong mọi `case`, tổng hợp ra 2 FF trạng thái (mã nhị phân) hoặc 4 FF (one-hot)."},
+  {out:"Dạng sóng đèn",res:"Hai hướng **không bao giờ cùng xanh**; thứ tự S0 → S1 → S2 → S3 lặp lại; một chu kỳ đầy đủ 46 s.",viz:"fsm_wave"},
+  {out:"Đèn chạy trên bo",res:"6 LED trên bo FPGA sáng đúng trình tự và thời gian; nút đi bộ (nếu thêm) chuyển sang đỏ cả hai hướng ở lượt kế tiếp."}],
+ oop:[{out:"Danh sách lớp & hành vi",res:"Lớp: LinhKien, DienTro, TuDien, LED, Kho. Hành vi: them(), xoa(), timTheoMa(), tongGiaTri(), inTatCa()."},
+  {out:"Sơ đồ lớp UML",res:"LinhKien (trừu tượng) ← DienTro, TuDien, LED (mũi tên tam giác rỗng = kế thừa); Kho ◆— * LinhKien (hợp thành)."},
+  {out:"Các lớp biên dịch được",res:"`g++ -std=c++17 main.cpp` không lỗi; không tạo được đối tượng LinhKien trực tiếp (vì có hàm ảo thuần)."},
+  {out:"Chương trình in danh sách",res:"Ví dụ đầu ra:\n\n```text\nĐiện trở 330 Ω  (SL 50)\nTụ điện 100 µF  (SL 20)\nLED đỏ 2,0 V    (SL 100)\n```\n\nMỗi dòng do hàm moTa() của đúng lớp con in ra (đa hình)."},
+  {out:"Báo cáo kiểm thử",res:"5/5 test **PASS**: thêm–tìm thấy, xóa–không còn, mã trùng bị từ chối, kho rỗng in “(trống)”, số lượng không âm."},
+  {out:"kho.csv",res:"```text\nloai,ma,sl,giatri\nR,R1,50,330\nC,C1,20,0.0001\nLED,D1,100,2.0\n```\nĐóng rồi mở lại chương trình vẫn thấy đủ 3 linh kiện."}],
+ rlc:[{out:"Phương trình vi phân",res:"Với số liệu ví dụ: **10⁻⁷·v_C'' + 10⁻³·v_C' + v_C = 5**, v_C(0) = 0, v_C'(0) = 0."},
+  {out:"α, ω₀ và loại đáp ứng",res:"α = 5000 s⁻¹ > ω₀ ≈ 3162 rad/s ⇒ **quá tắt dần**: v_C tăng đơn điệu, không vọt lố."},
+  {out:"V_C(s) dạng phân thức",res:"V_C(s) = 5 / (s(s − s₁)(s − s₂)) · ω₀², với s₁ ≈ −1127, s₂ ≈ −8873 s⁻¹ — ba phân thức đơn giản."},
+  {out:"v_C(t) tường minh",res:"v_C(1 ms) ≈ 3,15 V; v_C(5 ms) ≈ 4,98 V; tiến tới 5 V.",viz:"rlc_vc"},
+  {out:"So sánh với mô phỏng",res:"Đường mô phỏng trùng lời giải. Đổi R = 20 Ω: α = 1000 < ω₀ → dao động tắt dần với ω_d ≈ 3000 rad/s (vọt lố trên 5 V).",viz:"rlc_vc"}]
+};
+function pjExtraFill(p){const X=p&&p.tpl&&PJ_EXTRA[p.tpl];if(!X)return;const T=PJ_TPL[p.tpl];p.steps.forEach((s,i)=>{if(s.out!=null&&s.res!=null)return;const k=T?T.steps.findIndex(t=>t.t===s.t):-1;const e=X[k>=0?k:-1];if(e){if(s.out==null)s.out=e.out;if(s.res==null)s.res=e.res;if(s.viz==null&&e.viz)s.viz=e.viz}})}
+function pjRoadHTML(p,i){return `<div class="pj-road" aria-label="Lộ trình thực hiện">${p.steps.map((s,k)=>`<button class="pj-rs ${k===i?"on":""} ${s.done?"done":""}" data-pjs="${k}" title="${esc(s.t)}"><span class="n">${s.done?ic("check"):k+1}</span><span class="tx"><b>${esc(s.t)}</b><small>${esc(s.out||"Kết quả: —")}</small></span></button>${k<p.steps.length-1?`<span class="pj-ra" aria-hidden="true">→</span>`:""}`).join("")}</div>`}
+function pjResHTML(st,E){const has=st.out||st.res||st.viz;return `<div class="pj-blk pj-res"><div class="pj-bh"><b>${ic("flag")} Kết quả của bước này</b><button class="ghost" data-pjed="res">${ic("edit")} ${E.res?"Xong":"Sửa"}</button></div>
+  ${E.res?`<input class="input" data-pjf2="out" value="${esc(st.out||"")}" placeholder="Sản phẩm của bước (ví dụ: Bảng I/O, tệp counter4.v, đồ thị Bode…)"><textarea class="input pj-ta" data-pjf2="res" rows="5" placeholder="Mô tả kết quả mong đợi và cách kiểm tra đạt/chưa đạt…">${esc(st.res||"")}</textarea>`
+   :has?`${st.out?`<div class="pj-out">Sản phẩm: <b>${esc(st.out)}</b></div>`:""}${st.res?`<div class="pj-md">${mdBlock(st.res,[])}</div>`:""}${st.viz&&VIZ[st.viz]?`<div class="pj-viz">${VIZ[st.viz]()}</div>`:""}`:`<span class="muted" style="font-size:13px">Chưa có mô tả kết quả. Bấm “Sửa”, hoặc nhờ AI: “Kết quả mong đợi của bước này”.</span>`}</div>`}
+
+/* =====================================================================
+   v33 — Cảnh nền “Ảnh pixel”: 6 ảnh (2 ảnh động GIF) lưu thành tệp riêng trong bgimg/
+   + đồng bộ như cảnh vẽ sẵn: màu nhấn, biểu tượng bay, âm thanh, ô biểu tượng, bộ chủ đề
+   + 2 cảnh pixel vẽ tự động mới cùng phong cách (thủy cung đêm, bãi vỏ sò)
+   + biểu tượng bay mới: cá nhỏ, lá xanh
+   + pixel hóa thật cho ảnh tải lên (giữ chuyển động GIF)
+   ===================================================================== */
+const PIX_BASE=window.SOHOC_BGIMG||"bgimg/";
+/* ảnh do người dùng gửi; bản pixel-art gốc được thu về đúng lưới điểm ảnh (nét sắc, nhẹ hơn) */
+const PIX_BG=[];/* v36: các cảnh ảnh đã được vẽ lại bằng mã (app39.js) */
+const pixURL=b=>(window.PIX_DATA&&window.PIX_DATA[b.k])||PIX_BASE+b.f;
+const pixOf=s=>{s=String(s||"");return s.startsWith("p:")?PIX_BG.find(x=>"p:"+x.k===s):null};
+const isPixSel=()=>!!pixOf(UI.bg.sel);
+/* nạp trước ảnh đang dùng để lần sau mở nhanh (service worker lưu lại) */
+{const b=pixOf(UI.bg.sel);if(b){const i=new Image();i.src=pixURL(b)}}
+
+/* ---------- bgSrc: ảnh pixel mang theo cấu hình đồng bộ ---------- */
+{const _bs37=bgSrc;bgSrc=function(){const b=pixOf(UI.bg.sel);if(b)return {img:pixURL(b),pixp:b.k,snd:b.snd,brand:b.brand,fx:{sym:b.fx}};return _bs37.apply(this,arguments)}}
+{const _sc37=sceneURL;sceneURL=function(id,w,h,seed){const b=pixOf(id);if(b)return pixURL(b);return _sc37.apply(this,arguments)}}
+{const _ab37=applyBg;applyBg=function(){const r=_ab37.apply(this,arguments);const w=$("#wall");if(w){const c=UI.bg.customs.find(x=>"c:"+x.id===UI.bg.sel);if(isPixSel()||(c&&c.px))w.classList.add("px")}return r}}
+{const _db37=drawBanner;drawBanner=function(){const r=_db37.apply(this,arguments);const cv=$("#bnr");const b=cv&&cv.closest(".banner");if(b){const c=UI.bg.customs.find(x=>"c:"+x.id===UI.bg.sel);if(isPixSel()||(c&&c.px))b.classList.add("px")}return r}}
+
+/* ---------- 3 cảnh pixel vẽ tự động mới ---------- */
+function crescent37(g,cx,cy,r,off,c){for(let dy=-Math.ceil(r);dy<=r;dy++)for(let dx=-Math.ceil(r);dx<=r;dx++){if(dx*dx+dy*dy>r*r)continue;const ex=dx-off*r,ey=dy+off*r*.55;if(ex*ex+ey*ey<=(r*.86)*(r*.86))continue;g.fillStyle=c;g.fillRect(Math.round(cx+dx),Math.round(cy+dy),1,1)}}
+function fishPx37(g,x,y,c,dir){const d=dir||1;PR(g,x,y,4,2,c);PR(g,x-d*2,y-1,1,1,c);PR(g,x-d*2,y+2,1,1,c);PR(g,x-d,y,1,2,c);PR(g,d>0?x+3:x,y,1,1,"#10233a")}
+Object.assign(SCENES,{
+ aquanight:{l:"Thủy cung đêm",draw(cv,w,h,seed){const g=pxG(cv,w,h),r=rngOf(seed+"aq");
+   vgrad(g,w,h,0,h,["#0c2546","#103c66","#15557d","#196787","#1b5c76"]);
+   g.globalAlpha=.09;for(let i=0;i<5;i++){const x0=w*(.05+i*.21)+r()*16;for(let y=0;y<h*.8;y++)PR(g,x0+y*.35,y,5+y*.05,1,"#c4f1ff")}g.globalAlpha=1;
+   for(let x=0;x<w;x++){const y=h*.7+Math.sin(x/13)*4+Math.sin(x/5.3)*1.5;PR(g,x,y,1,h-y,"#163c58")}
+   const C=["#e47ab3","#f29e6b","#b583e6","#5ad1c2"];
+   for(let i=0;i<Math.round(w/20);i++){const cx=r()*w,base=h*.88+r()*h*.05,ht=h*(.07+r()*.12),c=C[i%4];for(let k=0;k<3;k++){let x=cx+(k-1)*3,y=base;for(let s=0;s<ht;s++){x+=(r()-.5)*1.4;y-=1;PR(g,x,y,2,1,c)}disc(g,x,y,1.4,c)}}
+   for(let i=0;i<Math.round(w/14);i++){const sx=r()*w,ht=h*(.12+r()*.26);for(let s=0;s<ht;s++)PR(g,sx+Math.sin(s/5+i)*2,h-s,1,1,s%2?"#2f9e6e":"#3fbf84")}
+   for(let x=0;x<w;x++){const y=h*.93+Math.sin(x/9)*1.5;PR(g,x,y,1,h-y,"#c9b48e");if(r()<.3)PR(g,x,y+1+r()*4,1,1,"#e6d3aa")}
+   for(let i=0;i<Math.max(5,Math.round(w*h/2200));i++)fishPx37(g,r()*w,h*(.14+r()*.5),["#ffb36b","#7fd6ff","#ffd36b","#ff8fb0"][i%4],r()<.5?1:-1);
+   for(let i=0;i<w*h/650;i++)PR(g,r()*w,r()*h*.85,1,1,r()<.5?"#cfefff":"#8fd8f0")}},
+ shellbeach:{l:"Bãi vỏ sò pastel",draw(cv,w,h,seed){const g=pxG(cv,w,h),r=rngOf(seed+"sh");const sh=x=>h*.36+Math.sin(x/19)*5+Math.sin(x/7)*1.5;
+   vgrad(g,w,h,0,h*.45,["#4fc4cc","#7ad9d4","#aeece3"]);
+   for(let i=0;i<w*h/120;i++){const x=r()*w,y=r()*h*.4;if(y<sh(x)-3)PR(g,x,y,2+r()*6,1,r()<.5?"#c9f4ee":"#5fb8c4")}
+   for(let x=0;x<w;x++){const s=sh(x);PR(g,x,s,1,h-s,"#f7c6dc");PR(g,x,s+h*.08+Math.sin(x/11)*2,1,h,"#fbe2b6");PR(g,x,s-2,1,3,"#ffffff");if(r()<.4)PR(g,x,s+2+Math.floor(r()*4),1,1,"#ffffff");if(r()<.3)PR(g,x,s-4-Math.floor(r()*4),1,1,"#e6fbf8")}
+   for(let i=0;i<w*h/50;i++){const x=r()*w,y=r()*h;if(y>sh(x)+h*.1)PR(g,x,y,1,1,r()<.5?"#f1cf98":"#fff3d8")}
+   const shell=(x,y,R,c,d)=>{for(let a=0;a<=8;a++){const an=Math.PI*(1+a/8);for(let k=0;k<=R;k++)PR(g,x+Math.cos(an)*k,y+Math.sin(an)*k,1,1,a%2?c:d)}PR(g,x-1,y,3,2,d)};
+   const star=(x,y,L,c)=>{for(let j=0;j<5;j++){const an=-Math.PI/2+j*Math.PI*2/5;for(let k=0;k<=L;k++)PR(g,x+Math.cos(an)*k,y+Math.sin(an)*k,k<L-1?2:1,1,c)}};
+   for(let i=0;i<Math.max(5,Math.round(w*h/2600));i++){const x=r()*w,y=sh(x)+h*.16+r()*h*.42;if(y>h-4)continue;r()<.35?star(x,y,3+Math.round(r()*2),"#f59ab8"):shell(x,y,3+Math.round(r()*2),r()<.5?"#f8b9cc":"#ffd9b8","#e08aa8")}}}
+});
+Object.assign(FX_SCENE,{aquanight:{sym:["bubble","fish"]},shellbeach:{sym:["twinkle","bubble"]}});
+Object.assign(SCENE_SND,{aquanight:"lofi",shellbeach:"waves"});
+const SCENE_BRAND37={aquanight:"fish",shellbeach:"beach"};
+
+/* ---------- biểu tượng bay mới: cá nhỏ, lá xanh ---------- */
+{const nn=FX_SYMS.none;delete FX_SYMS.none;FX_SYMS.fish="Cá nhỏ";FX_SYMS.leaf="Lá xanh";FX_SYMS.none=nn}
+FXC.fish=["#ffb36b","#7fd6ff","#ffd36b","#ff8fb0","#b8a4ff"];FXC.leaf=["#8fd16a","#5fae4a","#c4e88a","#e8c25a"];
+{const _sp=fxSpawn;fxSpawn=function(kind,w,h,init){if(kind==="fish"){const d=Math.random()<.5?1:-1;return {k:kind,d,x:init?fxRand(0,w):d>0?-6:w+6,y:fxRand(h*.15,h*.9),t:fxRand(0,6.28),vx:d*fxRand(5,11),vy:0,v:1}}
+  if(kind==="leaf"){return {k:kind,x:init?fxRand(0,w):fxRand(-w*.1,w),y:init?fxRand(0,h):-4,t:fxRand(0,6.28),vx:fxRand(2,6),vy:fxRand(3,7),v:1}}return _sp.apply(this,arguments)}}
+{const _st=fxStep;fxStep=function(p,dt,t,w,h){if(p.k==="fish"){p.x+=p.vx*dt;p.y+=Math.sin(t*1.4+p.t)*2*dt;return p.x>-10&&p.x<w+10}
+  if(p.k==="leaf"){p.x+=(p.vx+Math.sin(t*1.1+p.t)*9)*dt;p.y+=p.vy*dt;return p.y<h+4&&p.x<w+8}return _st.apply(this,arguments)}}
+{const _dr=fxDraw;fxDraw=function(g,p,t){if(p.k==="fish"){const c=FXC.fish[Math.floor(p.t*10)%FXC.fish.length];const X=Math.round(p.x),Y=Math.round(p.y),d=p.d||1,f=Math.floor(t*5+p.t)%2;g.globalAlpha=.9;g.fillStyle=c;g.fillRect(X,Y,4,2);g.fillRect(X-d*(f?2:1),Y-1,1,1);g.fillRect(X-d*(f?1:2),Y+2,1,1);g.fillRect(d>0?X-1:X+4,Y,1,2);g.fillStyle="#10233a";g.fillRect(d>0?X+3:X,Y,1,1);g.globalAlpha=1;return}
+  if(p.k==="leaf"){const c=FXC.leaf[Math.floor(p.t*10)%FXC.leaf.length];const X=Math.round(p.x),Y=Math.round(p.y),f=Math.floor((t*2.5+p.t)%4);g.fillStyle=c;if(f===0){g.fillRect(X,Y,3,1);g.fillRect(X+1,Y+1,1,1)}else if(f===1){g.fillRect(X,Y,1,3);g.fillRect(X+1,Y+1,1,1)}else if(f===2){g.fillRect(X,Y+1,3,1);g.fillRect(X+1,Y,1,1)}else g.fillRect(X,Y,2,1);return}return _dr.apply(this,arguments)}}
+{const _si=fxSymIcon;fxSymIcon=function(k){const px={fish:[[1,1],[2,1],[3,1],[1,2],[2,2],[3,2],[0,0],[0,3],[4,1]],leaf:[[3,0],[4,0],[2,1],[3,1],[4,1],[1,2],[2,2],[3,2],[0,4],[1,3]]}[k];if(!px)return _si(k);const col=k==="fish"?"#ffb36b":"#6fc25a";return `<svg viewBox="0 0 5 5" width="15" height="15" shape-rendering="crispEdges" aria-hidden="true">${px.map(([x,y])=>`<rect x="${x}" y="${y}" width="1" height="1" fill="${col}"/>`).join("")}</svg>`}}
+
+/* ---------- đồng bộ: biểu tượng bay + ô biểu tượng theo ảnh ---------- */
+{const _fc=fxCfg;fxCfg=function(){const s=bgSrc();if(s.fx)return s.fx;return _fc.apply(this,arguments)}}
+{const pu=BRAND_ICONS.pulse;delete BRAND_ICONS.pulse;Object.assign(BRAND_ICONS,{
+ fish:{l:"Cá nhỏ",g:`<g class="bi-drift"><path d="M8 20c4.5-6.5 13-7 19 0-6 7-14.5 6.5-19 0z" fill="var(--bi-ink)"/><path d="M26 20l7-5.5v11z" fill="var(--bi-ink)"/><circle cx="13.2" cy="18.8" r="1.5" fill="var(--bi-acc)"/></g><circle class="bi-tw" cx="31" cy="9" r="1.8" fill="none" stroke="var(--bi-ink)" stroke-width="1.4"/><circle class="bi-tw2" cx="27" cy="5.5" r="1.1" fill="none" stroke="var(--bi-ink)" stroke-width="1.2"/>`},
+ cat:{l:"Mèo",g:`<g class="bi-beat"><path d="M10 30V13.5l5.5 4.5h9l5.5-4.5V30a3 3 0 0 1-3 3H13a3 3 0 0 1-3-3z" fill="var(--bi-ink)"/></g><circle class="bi-tw" cx="16" cy="24.5" r="1.5" fill="var(--bi-acc)"/><circle class="bi-tw" cx="24" cy="24.5" r="1.5" fill="var(--bi-acc)"/>`},
+ planet:{l:"Hành tinh",g:`<circle cx="20" cy="20" r="7.5" fill="var(--bi-ink)"/><g class="bi-spin"><ellipse cx="20" cy="20" rx="14.5" ry="4.4" transform="rotate(-18 20 20)" fill="none" stroke="var(--bi-ink)" stroke-width="2"/></g><path class="bi-tw" d="M32 6v4M30 8h4" stroke="var(--bi-ink)" stroke-width="1.5" stroke-linecap="round"/>`},
+ ghost:{l:"Bóng ma nhỏ",g:`<path class="bi-drift" d="M12 31V19a8 8 0 0 1 16 0v12l-2.7-2.4-2.6 2.4-2.7-2.4-2.7 2.4-2.6-2.4z" fill="var(--bi-ink)"/><circle cx="17" cy="19.5" r="1.4" fill="var(--bi-acc)"/><circle cx="23" cy="19.5" r="1.4" fill="var(--bi-acc)"/>`},
+ bunny:{l:"Thỏ trắng",g:`<path d="M15.5 18.5c-2.4-5-2.6-10.5-.4-11.6 2-.9 3.6 5.3 3.4 10.8zM24.5 18.5c2.4-5 2.6-10.5.4-11.6-2-.9-3.6 5.3-3.4 10.8z" fill="var(--bi-ink)"/><g class="bi-beat"><ellipse cx="20" cy="25" rx="8.5" ry="7.2" fill="var(--bi-ink)"/></g><circle cx="17" cy="24" r="1.2" fill="var(--bi-acc)"/><circle cx="23" cy="24" r="1.2" fill="var(--bi-acc)"/>`}});BRAND_ICONS.pulse=pu}
+{const _bk=brandKey;brandKey=function(){if(UI.brandMode&&UI.brandMode!=="theme")return _bk.apply(this,arguments);const s=bgSrc();const m=s.brand||SCENE_BRAND37[s.scene];if(m&&BRAND_ICONS[m])return m;return _bk.apply(this,arguments)}}
+
+/* ---------- bộ chủ đề: thêm ảnh pixel + cảnh mới ---------- */
+THEME_PRESETS.push({k:"p-aqnight",l:"Thủy cung đêm",skin:"ocean",bg:"aquanight",sym:"auto"},{k:"p-shellbeach",l:"Bãi vỏ sò",skin:"mint",bg:"shellbeach",sym:"auto"},
+ ...PIX_BG.map(b=>({k:"px-"+b.k,l:b.l,skin:b.skin,bg:"p:"+b.k,sym:"auto",pix:1})));
+
+/* ---------- bảng Cảnh nền: mục “Ảnh pixel” ---------- */
+{const _bp37=bgPickerHTML;bgPickerHTML=function(){const h=_bp37.apply(this,arguments);
+  const pix=`<div class="bg-sec"><b>Ảnh pixel</b><small>${PIX_BG.length} cảnh · GIF là ảnh động · màu, biểu tượng bay & âm thanh tự đồng bộ</small></div><div class="bg-grid pixbg">${PIX_BG.map(b=>`<button class="bg-t" data-bgs="p:${b.k}" aria-pressed="${UI.bg.sel==="p:"+b.k}" title="${esc(b.l)}"><img src="${pixURL(b)}" alt="" loading="lazy" decoding="async"><span>${esc(b.l)}</span>${b.anim?`<i class="gif">GIF</i>`:""}</button>`).join("")}</div><div class="bg-sec"><b>Cảnh vẽ tự động & ảnh của bạn</b></div>`;
+  if(!PIX_BG.length)return h;return h.replace('<div class="bg-grid">',pix+'<div class="bg-grid">')}}
+/* chọn ảnh pixel lần đầu → bật hình nền toàn trang để thấy rõ */
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest('[data-bgs^="p:"],[data-pre^="px-"]');if(!b)return;if(!local.get("pixWallOnce",false)){local.set("pixWallOnce",true);setTimeout(()=>{if(!UI.bg.wall){UI.bg.wall=true;saveBg();applyBg();drawBanner();const cb=$('[data-bgo="wall"]');if(cb)cb.checked=true;toast("Đã dùng ảnh làm hình nền toàn trang (tắt được trong bảng Cảnh nền)",3000)}},30)}},true);
+
+/* ---------- pixel hóa ảnh tải lên ---------- */
+function pxDown(src,W){const w0=src.width||src.naturalWidth,h0=src.height||src.naturalHeight;const k=W/w0;let c=document.createElement("canvas");c.width=w0;c.height=h0;c.getContext("2d").drawImage(src,0,0);
+  /* thu nhỏ từng nửa để lấy trung bình vùng (ít răng cưa) */
+  while(c.width/2>W){const n=document.createElement("canvas");n.width=Math.round(c.width/2);n.height=Math.round(c.height/2);const g=n.getContext("2d");g.imageSmoothingQuality="high";g.drawImage(c,0,0,n.width,n.height);c=n}
+  const o=document.createElement("canvas");o.width=W;o.height=Math.max(1,Math.round(h0*k));const g=o.getContext("2d");g.imageSmoothingQuality="high";g.drawImage(c,0,0,o.width,o.height);return o}
+function pxQuant(c,pal){const {quantize,applyPalette}=window.GIFENC;const g=c.getContext("2d");const d=g.getImageData(0,0,c.width,c.height);
+  /* tăng nhẹ độ tươi */for(let i=0;i<d.data.length;i+=4){const r=d.data[i],gg=d.data[i+1],b=d.data[i+2],m=(r+gg+b)/3;d.data[i]=Math.max(0,Math.min(255,m+(r-m)*1.12));d.data[i+1]=Math.max(0,Math.min(255,m+(gg-m)*1.12));d.data[i+2]=Math.max(0,Math.min(255,m+(b-m)*1.12));d.data[i+3]=255}
+  const P=pal||quantize(d.data,40);const idx=applyPalette(d.data,P);for(let i=0;i<idx.length;i++){const p=P[idx[i]];d.data[i*4]=p[0];d.data[i*4+1]=p[1];d.data[i*4+2]=p[2]}g.putImageData(d,0,0);return {c,P,idx}}
+async function pixelizeFile(f,W=256){
+  if(/gif/i.test(f.type)&&typeof gifFrames==="function"){const fr=await gifFrames(f);if(fr&&fr.length>1&&window.GIFENC){const step=Math.max(1,Math.ceil(fr.length/32));const S=fr.filter((_,i)=>i%step===0);
+      const small=S.map(x=>({c:pxDown(x.c,W),d:x.d*step}));const {quantize,GIFEncoder}=window.GIFENC;
+      /* bảng màu chung cho mọi khung để không nhấp nháy */const samp=small.filter((_,i)=>i%Math.max(1,Math.floor(small.length/6))===0).slice(0,6);const tot=samp.reduce((s,x)=>s+x.c.width*x.c.height*4,0);const buf=new Uint8ClampedArray(tot);let o=0;samp.forEach(x=>{const dd=x.c.getContext("2d").getImageData(0,0,x.c.width,x.c.height).data;buf.set(dd,o);o+=dd.length});
+      const P=quantize(buf,48);const enc=GIFEncoder();small.forEach(x=>{const r=pxQuant(x.c,P);enc.writeFrame(r.idx,x.c.width,x.c.height,{palette:P,delay:x.d})});enc.finish();return new Blob([enc.bytes()],{type:"image/gif"})}}
+  const i=await loadImg(await fileToURL(f));const c=pxDown(i,W);pxQuant(c);return await new Promise(r=>c.toBlob(r,"image/png"))}
+{const _acb37=addCustomBg;addCustomBg=async function(files){if(!UI.bg.pix||!window.GIFENC)return _acb37.apply(this,arguments);
+  for(const f of [...files].filter(f=>/^image\//.test(f.type)).slice(0,4)){try{toast("Đang pixel hóa "+f.name+"…",1500);const blob=await pixelizeFile(f);const id=mkid("bg");let url=null,asset=null;
+      if(P.assets&&!P.local){try{const up=await P.assets.upload(blob);url=up.url;asset=up.id}catch(e){url=null}}
+      if(!url)url=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob)});
+      UI.bg.customs.push({id,url,asset,name:f.name,px:true});if(UI.bg.customs.length>8){const old=UI.bg.customs.shift();if(old.asset&&P.assets&&!P.local)P.assets.delete(old.asset).catch(()=>{})}UI.bg.sel="c:"+id}catch(e){console.warn(e);toast("Không pixel hóa được "+f.name)}}
+  saveBg();applyBg();drawBanner();if(UI.fly==="skin")renderFly();toast("Đã pixel hóa và đặt làm cảnh nền")}}
+
+/* =====================================================================
+   v36 — 8 cảnh nền vẽ lại bằng mã theo phong cách “Đêm anh đào”:
+   mảng màu phẳng, hình khối rõ, chuyển màu chấm (dither), vẽ đúng tỉ lệ màn hình
+   (không phải ảnh phóng to). Đây là cảnh tự vẽ cùng chủ đề, không sao chép tranh gốc.
+   ===================================================================== */
+const S39=(w,h)=>Math.max(.45,Math.min(w/320,h/170));
+function ell39(g,cx,cy,rx,ry,c){g.fillStyle=c;const R=Math.max(1,ry);for(let dy=-Math.floor(R);dy<=R;dy++){const hw=Math.floor(rx*Math.sqrt(Math.max(0,1-(dy*dy)/(R*R))));g.fillRect(Math.round(cx-hw),Math.round(cy+dy),hw*2+1,1)}}
+function ring39(g,cx,cy,r,c){const n=Math.max(10,Math.round(r*7));for(let a=0;a<n;a++){const an=a/n*6.2832;PR(g,cx+Math.cos(an)*r,cy+Math.sin(an)*r,1,1,c)}}
+function bub39(g,x,y,r,c){if(r<1.2){PR(g,x,y,1,1,c);return}ring39(g,x,y,r,c);PR(g,x-r*.45,y-r*.45,1,1,"#ffffff")}
+function rrect39(g,x,y,w,h,r,c){g.fillStyle=c;for(let j=0;j<h;j++){let ins=0;if(j<r)ins=r-Math.round(Math.sqrt(r*r-(r-j)*(r-j)));else if(j>h-1-r){const k=j-(h-1-r);ins=r-Math.round(Math.sqrt(Math.max(0,r*r-k*k)))}g.fillRect(Math.round(x+ins),Math.round(y+j),Math.max(1,Math.round(w-ins*2)),1)}}
+/* chùm lá chấm như cây anh đào của cảnh cũ */
+function clump39(g,cx,cy,rad,cols,r,n=6){for(let k=0;k<n;k++){const ox=(r()-.5)*rad*1.7,oy=(r()-.5)*rad,rr=rad*(.45+r()*.45);
+  for(let y=-rr;y<=rr;y++)for(let x=-rr;x<=rr;x++)if(x*x+y*y<=rr*rr){const X=Math.floor(cx+ox+x),Y=Math.floor(cy+oy+y);g.fillStyle=(X+Y)%3===0?cols[2]:(y<-rr*.35?cols[1]:cols[k%2?0:1]);g.fillRect(X,Y,1,1)}}}
+function fish39(g,x,y,L,c,dir,eye){const d=dir||1;ell39(g,x,y,L/2,Math.max(1,L*.24),c);const bx=x-d*L/2;for(let i=0;i<=Math.max(1,L*.32);i++)PR(g,bx-d*i,y-i*.7,1,i*1.4+1,c);if(L>=6)PR(g,x+d*L*.28,y-L*.06,1,1,eye||"#0b1a33")}
+function cat39(g,x,y,s,c,dir,eye){const d=dir||1;ell39(g,x,y-4.5*s,3.8*s,4.6*s,c);ell39(g,x+d*.6*s,y-10.5*s,3*s,2.6*s,c);
+  for(let i=0;i<=Math.max(1,2*s);i++){PR(g,x+d*.6*s-2.6*s+i*.5,y-12.6*s-2*s+i,Math.max(1,(2*s-i)*.9),1,c);PR(g,x+d*.6*s+1.2*s+i*.2,y-12.6*s-2*s+i,Math.max(1,(2*s-i)*.9),1,c)}
+  for(let i=0;i<6*s;i++)PR(g,x-d*(3.4*s+i*.6),y-1-Math.sin(i/(6*s)*3)*2.6*s,Math.max(1,s*.9),Math.max(1,s*.9),c);
+  if(eye){PR(g,x+d*.6*s-1.4*s,y-10.8*s,Math.max(1,s*.7),Math.max(1,s*.7),eye);PR(g,x+d*.6*s+1*s,y-10.8*s,Math.max(1,s*.7),Math.max(1,s*.7),eye)}}
+function glow39(g,x,y,r,c,a){g.globalAlpha=a||.18;disc(g,x,y,r,c);g.globalAlpha=(a||.18)*1.6;disc(g,x,y,r*.6,c);g.globalAlpha=1}
+
+const SCN39={
+ aqbar:{l:"Quầy bar thủy cung",draw(cv,w,h,seed){const g=pxG(cv,w,h),r=rngOf(seed+"qb"),S=S39(w,h);
+   vgrad(g,w,h,0,h,["#0a0f2e","#0f1640","#131c4d"]);
+   const tT=Math.round(h*.24),tB=Math.round(h*.62);
+   /* kệ chai phía trên */
+   const BC=["#3a7bd5","#5ad1c2","#d9e2ff","#7a5cd6","#2e5a8c","#9fb6ff","#4fb0e8"];
+   for(let y=Math.round(h*.04+10*S);y<tT-3;y+=Math.max(9,Math.round(13*S))){PR(g,0,y,w,1,"#2c3878");PR(g,0,y+1,w,1,"#1a2258");
+     for(let x=2;x<w-2;){const bw=Math.max(2,Math.round((2+r()*2)*S)),bh=Math.round((4+r()*5)*S);if(r()<.82){const c=BC[Math.floor(r()*BC.length)];PR(g,x,y-bh,bw,bh,c);PR(g,x+Math.floor(bw/2),y-bh-Math.max(1,2*S),1,Math.max(1,2*S),c);PR(g,x,y-bh+1,1,Math.max(1,bh-2),"#ffffff55")}x+=bw+1+Math.floor(r()*3*S)}}
+   /* bể cá lớn */
+   vgrad(g,w,h,tT,tB,["#2fd6ff","#1aa8f0","#1384dc","#0f6cc8"]);
+   g.globalAlpha=.16;for(let i=0;i<5;i++){const x0=w*(.05+i*.22);for(let y=tT;y<tB;y++)PR(g,x0+(y-tT)*.45,y,6*S,1,"#e8fbff")}g.globalAlpha=1;
+   for(let i=0;i<Math.round(w/9);i++){const sx=r()*w,ht=(tB-tT)*(.18+r()*.42);for(let s=0;s<ht;s++)PR(g,sx+Math.sin(s/4+i)*1.6*S,tB-s,Math.max(1,S),1,s%3?"#0b5bb0":"#0a4e9c")}
+   for(let i=0;i<Math.round(w/26);i++){const cx=r()*w;ell39(g,cx,tB-1,(4+r()*6)*S,(2+r()*3)*S,"#0a4a96")}
+   for(let i=0;i<Math.max(4,Math.round(w/45));i++)fish39(g,r()*w,tT+(tB-tT)*(.15+r()*.55),(5+r()*7)*S,"#0a58aa",r()<.5?1:-1,"#0a58aa");
+   for(let i=0;i<w*(tB-tT)/260;i++)bub39(g,r()*w,tT+r()*(tB-tT-4),r()<.15?1.6*S:.5,"#c8f6ff");
+   PR(g,0,tT-2,w,2,"#7ff0ff");PR(g,0,tT,w,1,"#c8fbff");PR(g,0,tB,w,2,"#0b3a7a");
+   [.34,.72].forEach(f=>{PR(g,w*f,tT-2,Math.max(2,3*S),tB-tT+4,"#0d1748");PR(g,w*f,tT,1,tB-tT,"#3a6ad0")});
+   /* đèn treo */
+   for(let i=0;i<4;i++){const x=Math.round(w*(.12+i*.26+(r()-.5)*.04)),ly=Math.round(h*(.12+r()*.08));PR(g,x,0,1,ly,"#323e80");PR(g,x-2*S,ly,4*S+1,Math.max(1,S),"#323e80");glow39(g,x,ly+4*S,11*S,"#ffd98a",.14);disc(g,x,ly+3.5*S,3*S,"#ffe7a8");PR(g,x-S,ly+2*S,Math.max(1,S),Math.max(1,S),"#ffffff")}
+   /* quầy bar */
+   const cY=tB+2;PR(g,0,cY,w,Math.max(2,3*S),"#7fe6ff");PR(g,0,cY+Math.max(2,3*S),w,1,"#2a5fb8");PR(g,0,cY+Math.max(3,4*S),w,h,"#0e1a48");
+   for(let x=0;x<w;x+=Math.round(22*S))PR(g,x,cY+5*S,1,h,"#0a1440");
+   /* chai, ly trên quầy */
+   for(let i=0;i<Math.round(w/40);i++){const x=r()*w;if(r()<.5){const bh=10*S,c=BC[Math.floor(r()*BC.length)];PR(g,x,cY-bh,3*S,bh,c);PR(g,x+S,cY-bh-3*S,Math.max(1,S),3*S,c);PR(g,x,cY-bh*.6,3*S,bh*.3,"#f2f6ff")}else{PR(g,x,cY-4*S,3*S,4*S,"#bfefff");PR(g,x+S*.5,cY-3*S,2*S,2*S,"#6fd3f5")}}
+   /* ghế quầy */
+   for(let x=w*.06;x<w;x+=Math.max(26,40*S)){const sy=h*.84;PR(g,x-1,sy,Math.max(2,2*S),h-sy,"#0a1238");ell39(g,x,sy,9*S,2.2*S,"#1c2c6e");PR(g,x-8*S,sy-2*S,16*S,1,"#3550a8")}
+   clump39(g,w*.97,h*.9,16*S,["#101e52","#18307a","#0c1846"],r,7)}},
+ reef:{l:"Rạn san hô & cá voi",draw(cv,w,h,seed){const g=pxG(cv,w,h),r=rngOf(seed+"rf"),S=S39(w,h);
+   vgrad(g,w,h,0,h,["#8fe8ff","#4cc0ee","#2b8fd6","#1f66b6","#17468e"]);
+   g.globalAlpha=.13;for(let i=0;i<6;i++){const x0=w*(i/5)-w*.1;for(let y=0;y<h*.85;y++)PR(g,x0+y*.32,y,(5+i%3*3)*S,1,"#f2fdff")}g.globalAlpha=1;
+   for(let x=0;x<w;x++){const a=h*.7+Math.sin(x/17)*5*S+Math.sin(x/6)*1.5,b=h*.8+Math.sin(x/23+1)*4*S;PR(g,x,a,1,h,"#2361a8");PR(g,x,b,1,h,"#1b4f93")}
+   /* cá voi: thân thon dần về đuôi, bụng sáng có rãnh, vây ngực dài, đuôi hai thùy */
+   const L=Math.min(w*.5,150*S),hx=w*.36,cy=h*.3;
+   for(let i=0;i<=L;i++){const t=i/L,x=hx+i,R=L*.13*Math.pow(Math.sin(Math.PI*Math.min(.98,t*.92+.06)),.75)*(1-.5*t)+1;
+     for(let k=-Math.round(R);k<=Math.round(R);k++){const y=cy+k+t*L*.06;PR(g,x,y,1,1,k<R*.15?"#2f6fb6":(k%3===0&&t<.6?"#4f8dcc":"#7fb4e2"))}PR(g,x,cy-R+t*L*.06,1,1,"#4a8ad0")}
+   const ex=hx+L,ey=cy+L*.06;for(let i=0;i<L*.13;i++){PR(g,ex+i*.4,ey-i,Math.max(2,L*.06-i*.25),1,"#2f6fb6");PR(g,ex+i*.4,ey+i*.55,Math.max(2,L*.06-i*.25),1,"#2f6fb6")}
+   for(let i=0;i<L*.3;i++)ell39(g,hx+L*.22+i*.35,cy+L*.08+i*.55,Math.max(1,L*.025),Math.max(1,L*.02),"#3a7cc2");
+   PR(g,hx+L*.1,cy-L*.01,Math.max(1,S*1.3),Math.max(1,S*1.3),"#0d2c5a");PR(g,hx+L*.02,cy+L*.03,L*.12,1,"#2a5e9e");
+   /* đàn cá nhỏ */
+   for(let k=0;k<3;k++){const fx=w*(.15+r()*.7),fy=h*(.42+r()*.2);for(let i=0;i<14;i++)fish39(g,fx+(r()-.5)*36*S,fy+(r()-.5)*14*S,3*S,"#1f5ea6",1)}
+   /* san hô bàn */
+   const table=(x,y,rx)=>{PR(g,x-2*S,y,4*S,h*.9-y,"#1d6f86");ell39(g,x,y+2*S,rx,rx*.16,"#1d7f92");ell39(g,x,y,rx,rx*.18,"#3bb3b0");for(let i=-rx;i<rx;i+=2)PR(g,x+i,y-rx*.16+Math.abs(i)/rx*rx*.1,1,1,"#9ff0dc")};
+   table(w*.1,h*.6,30*S);table(w*.9,h*.52,34*S);table(w*.78,h*.7,20*S);
+   /* san hô dưới đáy */
+   const C=["#8a5cc8","#b07ae0","#e07ab8","#ff9bc8","#6b4ab0"];
+   for(let i=0;i<Math.round(w/14);i++){const x=r()*w,y=h*(.86+r()*.1),c=C[i%C.length];if(i%3===0){for(let k=0;k<4;k++){let bx=x+(k-1.5)*2*S,by=y;for(let s=0;s<(8+r()*8)*S;s++){bx+=(r()-.5)*1.4;by-=1;PR(g,bx,by,Math.max(1,S),1,c)}disc(g,bx,by,1.3*S,c)}}else{disc(g,x,y,(3+r()*4)*S,c);disc(g,x-S,y-S,(1.5+r()*2)*S,C[(i+1)%C.length])}}
+   for(let x=0;x<w;x++){const y=h*.95+Math.sin(x/8)*1.5;PR(g,x,y,1,h,"#13305f")}
+   /* cá hề */
+   for(let i=0;i<3;i++){const x=w*(.15+r()*.7),y=h*(.76+r()*.1);fish39(g,x,y,8*S,"#ff9a3c",r()<.5?1:-1);PR(g,x,y-1.6*S,Math.max(1,S),3.4*S,"#ffffff")}
+   for(let i=0;i<w*h/500;i++)PR(g,r()*w,r()*h*.85,1,1,r()<.5?"#d6f6ff":"#9fe0f6")}},
+ blackcat:{l:"Mèo đen trong vườn",draw(cv,w,h,seed){const g=pxG(cv,w,h),r=rngOf(seed+"bc"),S=S39(w,h);
+   vgrad(g,w,h,0,h*.42,["#9fd8f2","#c3e8f4","#e6f5ee"]);
+   for(let i=0;i<3;i++)puff(g,w*(.15+i*.33)+r()*20,h*(.1+r()*.12),7*S,["#d6e8f0","#ffffff","#ffffff"],r);
+   /* hàng rào gỗ */
+   const fT=h*.34,fB=h*.62;for(let x=0;x<w;x+=Math.max(6,Math.round(9*S))){const pw=Math.max(4,Math.round(7*S));PR(g,x,fT+(x/9%2)*2,pw,fB-fT,"#c99a6a");PR(g,x,fT+(x/9%2)*2,pw,1,"#e6bf8f");PR(g,x+pw-1,fT,1,fB-fT,"#9c7148");PR(g,x+1,fT+4,1,1,"#9c7148")}
+   PR(g,0,fT+8*S,w,2*S,"#a77a4e");PR(g,0,fB-10*S,w,2*S,"#a77a4e");
+   /* cây bụi sau rào */
+   clump39(g,w*.08,fT,20*S,["#3f8f5a","#5fb36a","#9ad36a"],r,7);clump39(g,w*.92,fT-4*S,24*S,["#3f8f5a","#5fb36a","#9ad36a"],r,8);
+   /* chậu cây trên thanh rào */
+   [.3,.5,.7].forEach(f=>{const x=w*f,y=fT+6*S;rrect39(g,x-6*S,y-6*S,12*S,7*S,2,"#7c8fb8");PR(g,x-6*S,y-6*S,12*S,1,"#a8b8dc");clump39(g,x,y-9*S,6*S,["#3f8f5a","#5fb36a","#9ad36a"],r,4)});
+   /* cỏ */
+   vgrad(g,w,h,fB,h,["#7cc46a","#5fae55","#4a9a4c"]);
+   for(let i=0;i<w*(h-fB)/14;i++){const x=r()*w,y=fB+r()*(h-fB);PR(g,x,y,1,Math.max(1,2*S),r()<.5?"#3f8a45":"#9ad36a")}
+   /* lối đá */
+   for(let i=0;i<5;i++){const x=w*(.15+i*.18),y=h*(.74+(i%2)*.08);ell39(g,x,y+S,10*S,3.4*S,"#6f7f86");ell39(g,x,y,10*S,3*S,"#b6c3c8");PR(g,x-6*S,y-1,4*S,1,"#dfe8ea")}
+   /* hoa trắng */
+   for(let i=0;i<Math.round(w*(h-fB)/90);i++){const x=r()*w,y=fB+3+r()*(h-fB-4);PR(g,x,y,1,1,"#ffffff");PR(g,x-1,y+1,1,1,"#ffffff");PR(g,x+1,y+1,1,1,"#ffffff");PR(g,x,y+2,1,1,"#ffffff");PR(g,x,y+1,1,1,"#ffe27a")}
+   /* ghế gỗ + mèo đen */
+   const bx=w*.42,by=h*.66;PR(g,bx-24*S,by,48*S,3*S,"#b5824e");PR(g,bx-24*S,by,48*S,1,"#e0ad72");PR(g,bx-20*S,by+3*S,3*S,9*S,"#8a5e36");PR(g,bx+17*S,by+3*S,3*S,9*S,"#8a5e36");
+   ell39(g,bx+2*S,by+13*S,26*S,2*S,"#3e8a48");cat39(g,bx+4*S,by,1.7*S,"#14121a",1,"#ffd34a");
+   clump39(g,w*.02,h*.95,22*S,["#2f7a48","#4f9f58","#86c860"],r,8);clump39(g,w*.98,h*.9,20*S,["#2f7a48","#4f9f58","#86c860"],r,7)}},
+ catcafe:{l:"Quán cà phê mèo",draw(cv,w,h,seed){const g=pxG(cv,w,h),r=rngOf(seed+"cc"),S=S39(w,h);
+   vgrad(g,w,h,0,h,["#d9c39c","#cbb08a","#b89a74"]);
+   for(let y=0;y<h*.86;y+=Math.max(4,Math.round(6*S)))PR(g,0,y,w,1,"#b59670");
+   /* biển hiệu: ly cà phê */
+   const cx=w*.5,sT=h*.06;rrect39(g,cx-30*S,sT,60*S,16*S,3,"#3a2c26");PR(g,cx-29*S,sT+1,58*S,1,"#5a463c");
+   rrect39(g,cx-7*S,sT+4*S,12*S,9*S,2,"#f4ead8");PR(g,cx+5*S,sT+6*S,3*S,1,"#f4ead8");PR(g,cx+7*S,sT+6*S,1,4*S,"#f4ead8");PR(g,cx+5*S,sT+10*S,3*S,1,"#f4ead8");PR(g,cx-5*S,sT+5*S,8*S,2*S,"#8a5a3a");
+   for(let i=0;i<3;i++)for(let k=0;k<3*S;k++)PR(g,cx-4*S+i*3*S+Math.sin(k)*1,sT+2*S-k,1,1,"#f4ead8");
+   /* mái hiên sọc */
+   const aT=h*.24,aB=h*.36;for(let x=0;x<w;x++){const st=Math.floor(x/(10*S))%2;PR(g,x,aT,1,aB-aT,st?"#f3e2c8":"#d9775a")}
+   PR(g,0,aT,w,2*S,"#b85a40");for(let x=0;x<w;x+=Math.round(10*S)){ell39(g,x+5*S,aB,5*S,2.4*S,Math.floor(x/(10*S))%2?"#f3e2c8":"#d9775a")}
+   PR(g,0,aB+3*S,w,2*S,"#8f6a4a");
+   /* cửa vòm */
+   const dw=44*S,dx=cx-dw/2,dB=h*.86,dT=Math.max(h*.44,dB-dw*1.55);ell39(g,cx,dT+dw*.3,dw/2+3*S,dw*.32,"#7a4a2c");PR(g,dx-3*S,dT+dw*.3,dw+6*S,dB-dT-dw*.3,"#7a4a2c");
+   ell39(g,cx,dT+dw*.3,dw/2,dw*.3,"#2b3550");PR(g,dx,dT+dw*.3,dw,dB-dT-dw*.3,"#2b3550");
+   for(let x=dx+dw/4;x<dx+dw;x+=dw/4)PR(g,x,dT,1,dB-dT,"#7a4a2c");PR(g,dx,dT+dw*.3,dw,1,"#7a4a2c");PR(g,dx,(dT+dB)/2+4*S,dw,1,"#7a4a2c");
+   PR(g,dx+3*S,dT+dw*.32,2*S,8*S,"#4a5a80");
+   /* cửa sổ bên phải + đèn bên trái */
+   const wx=cx+dw*.9,wy=Math.max(h*.48,dT+4*S);PR(g,wx,wy,40*S,26*S,"#6a4a30");PR(g,wx+2*S,wy+2*S,36*S,22*S,"#27304a");PR(g,wx+2*S,wy+2*S,36*S,3*S,"#3d4a6c");rrect39(g,wx+6*S,wy+16*S,8*S,8*S,2,"#e8b86a");rrect39(g,wx+20*S,wy+18*S,10*S,6*S,2,"#f0e0c8");
+   const lx=cx-dw*1.1,ly=Math.max(h*.5,dT+8*S);glow39(g,lx,ly,14*S,"#ffd98a",.16);rrect39(g,lx-3*S,ly-5*S,6*S,9*S,2,"#3a2c26");PR(g,lx-2*S,ly-3*S,4*S,5*S,"#ffe29a");
+   /* bậc thềm + vỉa hè */
+   PR(g,dx-8*S,dB,dw+16*S,3*S,"#9aa0a8");PR(g,dx-12*S,dB+3*S,dw+24*S,3*S,"#7f858e");
+   vgrad(g,w,h,dB+6*S,h,["#8c9098","#7a7e86"]);for(let x=0;x<w;x+=Math.round(16*S))PR(g,x,dB+6*S,1,h,"#6d7179");
+   /* chậu cây */
+   [[.12,.82],[cx/w-dw/w*.9,.84],[.9,.84]].forEach(([fx,fy])=>{const x=w*fx,y=h*fy;rrect39(g,x-6*S,y,12*S,9*S,2,"#c76d4e");PR(g,x-6*S,y,12*S,1,"#e8906c");clump39(g,x,y-6*S,8*S,["#3f8f5a","#5fb36a","#9ad36a"],r,5)});
+   /* 2 bé mèo ở bậc cửa */
+   cat39(g,dx+6*S,dB,1.5*S,"#f3ecdf",1,"#4a3a30");PR(g,dx+6*S-2*S,dB-6*S,Math.max(1,S),1,"#e6d6c0");cat39(g,dx+dw-6*S,dB,1.5*S,"#14121a",-1,"#ffd34a");
+   /* tán lá phủ góc trên */
+   clump39(g,w*.04,h*.08,30*S,["#2f7a52","#4fa060","#9ad36a"],r,9);clump39(g,w*.96,h*.12,34*S,["#2f7a52","#4fa060","#9ad36a"],r,10);clump39(g,w*.98,h*.7,22*S,["#2f7a52","#4fa060","#86c860"],r,7)}},
+ summerbridge:{l:"Cầu vượt mùa hè",draw(cv,w,h,seed){const g=pxG(cv,w,h),r=rngOf(seed+"sb"),S=S39(w,h);
+   vgrad(g,w,h,0,h,["#4ea8ec","#6fbdf2","#9fd6fa","#c4e6fa","#b4dcf6"]);
+   puff(g,w*.62,h*.4,16*S,["#c9dff4","#ffffff","#ffffff"],r);puff(g,w*.78,h*.33,12*S,["#c9dff4","#ffffff","#ffffff"],r);puff(g,w*.3,h*.18,7*S,["#d6e8f6","#ffffff","#ffffff"],r);puff(g,w*.9,h*.12,6*S,["#d6e8f6","#ffffff","#ffffff"],r);
+   /* núi xa + mây dưới cầu */
+   for(let x=0;x<w;x++){const y=h*.82+Math.sin(x/20)*6*S+Math.sin(x/7)*2;PR(g,x,y,1,h,"#7fb2de")}for(let i=0;i<5;i++)puff(g,w*(i/4),h*.92,10*S,["#c9dff4","#f4fbff","#ffffff"],r);
+   /* cầu vượt */
+   const dT=h*.52,fT=h*.57,fB=h*.77;
+   PR(g,0,dT-7*S,w,Math.max(1,S),"#f4f6f8");for(let x=0;x<w;x+=Math.max(3,Math.round(5*S)))PR(g,x,dT-7*S,Math.max(1,S*.8),7*S,"#e2e6ea");PR(g,0,dT-1,w,Math.max(1,S),"#d8dde2");
+   PR(g,0,dT,w,fT-dT,"#cfd6c8");PR(g,0,dT,w,1,"#e9efe2");
+   for(let y=fT;y<fB;y++){const split=w*.5+(y-fT)*1.2;PR(g,0,y,split,1,"#ece5d4");PR(g,split,y,w-split,1,"#9eabba")}
+   PR(g,0,fB,w,2*S,"#5f6c7c");PR(g,0,fB+2*S,w,1,"#434e5c");
+   /* đèn đường */
+   const px=w*.22;PR(g,px,dT-40*S,Math.max(1,1.5*S),40*S,"#e8ecf0");PR(g,px,dT-40*S,16*S,Math.max(1,1.5*S),"#e8ecf0");PR(g,px+14*S,dT-39*S,5*S,2*S,"#c8d0d8");
+   /* biển báo + đèn giao thông trên mặt cầu */
+   const mY=(fT+fB)/2;rrect39(g,w*.08,mY-6*S,26*S,12*S,2,"#4a90d8");PR(g,w*.08+2*S,mY-4*S,9*S,8*S,"#ffffff");PR(g,w*.08+14*S,mY-4*S,9*S,8*S,"#ffffff");PR(g,w*.08+3*S,mY+2*S,7*S,1,"#4a90d8");
+   disc(g,w*.36,mY,10*S,"#3f86d6");disc(g,w*.36,mY,8.5*S,"#4a90e0");PR(g,w*.36-S,mY-6*S,2*S,12*S,"#ffffff");PR(g,w*.36,mY-S,6*S,2*S,"#ffffff");for(let i=0;i<3*S;i++)PR(g,w*.36+6*S-i,mY-i-S,1,2*i+2,"#ffffff");
+   rrect39(g,w*.54,mY-6*S,32*S,12*S,5*S,"#3a4450");[0,1,2].forEach(i=>disc(g,w*.54+6*S+i*10*S,mY,3.6*S,i===0?"#5fe0a0":"#1f262e"));glow39(g,w*.54+6*S,mY,6*S,"#8fffc8",.15);
+   disc(g,w*.78,mY,7*S,"#d8343e");disc(g,w*.78,mY,5.2*S,"#ffffff");PR(g,w*.78-3*S,mY-2*S,2*S,4*S,"#2a2a2a");PR(g,w*.78+S,mY-2*S,2*S,4*S,"#2a2a2a");
+   /* cây hai bên */
+   clump39(g,w*.02,h*.38,30*S,["#2f7a48","#4fa858","#9ad36a"],r,10);clump39(g,w*.06,h*.75,26*S,["#2f7a48","#4fa858","#9ad36a"],r,9);clump39(g,w*.98,h*.78,24*S,["#2f7a48","#4fa858","#9ad36a"],r,9);
+   for(let i=0;i<4;i++){const x=w*(.3+r()*.4),y=h*(.1+r()*.2);PR(g,x,y,1,1,"#2f4a6a");PR(g,x+1,y+1,1,1,"#2f4a6a");PR(g,x+2,y,1,1,"#2f4a6a")}}},
+ shells:{l:"Bãi biển vỏ sò",draw(cv,w,h,seed){const g=pxG(cv,w,h),r=rngOf(seed+"sl"),S=S39(w,h);const sh=x=>h*.34+Math.sin(x/(26*S)+.6)*7*S+Math.sin(x/(9*S))*1.5;
+   vgrad(g,w,h,0,h*.42,["#5fd0cf","#7edcd4","#a6ebe0"]);
+   for(let k=0;k<6;k++){const y0=h*(.04+k*.05);for(let x=0;x<w;x++){const y=y0+Math.sin(x/(14*S)+k*1.7)*2*S;if((x+k*7)%Math.round(40*S)<Math.round(22*S))PR(g,x,y,1,1,"#e6fffb")}}
+   for(let x=0;x<w;x++){const s=sh(x);PR(g,x,s,1,h,"#f4bfd8");PR(g,x,s+h*.04+Math.sin(x/(13*S))*2,1,h,"#e9c8ee");PR(g,x,s+h*.1+Math.sin(x/(19*S)+1)*3*S,1,h,"#f3c99c");PR(g,x,s+h*.12+Math.sin(x/(19*S)+1)*3*S,1,h,"#fde6bd");PR(g,x,s-3,1,4,"#ffffff");if(r()<.45)PR(g,x,s-5-Math.floor(r()*3),1,1,"#ffffff")}
+   for(let k=0;k<5;k++){const y0=h*(.6+k*.08);for(let x=0;x<w;x++)if((x+k*13)%Math.round(50*S)<Math.round(18*S))PR(g,x,y0+Math.sin(x/(10*S)+k)*2,1,1,"#f1d29c")}
+   const fan=(x,y,R,c,d)=>{for(let a=0;a<=10;a++){const an=Math.PI*(1.08+a*.084);for(let k=0;k<=R;k++)PR(g,x+Math.cos(an)*k,y+Math.sin(an)*k*.9,Math.max(1,S),1,a%2?c:d)}for(let a=0;a<30;a++){const an=Math.PI*(1.05+a/30*.9);PR(g,x+Math.cos(an)*R,y+Math.sin(an)*R*.9,1,1,d)}PR(g,x-2*S,y,5*S,2*S,d)};
+   const conch=(x,y,R)=>{for(let i=0;i<4;i++)ell39(g,x+i*R*.28,y-i*R*.18,R*(1-i*.2),R*(.55-i*.1),i%2?"#ffd9a0":"#f5c27a");PR(g,x-R,y,R*2,1,"#d99a5a")};
+   const star=(x,y,L,c)=>{for(let j=0;j<5;j++){const an=-Math.PI/2+j*Math.PI*2/5;for(let k=0;k<=L;k++){const t=Math.max(1,Math.round((L-k)*.45));PR(g,x+Math.cos(an)*k-t/2,y+Math.sin(an)*k-t/2,t,t,c)}}disc(g,x,y,L*.3,c);PR(g,x,y,1,1,"#ffd6e6")};
+   const items=Math.max(6,Math.round(w*h/2600));for(let i=0;i<items;i++){const x=w*((i+.5)/items)+(r()-.5)*20*S,y=sh(x)+h*.18+r()*(h*.78-sh(x)-h*.18);const k=i%4;
+     if(k===0)fan(x,y,(7+r()*4)*S,"#fbcfdc","#e294b2");else if(k===1)star(x,y,(5+r()*2)*S,"#f59ab8");else if(k===2)conch(x,y,(5+r()*2)*S);else fan(x,y,(5+r()*3)*S,"#ffe6c8","#e8b07a")}
+   for(let i=0;i<3;i++)fan(w*(.1+r()*.8),sh(w*.5)-h*.12+r()*h*.06,5*S,"#fbe0ea","#e8a8c0");
+   const cor=(x,y)=>{for(let k=0;k<3;k++){let bx=x,by=y;for(let s=0;s<9*S;s++){bx+=(k-1)*.6;by-=1;PR(g,bx,by,Math.max(1,S),1,"#f07aa0")}}};cor(w*.08,h*.62);
+   for(let i=0;i<w*h/90;i++){const x=r()*w,y=r()*h;if(y>sh(x)+h*.13)PR(g,x,y,1,1,r()<.5?"#f6d7a4":"#fff4dc")}}},
+ aquanight:{l:"Thủy cung đêm",draw(cv,w,h,seed){const g=pxG(cv,w,h),r=rngOf(seed+"an"),S=S39(w,h);
+   vgrad(g,w,h,0,h,["#070b1f","#0a1028","#0c1430"]);
+   const x0=Math.round(w*.06),y0=Math.round(h*.07),ww=Math.round(w*.88),wh=Math.round(h*.68),rad=Math.round(Math.min(ww,wh)*.12);
+   rrect39(g,x0-4*S,y0-4*S,ww+8*S,wh+8*S,rad+4*S,"#1a2350");rrect39(g,x0-2*S,y0-2*S,ww+4*S,wh+4*S,rad+2*S,"#4f86e8");
+   const tmp=document.createElement("canvas");const tg=pxG(tmp,ww,wh);
+   vgrad(tg,ww,wh,0,wh,["#1b5aa8","#154a94","#103a7c","#0c2c62"]);
+   tg.globalAlpha=.12;for(let i=0;i<5;i++){const bx=ww*(.1+i*.2);for(let y=0;y<wh;y++)PR(tg,bx+y*.25,y,(6+i%2*4)*S,1,"#d8f4ff")}tg.globalAlpha=1;
+   const jel=(x,y,R,c,hl)=>{glow39(tg,x,y,R*2,c,.12);ell39(tg,x,y,R,R*.75,c);for(let k=0;k<R*2;k++)PR(tg,x-R+k,y+1,1,1,c);ell39(tg,x-R*.25,y-R*.3,R*.35,R*.22,hl);
+     for(let t=0;t<5;t++){const tx=x-R*.8+t*R*.4;for(let k=0;k<R*2.2;k++)PR(tg,tx+Math.sin(k/3+t)*1.2,y+2+k,1,1,k%2?c:hl)}};
+   const JC=[["#f59ad8","#ffd6f2"],["#b08af0","#e6d8ff"],["#7fd8f0","#dff8ff"]];
+   for(let i=0;i<Math.max(3,Math.round(ww/60));i++){const [c,hl]=JC[i%3];jel(ww*(.12+r()*.76),wh*(.15+r()*.45),(5+r()*5)*S,c,hl)}
+   for(let i=0;i<Math.max(4,Math.round(ww/40));i++)fish39(tg,r()*ww,wh*(.2+r()*.6),(5+r()*6)*S,["#ffb36b","#ffd36b","#ff8fb0","#9fe0ff"][i%4],r()<.5?1:-1);
+   for(let i=0;i<Math.round(ww/8);i++){const sx=r()*ww,ht=wh*(.1+r()*.25);for(let s=0;s<ht;s++)PR(tg,sx+Math.sin(s/5+i)*1.5*S,wh-s,Math.max(1,S),1,s%2?"#2f9e7e":"#40b88c")}
+   for(let x=0;x<ww;x++){const y=wh*.94+Math.sin(x/9)*1.5;PR(tg,x,y,1,wh,"#3a4f7a")}
+   for(let i=0;i<ww*wh/400;i++)bub39(tg,r()*ww,r()*wh*.9,r()<.12?1.6*S:.5,"#bfe8ff");
+   /* cắt góc bo tròn cho cửa kính */
+   const mk=document.createElement("canvas");const mg=pxG(mk,ww,wh);rrect39(mg,0,0,ww,wh,rad,"#000");tg.globalCompositeOperation="destination-in";tg.drawImage(mk,0,0);tg.globalCompositeOperation="source-over";g.drawImage(tmp,x0,y0);
+   PR(g,x0+rad,y0+1,ww-rad*2,1,"#9fc8ff");
+   /* sàn + ghế ngồi ngắm */
+   const fY=y0+wh+8*S;vgrad(g,w,h,fY,h,["#0b1638","#080e26"]);g.globalAlpha=.18;PR(g,x0,fY+2*S,ww,3*S,"#4f86e8");g.globalAlpha=1;
+   for(let x=w*.18;x<w*.85;x+=Math.max(34,52*S)){rrect39(g,x,h-14*S,36*S,6*S,2,"#141c40");PR(g,x+2*S,h-8*S,3*S,8*S,"#0e1430");PR(g,x+31*S,h-8*S,3*S,8*S,"#0e1430");PR(g,x+2*S,h-14*S,32*S,1,"#2a3a78")}
+   cat39(g,w*.3,h-14*S,1.3*S,"#0a0d1c",1,"#ffd34a")}},
+ shellbeach:{l:"Bãi vỏ sò pastel",draw(cv,w,h,seed){const g=pxG(cv,w,h),r=rngOf(seed+"sp"),S=S39(w,h);const hz=Math.round(h*.46);
+   vgrad(g,w,h,0,hz,["#b9a6e6","#d6aee0","#f4bcd2","#ffd9c6"]);
+   const sx=w*.66;glow39(g,sx,hz,28*S,"#fff0c8",.2);disc(g,sx,hz,13*S,"#fff3d6");PR(g,0,hz,w,h,"#9fd6dc");
+   puff(g,w*.2,h*.2,8*S,["#c79ad6","#f4c8e0","#fff0f6"],r);puff(g,w*.44,h*.12,6*S,["#c79ad6","#f4c8e0","#fff0f6"],r);puff(g,w*.86,h*.26,7*S,["#c79ad6","#f4c8e0","#fff0f6"],r);
+   for(let i=0;i<10;i++){const y=hz+2+i*2.2*S,len=(26-i*1.4)*S;PR(g,sx-len/2+(r()-.5)*4,y,len,1,"#fff3d6")}
+   vgrad(g,w,h,hz+1,h*.66,["#a8dde0","#8fcfd8","#7cc4d2"]);for(let i=0;i<10;i++){const y=hz+2+i*2.6*S,len=(28-i*2)*S;PR(g,sx-len/2+(r()-.5)*4,y,len,1,"#fff3d6")}
+   const sh=x=>h*.66+Math.sin(x/(30*S))*4*S;for(let x=0;x<w;x++){const s=sh(x);PR(g,x,s,1,h,"#f8d9e6");PR(g,x,s+3*S,1,h,"#fde5c4");PR(g,x,s-1,1,2,"#ffffff");if(r()<.4)PR(g,x,s-3,1,1,"#ffffff")}
+   for(let i=0;i<w*(h*.34)/80;i++){const x=r()*w,y=sh(x)+4*S+r()*(h-sh(x));PR(g,x,y,1,1,r()<.5?"#f3cf9e":"#fff6e2")}
+   const fan=(x,y,R,c,d)=>{for(let a=0;a<=10;a++){const an=Math.PI*(1.08+a*.084);for(let k=0;k<=R;k++)PR(g,x+Math.cos(an)*k,y+Math.sin(an)*k*.9,Math.max(1,S),1,a%2?c:d)}PR(g,x-2*S,y,5*S,2*S,d)};
+   const star=(x,y,L,c)=>{for(let j=0;j<5;j++){const an=-Math.PI/2+j*Math.PI*2/5;for(let k=0;k<=L;k++){const t=Math.max(1,Math.round((L-k)*.45));PR(g,x+Math.cos(an)*k-t/2,y+Math.sin(an)*k-t/2,t,t,c)}}disc(g,x,y,L*.3,c)};
+   fan(w*.16,h*.9,12*S,"#fbcfdc","#e294b2");star(w*.34,h*.86,7*S,"#f59ab8");fan(w*.58,h*.93,9*S,"#ffe6c8","#e8b07a");star(w*.8,h*.9,6*S,"#e88ab8");fan(w*.92,h*.8,6*S,"#fbe0ea","#e8a8c0");
+   for(let i=0;i<4;i++){const x=w*(.2+r()*.5),y=h*(.12+r()*.18);PR(g,x,y,1,1,"#8a6aa8");PR(g,x+1,y+1,1,1,"#8a6aa8");PR(g,x+2,y,1,1,"#8a6aa8")}}}
+};
+Object.assign(SCENES,SCN39);
+Object.assign(FX_SCENE,{aqbar:{sym:["bubble","fish"]},reef:{sym:["bubble","fish"]},blackcat:{sym:["leaf","petalW"],clouds:1},catcafe:{sym:["leaf","note"]},summerbridge:{sym:["bird","leaf"],clouds:1},shells:{sym:["glint","bubble"]},aquanight:{sym:["bubble","fish"]},shellbeach:{sym:["twinkle","bird"],pinkClouds:1}});
+Object.assign(SCENE_SND,{aqbar:"lofi",reef:"waves",blackcat:"garden",catcafe:"lofi",summerbridge:"city",shells:"waves",aquanight:"lofi",shellbeach:"waves"});
+Object.assign(SCENE_BRAND37,{aqbar:"fish",reef:"fish",blackcat:"cat",catcafe:"cat",summerbridge:"day",shells:"beach",aquanight:"fish",shellbeach:"beach"});
+/* bộ chủ đề: thay mục ảnh bằng cảnh vẽ */
+{for(let i=THEME_PRESETS.length-1;i>=0;i--)if(String(THEME_PRESETS[i].bg).startsWith("p:"))THEME_PRESETS.splice(i,1);
+ THEME_PRESETS.push({k:"px-aqbar",l:"Quầy bar thủy cung",skin:"ocean",bg:"aqbar",sym:"auto"},{k:"px-reef",l:"Rạn san hô & cá voi",skin:"ocean",bg:"reef",sym:"auto"},{k:"px-blackcat",l:"Mèo đen trong vườn",skin:"matcha",bg:"blackcat",sym:"auto"},
+  {k:"px-catcafe",l:"Quán cà phê mèo",skin:"peach",bg:"catcafe",sym:"auto"},{k:"px-summerbridge",l:"Cầu vượt mùa hè",skin:"mint",bg:"summerbridge",sym:"auto"},{k:"px-shells",l:"Bãi biển vỏ sò",skin:"sakura",bg:"shells",sym:"auto"})}
+/* lựa chọn cũ dạng ảnh "p:xxx" → cảnh vẽ cùng tên */
+if(String(UI.bg.sel||"").startsWith("p:")&&SCENES[UI.bg.sel.slice(2)])UI.bg.sel=UI.bg.sel.slice(2);
+{const _bs39=bgSrc;bgSrc=function(){const s=String(UI.bg.sel||"");if(s.startsWith("p:")&&SCENES[s.slice(2)]){UI.bg.sel=s.slice(2)}return _bs39.apply(this,arguments)}}
+
+/* =====================================================================
+   v37 — TRANG CHỦ: Ô TRỐNG CÓ DẤU “+” ĐỂ THÊM KHỐI / WIDGET
+   - rê chuột vào chỗ trống cuối mỗi hàng (hoặc cuối trang) → khung bo góc nét đứt + dấu +
+   - khối mới dùng được nhiều bản: Ghi chú, Giấy nhớ màu, Ảnh tùy chỉnh, Nhạc, Nhắc nhở
+   ===================================================================== */
+Object.assign(IC,{bell:'<path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>',img:IC.image||IC.file});
+/* giữ dữ liệu riêng của từng khối (b.d) khi chuẩn hóa bố cục */
+{const _nd40=normDash;normDash=function(d){const o=_nd40.apply(this,arguments);try{if(d&&Array.isArray(d.blocks)){const m=new Map(d.blocks.filter(b=>b&&b.id&&b.d&&typeof b.d==="object").map(b=>[b.id,b.d]));o.blocks.forEach(b=>{if(m.has(b.id))b.d=m.get(b.id)})}}catch(e){}return o}}
+if(UI.dash){try{const raw=local.get("dash",null);if(raw&&Array.isArray(raw.blocks)){const m=new Map(raw.blocks.filter(b=>b&&b.d).map(b=>[b.id,b.d]));UI.dash.blocks.forEach(b=>{if(!b.d&&m.has(b.id))b.d=m.get(b.id)})}}catch(e){}}
+const blkOf40=el=>{const id=el.dataset.bb||(el.closest("[data-bid]")||{}).dataset?.bid;return UI.dash.blocks.find(x=>x.id===id)};
+const bd40=b=>b.d||(b.d={});
+let _bd40T=0;const saveBD40=()=>{clearTimeout(_bd40T);_bd40T=setTimeout(saveDash,450)};
+const MEMO_C=["#fff3a8","#ffd6e8","#d6ecff","#d9f5d0","#e8dcff","#ffe2c4"];
+/* ảnh: thu nhỏ rồi lưu (kho tệp nếu có, nếu không thì nhúng) */
+async function img40Store(f){const u=await fileToURL(f);const im=await loadImg(u);const k=Math.min(1,1100/Math.max(im.naturalWidth,im.naturalHeight));const c=document.createElement("canvas");c.width=Math.round(im.naturalWidth*k);c.height=Math.round(im.naturalHeight*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);
+  const gif=/gif/i.test(f.type)&&f.size<2.5e6;const blob=gif?f:await new Promise(r=>c.toBlob(r,"image/jpeg",.86));
+  if(P.assets){try{const up=await P.assets.upload(blob);return {url:up.url,asset:up.id}}catch(e){}}
+  return {url:await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob)})}}
+const _img40=new Map();async function img40URL(u){if(!u||!String(u).startsWith("asset:"))return u;if(_img40.has(u))return _img40.get(u);try{const b=await (await fetch(u)).blob();const o=URL.createObjectURL(b);_img40.set(u,o);return o}catch(e){return u}}
+
+Object.assign(BLK,{
+ note:{l:"Ghi chú",i:"note",small:1,w:2,multi:1,body(el){const b=blkOf40(el);if(!b)return;const d=bd40(b);
+   el.innerHTML=`<div class="nt40"><input class="nt40-t" placeholder="Tiêu đề ghi chú…" value="${esc(d.title||"")}" aria-label="Tiêu đề ghi chú"><textarea class="nt40-x" rows="6" placeholder="Viết ghi chú… dòng bắt đầu bằng “[ ]” sẽ thành ô đánh dấu" aria-label="Nội dung ghi chú">${esc(d.t||"")}</textarea><div class="nt40-chk"></div><div class="nt40-f muted"><span data-at>${d.at?"Đã lưu "+new Date(d.at).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"}):"Tự lưu khi gõ"}</span><span class="grow"></span><button class="ghost" data-nt="copy">${ic("copy")} Chép</button></div></div>`;
+   const t=$(".nt40-t",el),x=$(".nt40-x",el),ck=$(".nt40-chk",el);
+   const drawChk=()=>{const L=String(d.t||"").split("\n").map((s,i)=>[s,i]).filter(([s])=>/^\s*\[( |x)\]/i.test(s));ck.innerHTML=L.map(([s,i])=>`<label><input type="checkbox" class="chk" data-ln="${i}" ${/^\s*\[x\]/i.test(s)?"checked":""}><span>${esc(s.replace(/^\s*\[( |x)\]\s*/i,""))}</span></label>`).join("");
+     $$("[data-ln]",ck).forEach(c=>c.onchange=()=>{const ls=String(d.t||"").split("\n");const i=+c.dataset.ln;ls[i]=ls[i].replace(/^(\s*)\[( |x)\]/i,(m,a)=>a+(c.checked?"[x]":"[ ]"));d.t=ls.join("\n");x.value=d.t;d.at=Date.now();saveBD40()})};
+   const save=()=>{d.title=t.value;d.t=x.value;d.at=Date.now();const a=$("[data-at]",el);if(a)a.textContent="Đã lưu "+new Date(d.at).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"});saveBD40()};
+   t.oninput=save;x.oninput=()=>{save()};x.onblur=drawChk;drawChk();
+   $("[data-nt=copy]",el).onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText((d.title?d.title+"\n":"")+(d.t||"")).then(()=>toast("Đã chép ghi chú",1200)).catch(()=>{})}}},
+ memo:{l:"Giấy nhớ màu",i:"edit",small:1,w:2,multi:1,body(el){const b=blkOf40(el);if(!b)return;const d=bd40(b);if(!d.c)d.c=MEMO_C[Math.floor(Math.random()*MEMO_C.length)];
+   el.innerHTML=`<div class="mm40" style="--mc:${d.c}"><textarea rows="5" placeholder="Ghi nhanh… ♡" aria-label="Giấy nhớ">${esc(d.t||"")}</textarea><div class="mm40-c">${MEMO_C.map(c=>`<button style="background:${c}" data-mc="${c}" aria-label="Đổi màu giấy" aria-pressed="${c===d.c}"></button>`).join("")}</div></div>`;
+   $("textarea",el).oninput=e=>{d.t=e.target.value;saveBD40()};
+   $$("[data-mc]",el).forEach(x=>x.onclick=()=>{d.c=x.dataset.mc;$(".mm40",el).style.setProperty("--mc",d.c);$$("[data-mc]",el).forEach(y=>y.setAttribute("aria-pressed",y===x));saveBD40()})}},
+ photo:{l:"Ảnh tùy chỉnh",i:"img",small:1,w:2,multi:1,body(el){const b=blkOf40(el);if(!b)return;const d=bd40(b);
+   const pick=()=>{const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.onchange=()=>inp.files[0]&&put(inp.files[0]);inp.click()};
+   const put=async f=>{if(!/^image\//.test(f.type))return toast("Chỉ nhận tệp ảnh",1600);toast("Đang thêm ảnh…",1000);try{const r=await img40Store(f);if(d.asset&&P.assets&&d.asset!==r.asset)P.assets.delete(d.asset).catch(()=>{});d.url=r.url;d.asset=r.asset||null;d.name=f.name;saveDash();draw()}catch(e){toast("Không đọc được ảnh")}};
+   const draw=async()=>{if(!d.url){el.innerHTML=`<button class="ph40-drop" data-ph="pick">${ic("img")}<b>Thả ảnh vào đây hoặc bấm để chọn</b><small>Ảnh kỷ niệm, thời khóa biểu, sơ đồ cần nhớ…</small></button>`}
+     else{el.innerHTML=`<figure class="ph40 ${d.fit==="contain"?"contain":""}"><img alt="${esc(d.cap||d.name||"Ảnh")}"><figcaption contenteditable="true" spellcheck="false" data-ph="cap" aria-label="Chú thích ảnh">${esc(d.cap||"")}</figcaption></figure><div class="ph40-t"><button class="ghost" data-ph="pick">${ic("img")} Đổi ảnh</button><button class="ghost" data-ph="fit">${d.fit==="contain"?"Lấp đầy":"Vừa khung"}</button><button class="ghost" data-ph="del" style="color:var(--bad)">${ic("trash")}</button></div>`;
+       const im=$("img",el);im.src=await img40URL(d.url);const cap=$("[data-ph=cap]",el);cap.oninput=()=>{d.cap=cap.textContent.trim().slice(0,140);saveBD40()};cap.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();cap.blur()}}}
+     $$("[data-ph=pick]",el).forEach(x=>x.onclick=pick);const ft=$("[data-ph=fit]",el);if(ft)ft.onclick=()=>{d.fit=d.fit==="contain"?"cover":"contain";saveDash();draw()};
+     const dl=$("[data-ph=del]",el);if(dl)dl.onclick=()=>{if(d.asset&&P.assets)P.assets.delete(d.asset).catch(()=>{});d.url="";d.asset=null;d.cap="";saveDash();draw()}};
+   el.ondragover=e=>{e.preventDefault();el.classList.add("ph40-over")};el.ondragleave=()=>el.classList.remove("ph40-over");el.ondrop=e=>{e.preventDefault();e.stopPropagation();el.classList.remove("ph40-over");const f=[...(e.dataTransfer.files||[])].find(f=>/^image\//.test(f.type));if(f)put(f)};
+   draw()}},
+ music:{l:"Nhạc",i:"music",small:1,w:2,multi:1,body(el){el.dataset.mu40="1";
+   const list=()=>[...UI.snd.tracks.map(t=>({tr:t.id,l:t.name})),...Object.entries(SND_KINDS).filter(([k])=>k!=="scene").map(([k,l])=>({kind:k,l}))];
+   const rawIdx=()=>{const s=UI.snd;return list().findIndex(x=>s.track?x.tr===s.track:x.kind===s.kind)};const curIdx=()=>Math.max(0,rawIdx());
+   const choose=x=>{const s=UI.snd;if(x.tr){s.track=x.tr}else{s.track=null;s.kind=x.kind}s.on=true;saveSnd();SND.apply();draw()};
+   const draw=()=>{if(el.contains(document.activeElement)&&document.activeElement.type==="range")return;const s=UI.snd;const tr=s.track&&s.tracks.find(t=>t.id===s.track);const name=tr?tr.name:(SND_KINDS[s.kind]||"Âm thanh nền");const L=list();
+     el.innerHTML=`<div class="mu40"><div class="mu40-top"><div class="mu40-eq ${s.on?"on":""}" aria-hidden="true">${Array.from({length:9},(_,i)=>`<i style="--d:${(i*.13)%1}s"></i>`).join("")}</div><div class="mu40-i"><b>${esc(name)}</b><small class="muted">${s.on?"Đang phát":"Đang tắt"}${tr?" · nhạc của bạn":s.kind==="scene"?" · theo cảnh nền":""}</small></div></div>
+       <div class="mu40-c"><button class="ghost ic" data-mu="prev" aria-label="Bài trước" title="Bài trước"><svg viewBox="0 0 24 24" class="i"><path d="M6 5v14M18 6l-9 6 9 6z" fill="currentColor"/></svg></button><button class="pill-btn primary mu40-p" data-mu="play" aria-label="${s.on?"Tạm dừng":"Phát"}">${s.on?`<svg viewBox="0 0 24 24" class="i"><path d="M7 5h4v14H7zM13 5h4v14h-4z" fill="currentColor"/></svg>`:`<svg viewBox="0 0 24 24" class="i"><path d="M7 5l12 7-12 7z" fill="currentColor"/></svg>`}</button><button class="ghost ic" data-mu="next" aria-label="Bài sau" title="Bài sau"><svg viewBox="0 0 24 24" class="i"><path d="M18 5v14M6 6l9 6-9 6z" fill="currentColor"/></svg></button><input type="range" min="0" max="1" step=".05" value="${s.vol}" data-mu="vol" aria-label="Âm lượng"></div>
+       <div class="mu40-l">${L.slice(0,10).map((x,i)=>`<button class="chip ${i===rawIdx()?"on":""}" data-mui="${i}">${x.tr?ic("music"):""}${esc(x.l)}</button>`).join("")}</div>
+       <button class="btn mu40-more" data-mu="more">${ic("music")} Mở trình phát · thêm nhạc của bạn</button></div>`;
+     $("[data-mu=play]",el).onclick=()=>{UI.snd.on=!UI.snd.on;saveSnd();SND.apply();draw()};
+     $("[data-mu=prev]",el).onclick=()=>{const L2=list();choose(L2[(curIdx()-1+L2.length)%L2.length])};$("[data-mu=next]",el).onclick=()=>{const L2=list();choose(L2[(curIdx()+1)%L2.length])};
+     $("[data-mu=vol]",el).oninput=e=>{UI.snd.vol=+e.target.value;saveSnd();SND.apply()};
+     $$("[data-mui]",el).forEach(x=>x.onclick=()=>choose(list()[+x.dataset.mui]));$("[data-mu=more]",el).onclick=e=>{e.stopPropagation();sndPopover(e.currentTarget)}};
+   el._mu=draw;draw()}},
+ remind:{l:"Nhắc nhở",i:"bell",small:1,w:2,multi:1,body(el){const b=blkOf40(el);if(!b)return;const d=bd40(b);d.items=d.items||[];
+   const fmt=a=>{const t=new Date(a);if(isNaN(t))return"";const today=ymd(new Date())===ymd(t);return (today?"Hôm nay ":t.toLocaleDateString("vi-VN",{weekday:"short",day:"numeric",month:"numeric"})+" ")+t.toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"})};
+   const draw=()=>{const its=[...d.items].sort((a,c)=>(a.done-c.done)||String(a.at).localeCompare(String(c.at)));const now=Date.now();
+     el.innerHTML=`<div class="rm40"><ul>${its.length?its.map(x=>`<li class="${x.done?"done":""} ${!x.done&&new Date(x.at)<now?"late":""}"><input type="checkbox" class="chk" data-rmk="${esc(x.id)}" ${x.done?"checked":""} aria-label="Xong: ${esc(x.t)}"><span class="rm40-t">${esc(x.t)}<small>${ic("bell")} ${fmt(x.at)}${x.rep?" · hằng ngày":""}</small></span><button class="ghost ic" data-rmx="${esc(x.id)}" aria-label="Xóa nhắc nhở">${ic("close")}</button></li>`).join(""):`<li class="muted rm40-e">Chưa có nhắc nhở nào.</li>`}</ul>
+       <form class="rm40-f"><input class="input" name="t" placeholder="Nhắc mình…" aria-label="Nội dung nhắc"><input class="input" name="at" type="datetime-local" aria-label="Thời gian"><label class="rm40-rep"><input type="checkbox" name="rep" class="chk"> Lặp hằng ngày</label><button class="pill-btn primary">${ic("plus")} Thêm</button></form></div>`;
+     const f=$("form",el);{const t=new Date(Date.now()+60*60000);t.setSeconds(0,0);f.at.value=new Date(t-t.getTimezoneOffset()*60000).toISOString().slice(0,16)}
+     f.onsubmit=e=>{e.preventDefault();const t=f.t.value.trim();if(!t)return f.t.focus();d.items.push({id:mkid("r"),t,at:f.at.value,rep:f.rep.checked,done:false,fired:false});saveDash();draw();toast("Sẽ nhắc lúc "+fmt(f.at.value),1600);if("Notification" in window&&Notification.permission==="default")Notification.requestPermission().catch(()=>{})};
+     $$("[data-rmk]",el).forEach(c=>c.onchange=()=>{const x=d.items.find(z=>z.id===c.dataset.rmk);if(x){x.done=c.checked;saveDash();draw()}});
+     $$("[data-rmx]",el).forEach(c=>c.onclick=()=>{d.items=d.items.filter(z=>z.id!==c.dataset.rmx);saveDash();draw()})};
+   el._rm=draw;draw()}}
+});
+/* chuông nhắc: kiểm tra mỗi 20 giây */
+/* khối mới đã lưu bị bỏ qua lúc tải trang (trước khi có định nghĩa) → khôi phục */
+{const raw=local.get("dash",null);if(raw&&Array.isArray(raw.blocks)&&UI.dash){raw.blocks.forEach((b,i)=>{if(b&&BLK[b.k]&&BLK[b.k].multi&&!UI.dash.blocks.some(x=>x.id===b.id))UI.dash.blocks.splice(Math.min(i,UI.dash.blocks.length),0,{id:b.id||mkid("b"),k:b.k,w:[2,3,4,6].includes(+b.w)?+b.w:2,c:!!b.c,m:!!b.m,d:b.d||{}})})}}
+setInterval(()=>{if(!UI.dash)return;let ch=false;const now=Date.now();UI.dash.blocks.forEach(b=>{if(b.k!=="remind"||!b.d||!b.d.items)return;b.d.items.forEach(x=>{if(x.done||x.fired)return;const t=new Date(x.at).getTime();if(!t||t>now)return;
+    x.fired=true;ch=true;toast("⏰ "+x.t,7000);try{beep()}catch(e){}try{if("Notification" in window&&Notification.permission==="granted")new Notification("Sổ Học nhắc bạn",{body:x.t})}catch(e){}
+    if(x.rep){const n=new Date(t);do{n.setDate(n.getDate()+1)}while(n.getTime()<=now);x.at=new Date(n-n.getTimezoneOffset()*60000).toISOString().slice(0,16);x.fired=false}})});
+  if(ch){saveDash();$$(".rm40").forEach(r=>{const el=r.parentElement;if(el&&el._rm)el._rm()})}},20000);
+/* nhạc thay đổi ở nơi khác → cập nhật khối Nhạc */
+{const _u40=updSndBtn;updSndBtn=function(){const r=_u40.apply(this,arguments);$$("[data-mu40]").forEach(x=>{if(x._mu)x._mu()});return r}}
+
+/* ---------- menu thêm khối (dùng chung cho dấu + và nút “Thêm khối”) ---------- */
+function addMenu40(anchor,onPick){
+  const neu=["note","memo","photo","music","remind"].map(k=>[k,BLK[k].l,BLK[k].i]);
+  const wd=Object.keys(WIDGETS).filter(k=>!hasBlock("w:"+k)).map(k=>["w:"+k,WIDGETS[k].title,"widget"]);
+  const old=Object.keys(BLK).filter(k=>!BLK[k].multi&&!hasBlock(k)).map(k=>[k,BLK[k].l,BLK[k].i]);
+  const sec=(t,a)=>a.length?`<div class="who">${t}</div>${a.map(([k,l,i])=>`<button data-add40="${k}">${ic(i)}${esc(l)}</button>`).join("")}`:"";
+  const m=popMenu(anchor,`<div class="add40">${sec("Khối mới",neu)}${sec("Widget",wd)}${sec("Khối của trang chủ",old)}</div>`);m.classList.add("add40-m");
+  $$("[data-add40]",m).forEach(b=>b.onclick=()=>{closePop();onPick(b.dataset.add40)});return m}
+function insertBlock40(k,idx,w){const isW=k.startsWith("w:");const def=isW?{w:2}:BLK[k];let ww=w||def.w||2;if(typeof W_LBL!=="undefined"&&W_LBL[1])ww=Math.max(1,Math.min(6,Math.round(ww*2)/2));else if(![2,3,4,6].includes(ww))ww=ww>=6?6:ww>=4?4:ww>=3?3:2;
+  if(isW){const wk=k.slice(2);D.widgets[wk]=Object.assign(D.widgets[wk]||{},{on:false});}
+  const b={id:mkid("b"),k,w:ww};const i=Math.max(0,Math.min(UI.dash.blocks.length,idx==null?UI.dash.blocks.length:idx));UI.dash.blocks.splice(i,0,b);
+  if(isW){renderWidgets();saveDecor()}saveDash();renderHome();
+  setTimeout(()=>{const el=$(`.blk[data-bid="${b.id}"]`);if(el){el.classList.add("pop-in");el.scrollIntoView({block:"nearest",behavior:RM()?"auto":"smooth"});const f=$("textarea,input:not([type=checkbox])",el);if(f&&(k==="note"||k==="memo"))f.focus()}},80)}
+addBlockMenu=function(anchor){addMenu40(anchor,k=>insertBlock40(k,null))};
+
+/* ---------- tìm chỗ trống cuối hàng và đặt ô “+” ---------- */
+function gapFill40(){const g=$("#dgrid");if(!g||UI.view!=="home")return;$$(".blk-gap",g).forEach(x=>x.remove());if(innerWidth<=640)return;
+  const gcs=getComputedStyle(g);const NC=Math.max(1,String(gcs.gridTemplateColumns).trim().split(/\s+/).length);const U=NC/6;const gap=parseFloat(gcs.columnGap)||14,W=g.clientWidth,colW=(W-(NC-1)*gap)/NC;if(colW<8)return;
+  const els=$$(":scope>.blk[data-bid]",g).filter(e=>!e.classList.contains("maxed"));if(!els.length)return;
+  const rows=[];els.forEach(el=>{const t=el.offsetTop;let r=rows.find(x=>Math.abs(x.t-t)<6);if(!r){r={t,els:[]};rows.push(r)}r.els.push(el)});
+  const mk=(span,after,idx,full)=>{const d=document.createElement("button");d.type="button";d.className="blk-gap"+(full?" full":"");d.style.gridColumn=full?"1/-1":`span ${Math.round(span*U)}`;d.dataset.idx=idx;d.dataset.span=span;d.setAttribute("aria-label","Thêm khối vào chỗ trống");d.title="Thêm khối, widget, nhạc, ghi chú, ảnh…";
+    d.innerHTML=`<span class="bg40-in">${ic("plus")}<b>Thêm vào đây</b><small>Ghi chú · Giấy nhớ · Ảnh · Nhạc · Nhắc nhở · Widget</small></span>`;after.after(d);return d};
+  const GR=g.getBoundingClientRect();const R_=e=>{const b=e.getBoundingClientRect();return b.right-GR.left};const half=typeof W_LBL!=="undefined"&&W_LBL[1]?1:2;
+  rows.forEach(r=>{const right=Math.max(...r.els.map(R_));const end=Math.round((right+gap)/(colW+gap));const leftG=NC-end;const left=Math.floor(leftG/U*2)/2;
+    if(left>=half){const lastDom=r.els[r.els.length-1];const idx=UI.dash.blocks.findIndex(b=>b.id===lastDom.dataset.bid)+1;mk(left,lastDom,idx)}});
+  const lastRow=rows[rows.length-1];const lastEl=els[els.length-1];const lr=Math.max(...lastRow.els.map(R_));
+  if(NC-Math.round((lr+gap)/(colW+gap))<half*U){const nxt=lastEl.nextElementSibling;const anchor=nxt&&nxt.classList.contains("blk-gap")?nxt:lastEl;mk(6,anchor,UI.dash.blocks.length,true)}
+  $$(".blk-gap",g).forEach(d=>d.onclick=()=>addMenu40(d,k=>insertBlock40(k,+d.dataset.idx,d.classList.contains("full")?undefined:Math.min(+d.dataset.span,6))))}
+let _gf40=0;const gapLater40=()=>{cancelAnimationFrame(_gf40);_gf40=requestAnimationFrame(()=>requestAnimationFrame(gapFill40))};
+{const _rh40=renderHome;renderHome=function(){const r=_rh40.apply(this,arguments);gapLater40();const g=$("#dgrid");if(g&&!g._ro40&&window.ResizeObserver){let w0=0,h0=0;g._ro40=new ResizeObserver(es=>{const c=es[0].contentRect;if(Math.abs(c.width-w0)>2||Math.abs(c.height-h0)>2){w0=c.width;h0=c.height;gapLater40()}});g._ro40.observe(g)}return r}}
+addEventListener("resize",gapLater40);
+
+/* =====================================================================
+   v37 — LINH VẬT: nhiều loài, đổi theo giao diện hoặc tự chọn, tương tác được
+   Bit (chip) · mèo · chó · cá · chim · sóc chuột · chuột lang · sứa · thỏ · cánh cụt
+   Bấm: nhảy + nói · bấm đúp: làm trò · rê chuột qua lại: vuốt ve · bấm chỗ trống: đi tới đó
+   Nút: cho ăn · chơi bóng · đổi linh vật
+   ===================================================================== */
+const PET_KINDS={
+ auto:{l:"Theo giao diện"},
+ bit:{l:"Bit (chip)",say:["Bíp bíp!","Bit sẵn sàng!"],food:"chip"},
+ cat:{l:"Mèo",say:["Meo~","Meooo ♡","Rừ rừ…"],food:"fish"},
+ dog:{l:"Chó",say:["Gâu!","Gâu gâu ♡","*vẫy đuôi*"],food:"bone"},
+ fish:{l:"Cá",swim:1,say:["Óc óc…","Blub blub!"],food:"flake"},
+ bird:{l:"Chim",bird:1,say:["Chíp chíp!","Líu lo~"],food:"seed"},
+ squirrel:{l:"Sóc chuột",say:["Chít chít!","*ôm hạt*"],food:"nut"},
+ guinea:{l:"Chuột lang",say:["Uýt uýt!","Pui pui~"],food:"carrot"},
+ jelly:{l:"Sứa",swim:1,say:["…bloop","*lấp lánh*"],food:"flake"},
+ bunny:{l:"Thỏ",say:["*nhảy nhảy*","Thỏ đói rồi~"],food:"carrot"},
+ penguin:{l:"Cánh cụt",say:["Quác!","*lạch bạch*"],food:"fish"}};
+/* màu lông: đổi nhẹ theo cảnh */
+const PET_COAT={
+ cat:{orange:{b:"#f0a35a",sh:"#c9773a",bl:"#ffe3c4",e:"#ff9cb8",n:"#e0607e"},black:{b:"#2a2630",sh:"#17141c",bl:"#4a4452",e:"#c96a8c",n:"#ff8fb0",eye:"#ffd34a"},white:{b:"#f6f1ea",sh:"#d9cfc2",bl:"#ffffff",e:"#ffb7c8",n:"#f08aa8"},gray:{b:"#9aa3b5",sh:"#6f7890",bl:"#e6e9f0",e:"#ffb7c8",n:"#e0607e"}},
+ dog:{tan:{b:"#d9a066",sh:"#a8703e",bl:"#fbe7cf",e:"#8a5a34",n:"#2a1e18"},white:{b:"#f4efe6",sh:"#cdbfae",bl:"#ffffff",e:"#c79a6a",n:"#2a1e18"}},
+ squirrel:{d:{b:"#c98a4e",sh:"#8f5a2e",bl:"#f6dcb8",e:"#8f5a2e",n:"#3a241a",st:"#5a3a22",st2:"#f2d2a6"}},
+ guinea:{d:{b:"#f2e3cf",sh:"#c9a27a",bl:"#ffffff",e:"#d9885a",n:"#e0807e",pt:"#c9773a",pt2:"#3a2c26"}},
+ bunny:{d:{b:"#f8f4f0",sh:"#d8cfd8",bl:"#ffffff",e:"#ffb7c8",n:"#f08aa8"},brown:{b:"#c9a07a",sh:"#9a7452",bl:"#f2dcc4",e:"#ffb7c8",n:"#e0607e"}},
+ bird:{blue:{b:"#6fb6f0",sh:"#3f7fc0",bl:"#e8f5ff",bk:"#ffb84a"},yellow:{b:"#ffd34a",sh:"#e0a52a",bl:"#fff6c8",bk:"#ff8a3a"},pink:{b:"#f6a6c8",sh:"#d97aa6",bl:"#ffe6f0",bk:"#ffb84a"}},
+ fish:{orange:{b:"#ff9a3c",sh:"#d96a1e",bl:"#ffffff",fin:"#ffd08a"},blue:{b:"#5ab8f0",sh:"#2f7fc0",bl:"#e6f6ff",fin:"#a6e2ff"},pink:{b:"#ff8fb8",sh:"#d9608e",bl:"#ffe6f0",fin:"#ffc8dc"}},
+ jelly:{pink:{b:"#f59ad8",sh:"#c86ab0",bl:"#ffe0f4"},violet:{b:"#b08af0",sh:"#7f5ac8",bl:"#ece2ff"},aqua:{b:"#7fd8f0",sh:"#3fa8c8",bl:"#e0fbff"}},
+ penguin:{d:{b:"#262a3a",sh:"#141826",bl:"#fbfbff",bk:"#ffa83a"}}};
+UI.pet=local.get("petKind","auto");UI.petName=local.get("petName","");
+/* chọn theo giao diện / cảnh nền */
+function petAuto(){let s={};try{s=bgSrc()}catch(e){}const sc=s.scene||"";const night=isNightSkin();
+  const M={aqbar:["fish","blue"],reef:["fish","orange"],aquanight:["jelly","violet"],shells:["bird","pink"],shellbeach:["penguin","d"],beach:["bird","blue"],blackcat:["cat","black"],catcafe:["cat","white"],summerbridge:["bird","yellow"],day:["bunny","d"],sunset:["dog","tan"],cottage:["squirrel","d"],pinksky:["bunny","d"],desk:["bit"],night:["cat","gray"]};
+  if(s.img)return ["bit"];if(M[sc])return M[sc];
+  const SK={sakura:["bunny","d"],ocean:["fish","blue"],lavender:["jelly","pink"],matcha:["guinea","d"],peach:["dog","tan"],midnight:["cat","black"],neon:["bit"],coffee:["dog","tan"],mint:["guinea","d"],terminal:["bit"],nord:["penguin","d"],ink:["cat","orange"],pastel:["bunny","d"],demsao:["cat","gray"]};
+  return SK[UI.skin]||(night?["cat","gray"]:["bit"])}
+function petResolve(){if(UI.pet&&UI.pet!=="auto"&&PET_KINDS[UI.pet]){const C=PET_COAT[UI.pet];const coat=local.get("petCoat_"+UI.pet,C?Object.keys(C)[0]:"");return [UI.pet,coat]}return petAuto()}
+
+/* ---------- vẽ từng loài (đơn vị = 1 ô pixel, gốc = chân, hướng phải) ---------- */
+function quad41(px,f,o,C){const L=o.len||10,lh=f.sleep?0:(o.lh??2),bx=3;let bt=-(lh+4);const bob=f.walk&&(f.step%2)?-1:0;const B=(a,b,w,h,c)=>px(a,b+bob,w,h,c);
+  const hx=bx+L-3,hy=bt-4+(f.sleep?2:0)+(f.eat&&(f.t>>2)%2?1:0);
+  /* đuôi (vẽ trước) */
+  const sw=Math.round(Math.sin(f.t/(f.happy?2:6))*1);
+  if(o.tail==="cat"){B(bx-1,bt+1,1,2,C.b);B(bx-2,bt-1,1,2,C.b);B(bx-2+sw,bt-3,1,2,C.b);B(bx-1+sw,bt-4,1,1,C.b)}
+  if(o.tail==="dog"){const w=f.happy?((f.t>>1)%2):((f.t>>3)%2);B(bx-1,bt,1,2,C.b);B(bx-2,bt-1-w,1,2,C.sh)}
+  if(o.tail==="puff"){B(bx-1,bt,2,2,C.bl);B(bx-2,bt+1,1,1,C.bl)}
+  if(o.tail==="bushy"){B(bx-3,bt-5,3,8,C.b);B(bx-4+sw,bt-7,3,3,C.b);B(bx-3+sw,bt-8,2,1,C.b);B(bx-3,bt-4,1,6,C.sh);B(bx-2,bt-3,1,4,C.st2||C.bl)}
+  /* thân */
+  B(bx+1,bt,L-2,1,C.b);B(bx,bt+1,L,2,C.b);B(bx+1,bt+3,L-2,1,C.sh);B(bx+2,bt+3,L-4,1,C.bl);
+  if(o.stripe){B(bx+1,bt+1,L-4,1,C.st);B(bx+1,bt,L-4,1,C.st2)}
+  if(o.patch){B(bx+1,bt+1,3,2,C.pt);B(bx+L-6,bt,3,2,C.pt2)}
+  /* chân */
+  if(lh){const legs=[bx+1,bx+3,bx+L-4,bx+L-2];legs.forEach((x,k)=>{const up=f.walk&&((k+f.step)%2===0);px(x,-lh+(up?0:0),1,up?lh-1||1:lh,k%2?C.sh:C.b)})}
+  /* đầu */
+  const hw=o.hw||7;B(hx+1,hy,hw-2,1,C.b);B(hx,hy+1,hw,3,C.b);B(hx+1,hy+4,hw-2,1,C.b);
+  if(o.ear==="cat"){B(hx,hy-2,1,2,C.b);B(hx+1,hy-1,1,1,C.e);B(hx+hw-1,hy-2,1,2,C.b);B(hx+hw-2,hy-1,1,1,C.e)}
+  if(o.ear==="dog"){B(hx-1,hy+1,1,3,C.e);B(hx+hw,hy+1,1,3,C.e);B(hx,hy,1,1,C.e);B(hx+hw-1,hy,1,1,C.e)}
+  if(o.ear==="bunny"){const fl=f.sleep?2:0;B(hx+1,hy-5+fl,2,5-fl,C.b);B(hx+4,hy-5+fl,2,5-fl,C.b);B(hx+2,hy-4+fl,1,3-fl,C.e);B(hx+4,hy-4+fl,1,3-fl,C.e)}
+  if(o.ear==="round"){B(hx,hy-1,2,1,C.e);B(hx+hw-2,hy-1,2,1,C.e)}
+  if(o.ear==="tuft"){B(hx+1,hy-2,1,2,C.b);B(hx+hw-2,hy-2,1,2,C.b)}
+  if(o.snout){B(hx+2,hy+3,3,2,C.bl);B(hx+3,hy+3,1,1,C.n)}else B(hx+3,hy+3,1,1,C.n);
+  const ey=C.eye||"#1d1a24";const ex1=hx+1,ex2=hx+hw-2;
+  if(f.sleep||f.blink){B(ex1,hy+2,1,1,ey);B(ex2,hy+2,1,1,ey)}
+  else if(f.happy){B(ex1,hy+1,1,1,ey);B(ex2,hy+1,1,1,ey);B(hx,hy+3,1,1,"#ff9cb8");B(hx+hw-1,hy+3,1,1,"#ff9cb8")}
+  else{B(ex1,hy+1,1,2,ey);B(ex2,hy+1,1,2,ey)}
+  if(f.eat&&(f.t>>2)%2)B(hx+3,hy+5,1,1,"#c0506e")}
+const PET_DRAW={
+ cat:(px,f,C)=>quad41(px,f,{len:10,ear:"cat",tail:"cat"},C),
+ dog:(px,f,C)=>quad41(px,f,{len:10,ear:"dog",tail:"dog",snout:1},C),
+ bunny:(px,f,C)=>quad41(px,f,{len:8,lh:1,ear:"bunny",tail:"puff",hw:6},C),
+ guinea:(px,f,C)=>quad41(px,f,{len:12,lh:1,ear:"round",tail:"none",patch:1,hw:6},C),
+ squirrel:(px,f,C)=>quad41(px,f,{len:7,lh:1,ear:"tuft",tail:"bushy",stripe:1,hw:6},C),
+ bird:(px,f,C)=>{const fly=f.fly;const fl=fly?((f.t>>1)%2):0;px(4,-7,6,1,C.b);px(3,-6,8,3,C.b);px(4,-3,6,1,C.b);px(5,-4,4,1,C.bl);px(9,-10,4,1,C.b);px(9,-9,5,3,C.b);
+   px(1,-6,3,1,C.sh);px(0,-7,2,1,C.sh);px(14,-8,2,1,C.bk);if(f.happy&&(f.t>>2)%2)px(14,-7,1,1,C.bk);
+   if(fly){fl?px(4,-10,5,2,C.sh):px(4,-4,5,2,C.sh)}else px(4,-6,4,2,C.sh);
+   if(f.sleep||f.blink)px(11,-8,2,1,"#1d1a24");else{px(12,-9,1,1,"#1d1a24");px(12,-9,1,1,"#1d1a24")}
+   if(!fly){const w=f.walk&&f.step%2;px(6,-2,1,2-(w?1:0),C.bk);px(8,-2,1,2-(w?0:1),C.bk)}},
+ penguin:(px,f,C)=>{const tl=f.walk?(f.step%2?1:-1):0;const T=(a,b,w,h,c)=>px(a+(b<-7?tl:0),b,w,h,c);T(4,-14,5,1,C.b);T(3,-13,7,6,C.b);px(3,-7,7,6,C.b);T(4,-11,5,4,C.bl);px(4,-7,5,5,C.bl);
+   T(9,-11,2,1,C.bk);if(f.sleep||f.blink){T(5,-12,1,1,"#ffffff");T(7,-12,1,1,"#ffffff")}else{T(5,-12,1,1,"#ffffff");T(7,-12,1,1,"#ffffff");T(5,-12,1,1,"#111");T(7,-12,1,1,"#111")}
+   const fp=f.happy?((f.t>>1)%2):0;px(2,-9-fp,1,4,C.sh);px(10,-9-fp,1,4,C.sh);px(3,-1,3,1,C.bk);px(7,-1,3,1,C.bk);if(f.happy){px(4,-10,1,1,"#ff9cb8");px(8,-10,1,1,"#ff9cb8")}},
+ fish:(px,f,C)=>{const w=(f.t>>2)%2;px(4,-5,7,1,C.b);px(3,-4,9,3,C.b);px(4,-1,7,1,C.b);px(4,-2,7,1,C.bl);px(6,-6,3,1,C.fin);px(6,0,2,1,C.fin);
+   px(0,-5+w,2,1,C.fin);px(1,-4,2,3,C.sh);px(0,-1-w,2,1,C.fin);px(6,-4,1,2,C.sh);
+   if(f.sleep||f.blink)px(9,-3,2,1,"#1d1a24");else{px(10,-4,1,1,"#ffffff");px(10,-3,1,1,"#1d1a24")}if(f.eat&&(f.t>>2)%2)px(12,-2,1,1,"#c0506e");if(f.happy){px(9,-2,1,1,"#ff9cb8")}},
+ jelly:(px,f,C)=>{const p=Math.sin(f.t/5)>0?1:0;px(3,-14+p,6,1,C.b);px(2,-13+p,8,2,C.b);px(1-p,-11+p,10+p*2,2,C.b);px(3,-12+p,3,1,C.bl);
+   if(f.sleep||f.blink){px(4,-10+p,1,1,"#3a2a4a");px(7,-10+p,1,1,"#3a2a4a")}else{px(4,-11+p,1,2,"#3a2a4a");px(7,-11+p,1,2,"#3a2a4a")}if(f.happy){px(3,-10+p,1,1,"#ff6a9a");px(8,-10+p,1,1,"#ff6a9a")}
+   [2,4,7,9].forEach((x,k)=>{for(let i=0;i<6;i++)px(x+Math.round(Math.sin(f.t/4+k+i*.8)*.7),-9+p+i,1,1,i%2?C.sh:C.b)})}
+};
+const PET_W={cat:17,dog:17,bunny:15,guinea:18,squirrel:14,bird:16,penguin:12,fish:13,jelly:12,bit:16};
+function petFood(g,x,y,kind,P){const q=(a,b,w,h,c)=>{g.fillStyle=c;g.fillRect(Math.round(x+a*P),Math.round(y+b*P),w*P,h*P)};
+  if(kind==="fish"){q(0,0,3,1,"#7fb4e2");q(-1,-1,1,1,"#7fb4e2");q(-1,1,1,1,"#7fb4e2");q(2,0,1,1,"#1d1a24")}
+  else if(kind==="bone"){q(0,0,4,1,"#f4efe6");q(-1,-1,1,1,"#f4efe6");q(-1,1,1,1,"#f4efe6");q(4,-1,1,1,"#f4efe6");q(4,1,1,1,"#f4efe6")}
+  else if(kind==="carrot"){q(0,0,3,1,"#ff8a3a");q(1,1,2,1,"#ff8a3a");q(2,2,1,1,"#ff8a3a");q(0,-1,1,1,"#5fb36a");q(-1,-2,1,1,"#5fb36a")}
+  else if(kind==="nut"){q(0,-1,3,1,"#8f5a2e");q(0,0,3,2,"#d9a066");q(1,2,1,1,"#d9a066")}
+  else if(kind==="seed"){q(0,0,1,1,"#e0b060");q(2,1,1,1,"#e0b060");q(1,-1,1,1,"#c98a4e")}
+  else if(kind==="flake"){q(0,0,1,1,"#ffb84a");q(2,1,1,1,"#ff8a6a");q(-1,2,1,1,"#ffd34a")}
+  else{q(0,0,3,3,"#3a4a6a");q(1,1,1,1,"#7fe0a4");q(-1,1,1,1,"#9aa0ab");q(3,1,1,1,"#9aa0ab")}}
+function petBlip(f0=880){try{if(UI.mute)return;const a=actx();if(!a)return;const o=a.createOscillator(),g=a.createGain();o.type="triangle";o.frequency.setValueAtTime(f0,a.currentTime);o.frequency.exponentialRampToValueAtTime(f0*1.5,a.currentTime+.08);g.gain.setValueAtTime(.0001,a.currentTime);g.gain.exponentialRampToValueAtTime(.05,a.currentTime+.01);g.gain.exponentialRampToValueAtTime(.0001,a.currentTime+.14);o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+.16)}catch(e){}}
+
+WIDGETS.mascot.title="Linh vật";WIDGETS.mascot.t="pet.exe";WIDGETS.mascot.desc="Mèo, chó, cá, chim, sóc, thỏ, sứa… đổi theo giao diện hoặc tự chọn; cho ăn, chơi bóng, vuốt ve";
+WIDGETS.mascot.build=function(b){const CW=232,CH=118,P=4,GY=100;
+  b.innerHTML=`<canvas class="bitc pet41" width="${CW}" height="${CH}" aria-label="Linh vật — bấm để chơi"></canvas><div class="bit-say" hidden></div>
+   <div class="pet41-bar"><button class="chip" data-pa="feed" title="Cho ăn">🍎 Cho ăn</button><button class="chip" data-pa="ball" title="Ném bóng cho linh vật đuổi">⚽ Chơi bóng</button><button class="chip" data-pa="trick" title="Làm trò">✨</button><span class="pet41-m" aria-label="Độ vui"></span><button class="ghost ic" data-pa="set" aria-label="Đổi linh vật" title="Đổi linh vật">${ic("more")}</button></div>`;
+  const c=$("canvas",b),g=c.getContext("2d");g.imageSmoothingEnabled=false;const say=$(".bit-say",b);const moodEl=$(".pet41-m",b);
+  const S={x:60,y:62,dir:1,step:0,tick:0,idle:0,jump:0,vy:0,happy:0,blink:0,hearts:[],sparks:[],food:null,ball:null,eat:0,spin:0,fly:0,fy:0,tx:null,ty:null,woke:0,pet:0,lastPX:null,mood:local.get("petMood",3),moodT:Date.now(),kicks:0};
+  let kind="bit",coat="",K=PET_KINDS.bit,C={};let lastRes=0;
+  const resolve=()=>{const [k,co]=petResolve();if(k!==kind||co!==coat){kind=k;coat=co||"";K=PET_KINDS[kind]||PET_KINDS.bit;const CC=PET_COAT[kind];C=CC?(CC[coat]||CC[Object.keys(CC)[0]]):{};S.y=K.swim?62:GY}};
+  const speak=(t,ms=3500)=>{say.hidden=false;say.textContent=(UI.petName?UI.petName+": ":"")+t;clearTimeout(say._t);say._t=setTimeout(()=>say.hidden=true,ms)};
+  const moodDraw=()=>{moodEl.innerHTML=Array.from({length:5},(_,i)=>`<i class="${i<Math.round(S.mood)?"on":""}"></i>`).join("")};
+  const moodUp=v=>{S.mood=Math.max(0,Math.min(5,S.mood+v));local.set("petMood",S.mood);moodDraw()};
+  const W=()=>(PET_W[kind]||16)*P;
+  const hearts=(n=3)=>{for(let i=0;i<n;i++)S.hearts.push({x:S.x+W()/2+(Math.random()-.5)*20,y:(K.swim?S.y-30:GY-60),t:-i*6})};
+  const night=()=>{const h=new Date().getHours();return h>=23||h<6};
+  const pos=e=>{const r=c.getBoundingClientRect();return [(e.clientX-r.left)*CW/r.width,(e.clientY-r.top)*CH/r.height]};
+  const onPet=(mx,my)=>{const w=W();const top=K.swim?S.y-16*P:GY-18*P-S.jump;const bot=K.swim?S.y+3*P:GY;return mx>=S.x-4&&mx<=S.x+w+4&&my>=top-6&&my<=bot+4};
+  let clickT=0;
+  c.onclick=e=>{const [mx,my]=pos(e);S.woke=Date.now();if(onPet(mx,my)){const now=Date.now();if(now-clickT<320){S.spin=28;S.sparks.push(...Array.from({length:8},(_,i)=>({a:i/8*6.28,r:4,t:0})));speak(kind==="bit"?"Xem Bit xoay nè!":"✨ Làm trò nè!");moodUp(.3);petBlip(1200);clickT=0;return}clickT=now;
+      if(!S.jump){S.vy=K.swim?0:3.4;S.jump=K.swim?0:.01}if(K.swim){S.ty=Math.max(26,S.y-22)}if(K.bird&&!S.fly&&Math.random()<.5){S.fly=60}S.happy=30;hearts(2);petBlip(900);
+      speak(Math.random()<.55?(K.say||["Hi!"])[Math.floor(Math.random()*(K.say||["Hi"]).length)]:BIT_TIPS[Math.floor(Math.random()*BIT_TIPS.length)])}
+    else{S.tx=Math.max(4,Math.min(CW-W()-4,mx-W()/2));if(K.swim)S.ty=Math.max(26,Math.min(96,my+8));S.idle=0}};
+  c.onpointermove=e=>{if(e.pointerType!=="mouse")return;const [mx,my]=pos(e);if(!onPet(mx,my)){S.lastPX=null;return}if(S.lastPX!=null){S.pet+=Math.abs(mx-S.lastPX);if(S.pet>90){S.pet=0;S.happy=40;hearts(1);moodUp(.25);if(Math.random()<.4){speak(kind==="cat"?"Rừ rừ… ♡":kind==="dog"?"*vẫy đuôi tít*":"Thích quá ♡",2200);petBlip(700)}}}S.lastPX=mx};
+  c.onpointerleave=()=>{S.lastPX=null};
+  $("[data-pa=feed]",b).onclick=()=>{S.woke=Date.now();if(S.food)return;S.food={x:20+Math.random()*(CW-60),y:-6,vy:0,kind:K.food||"chip"};speak(K.swim?"Có đồ ăn rơi xuống kìa!":"Đồ ăn nè!",1800)};
+  $("[data-pa=ball]",b).onclick=()=>{S.woke=Date.now();S.ball={x:S.x<CW/2?CW-30:20,y:40,vx:(S.x<CW/2?-1:1)*(2.5+Math.random()*2),vy:-2,t:0};S.kicks=0;speak("Bắt bóng nào!",1500)};
+  $("[data-pa=trick]",b).onclick=()=>{S.woke=Date.now();S.spin=28;S.happy=30;S.sparks.push(...Array.from({length:8},(_,i)=>({a:i/8*6.28,r:4,t:0})));moodUp(.2)};
+  $("[data-pa=set]",b).onclick=e=>{e.stopPropagation();const cur=UI.pet||"auto";const [ak]=petAuto();const coats=PET_COAT[kind]?Object.keys(PET_COAT[kind]):[];
+    const m=popMenu(e.currentTarget,`<div class="who">Chọn linh vật</div><div class="pet41-pick">${Object.entries(PET_KINDS).map(([k,v])=>`<button data-pk="${k}" aria-pressed="${cur===k}">${k==="auto"?`🎨 ${v.l} <small>(${esc(PET_KINDS[ak].l)})</small>`:esc(v.l)}</button>`).join("")}</div>
+      ${coats.length>1?`<div class="who">Màu lông / vảy</div><div class="pet41-coat">${coats.map(k=>{const cc=PET_COAT[kind][k];return `<button data-pc="${k}" style="background:${cc.b}" aria-pressed="${coat===k}" title="${k}"></button>`}).join("")}</div>`:""}
+      <div class="who">Tên linh vật</div><input class="input" id="petNm" value="${esc(UI.petName||"")}" placeholder="Đặt tên (tùy chọn)" maxlength="16">`);
+    m.addEventListener("click",x=>x.stopPropagation());
+    $$("[data-pk]",m).forEach(x=>x.onclick=()=>{UI.pet=x.dataset.pk;local.set("petKind",UI.pet);resolve();closePop();S.happy=30;hearts(3);speak(UI.pet==="auto"?"Mình sẽ đổi theo giao diện nhé!":"Xin chào! ♡")});
+    $$("[data-pc]",m).forEach(x=>x.onclick=()=>{if(UI.pet==="auto"){UI.pet=kind;local.set("petKind",kind)}local.set("petCoat_"+kind,x.dataset.pc);resolve();closePop()});
+    const nm=$("#petNm",m);nm.onchange=()=>{UI.petName=nm.value.trim();local.set("petName",UI.petName)}};
+  const drawPet=(x,y,f)=>{if(kind==="bit"){drawBit(g,x,y-16*P,{walk:f.walk,step:f.step,blink:f.blink,jump:0,look:f.dir,led:S.tick%30<15,happy:f.happy,sleep:f.sleep},P);return}
+    const w=PET_W[kind]||16;const flip=f.dir<0;const px=(a,bq,ww,hh,col)=>{if(!col)return;g.fillStyle=col;const ax=flip?(w-a-ww):a;g.fillRect(Math.round(x+ax*P),Math.round(y+bq*P),ww*P,hh*P)};(PET_DRAW[kind]||PET_DRAW.cat)(px,f,C)};
+  const frame=()=>{if(!document.body.contains(c))return;S.tick++;if(S.tick%20===1)resolve();g.clearRect(0,0,CW,CH);
+    /* nền */
+    if(K.swim){const gr=g.createLinearGradient(0,0,0,CH);gr.addColorStop(0,"rgba(120,200,255,.18)");gr.addColorStop(1,"rgba(40,110,200,.28)");g.fillStyle=gr;g.fillRect(0,0,CW,CH);g.fillStyle="rgba(255,255,255,.35)";for(let i=0;i<6;i++){const bx=(i*41+S.tick*.3)%CW,by=CH-((S.tick*.6+i*23)%CH);g.fillRect(bx,by,2,2)}
+      g.fillStyle="rgba(80,170,120,.5)";for(let i=0;i<8;i++){const sx=i*31+8;for(let k=0;k<6;k++)g.fillRect(sx+Math.round(Math.sin(S.tick/12+k+i)*2),CH-4-k*4,3,4)}}
+    else{g.fillStyle=css2("--panel2")||"#eee";g.fillRect(0,GY,CW,CH-GY);g.fillStyle=css2("--line")||"#ccc";for(let i=0;i<CW;i+=8)g.fillRect(i,GY,4,2);
+      [[30,28],[150,18],[200,40]].forEach(([a,bq],k)=>{g.fillStyle=k%2?"#ffd1e6":"#d9ecff";const ox=(a+S.tick*.15*(k+1))%260-20;g.fillRect(ox,bq,18,5);g.fillRect(ox+4,bq-3,10,3)})}
+    const sleeping=night()&&!S.happy&&Date.now()-S.woke>120000&&!S.food&&!S.ball;
+    if(sleeping){say.hidden=false;say.textContent=(UI.petName||PET_KINDS[kind].l)+" đang ngủ… bấm để đánh thức"}
+    /* thức ăn */
+    let goal=S.tx;if(S.food){const fd=S.food;const floor=K.swim?CH-10:GY-4;if(fd.y<floor){fd.vy=K.swim?Math.min(.8,fd.vy+.05):fd.vy+.35;fd.y=Math.min(floor,fd.y+fd.vy)}goal=fd.x-W()/2+2;if(K.swim)S.ty=fd.y+6;
+      if(Math.abs(S.x+W()/2-fd.x)<8&&(K.swim?Math.abs(S.y-fd.y-6)<12:fd.y>=floor)){S.food=null;S.eat=36;S.happy=50;hearts(3);moodUp(1);petBlip(660);speak(kind==="dog"?"Ngon quá! Gâu ♡":"Măm măm… ngon quá ♡",2200)}}
+    /* bóng */
+    if(S.ball){const bl=S.ball;bl.t++;bl.vy+=.25;bl.x+=bl.vx;bl.y+=bl.vy;bl.vx*=.992;const fl=K.swim?CH-8:GY-6;if(bl.y>fl){bl.y=fl;bl.vy*=-.55;if(Math.abs(bl.vy)<.6)bl.vy=0}if(bl.x<4||bl.x>CW-10){bl.vx*=-1;bl.x=Math.max(4,Math.min(CW-10,bl.x))}
+      goal=bl.x-W()/2;if(K.swim)S.ty=bl.y;if(Math.abs(S.x+W()/2-bl.x)<10&&Math.abs((K.swim?S.y-4:GY-8)-bl.y)<18){bl.vx=(bl.x>S.x+W()/2?1:-1)*(3+Math.random()*2);bl.vy=-3.5-Math.random()*2;S.kicks++;S.happy=20;if(S.kicks%2===0)hearts(1);if(S.kicks>=5){speak("Vui quá! Chơi tiếp nhé ♡",2200);moodUp(1)}}
+      if(bl.t>600||S.kicks>=6){S.ball=null}}
+    /* di chuyển */
+    if(S.eat){S.eat--}else if(!sleeping&&!S.spin){
+      if(goal!=null){const d=goal-S.x;if(Math.abs(d)>2){S.dir=d>0?1:-1;S.x+=S.dir*Math.min(Math.abs(d),(S.food||S.ball)?2.2:1.6);if(S.tick%5===0)S.step++}else if(!S.food&&!S.ball)S.tx=null}
+      else if(S.idle>0)S.idle--;else{S.x+=S.dir*(kind==="penguin"||kind==="guinea"?.7:1.1);if(S.tick%6===0)S.step++;if(S.x>CW-W()-4||S.x<4){S.dir*=-1;S.x=Math.max(4,Math.min(CW-W()-4,S.x));if(Math.random()<.5)S.idle=40}if(Math.random()<.005)S.idle=50;if(K.bird&&!S.fly&&Math.random()<.003)S.fly=70}}
+    S.x=Math.max(2,Math.min(CW-W()-2,S.x));
+    if(K.swim){if(S.ty==null||Math.random()<.004)S.ty=30+Math.random()*60;S.y+=(S.ty-S.y)*.04;}
+    if(S.jump){S.jump+=S.vy;S.vy-=.35;if(S.jump<=0){S.jump=0;S.vy=0}}
+    if(S.fly){S.fly--;S.fy=Math.sin((70-S.fly)/70*Math.PI)*34}else S.fy=0;
+    if(S.spin){S.spin--;if(S.spin%4===0)S.dir*=-1}
+    if(S.tick%90===0)S.blink=6;if(S.blink)S.blink--;if(S.happy)S.happy--;
+    if(Date.now()-S.moodT>60000){S.moodT=Date.now();moodUp(-.1)}
+    const walking=!sleeping&&!S.eat&&!S.spin&&(goal!=null||(!S.idle))&&!S.fly;
+    const f={walk:walking,step:S.step,blink:S.blink>0,happy:S.happy>0||S.spin>0,sleep:sleeping,eat:S.eat>0,t:S.tick,dir:S.dir,fly:S.fly>0};
+    const yy=K.swim?S.y+Math.sin(S.tick/10)*2:GY-S.jump-S.fy;drawPet(S.x,yy,f);
+    if(S.food)petFood(g,S.food.x,S.food.y,S.food.kind,3);
+    if(S.ball){g.fillStyle="#ffffff";g.fillRect(S.ball.x,S.ball.y,8,8);g.fillStyle="#1d1a24";g.fillRect(S.ball.x+3,S.ball.y+3,2,2);g.fillRect(S.ball.x,S.ball.y+3,1,2);g.fillRect(S.ball.x+7,S.ball.y+3,1,2);g.fillStyle="#ff6a9a";g.fillRect(S.ball.x+2,S.ball.y,4,1)}
+    if(sleeping){g.fillStyle=css2("--muted")||"#888";g.font="700 14px Silkscreen, monospace";g.fillText("z",S.x+W(),(K.swim?S.y-40:30)-(S.tick%40)/4);g.fillText("Z",S.x+W()+10,(K.swim?S.y-50:20)-(S.tick%40)/5)}
+    S.hearts=S.hearts.filter(h=>h.t<40);S.hearts.forEach(h=>{h.t++;if(h.t<0)return;const hy=h.y-h.t;g.globalAlpha=Math.max(0,1-h.t/40);g.fillStyle="#ff6a9a";[[1,0],[3,0],[0,1],[1,1],[2,1],[3,1],[4,1],[1,2],[2,2],[3,2],[2,3]].forEach(([a,bq])=>g.fillRect(h.x+a*3,hy+bq*3,3,3));g.globalAlpha=1});
+    S.sparks=S.sparks.filter(s=>s.t<24);S.sparks.forEach(s=>{s.t++;const r=s.r+s.t*1.6;g.globalAlpha=1-s.t/24;g.fillStyle="#ffd34a";const cx=S.x+W()/2+Math.cos(s.a)*r,cy=(K.swim?S.y-20:GY-40)+Math.sin(s.a)*r;g.fillRect(cx,cy-2,2,6);g.fillRect(cx-2,cy,6,2);g.globalAlpha=1})};
+  resolve();moodDraw();
+  let vis=true,stop=false,last=0;try{new IntersectionObserver(es=>{vis=es[0].isIntersecting}).observe(c)}catch(e){}
+  const loop=t=>{if(stop)return;if(vis&&!document.hidden&&t-last>=48){last=t;frame()}requestAnimationFrame(loop)};frame();requestAnimationFrame(loop);return {stop:()=>{stop=true}}};
+
+/* =====================================================================
+   v37 — DỰ ÁN TRỰC QUAN HƠN: mỗi bước có các thẻ
+   Tổng quan · Bài giảng (slide + video giảng có lời đọc + video YouTube) · Làm theo (từng bước một)
+   · Thực hành (bài tập, tự chấm / AI chấm) · Tệp dự án (ghi chú, mô hình 3D, tệp, liên kết, mô phỏng)
+   ===================================================================== */
+const PJ_TABS=[["ov","Tổng quan","note"],["lec","Bài giảng","slides"],["test","Kiểm tra","check"],["prac","Thực hành","edit"],["files","Tệp dự án","folder"]];
+PJ.tab=local.get("pjTab","ov");let PJ40ctx=null;
+const pjA=p=>({title:p.title,cfg:{lang:"vi"},srcLabels:[],kind:"slides"});
+function pjParas(st){return String(st.guide||"").split(/\n+/).map(x=>x.replace(/^\s*(?:[-*•>]|#+|\d+[.)])\s*/,"").replace(/\*\*/g,"").trim()).filter(x=>x.length>2)}
+function pjChunk(a,n){const o=[];for(let i=0;i<a.length;i+=n)o.push(a.slice(i,i+n));return o}
+function pjAutoSlides(p,st,i){const S=[];const n=p.steps.length;S.push({layout:"title",title:`Bước ${i+1}/${n}: ${st.t}`,bullets:[st.goal||p.title],notes:`Bước ${i+1}: ${st.t}. ${st.goal?"Mục tiêu: "+st.goal:""}`});
+  pjChunk(pjParas(st),3).forEach((c,k,all)=>S.push({title:"Chỉ dẫn"+(all.length>1?` (${k+1}/${all.length})`:""),bullets:c,notes:c.join(" ")}));
+  const IC4=["gear","bolt","chip","chart","loop","wave","book","idea"];
+  if(st.tasks.length){pjChunk(st.tasks,4).forEach((c,k)=>S.push({title:"Các việc cần làm"+(k?" (tiếp)":""),visual:"cards",cards:c.map((t,j)=>({icon:IC4[(k*4+j)%IC4.length],title:"Việc "+(k*4+j+1),text:t.t})),bullets:[],notes:"Các việc cần làm: "+c.map(t=>t.t).join(". ")}))}
+  if(st.out||st.res){const r=String(st.res||"").split(/\n+/).map(x=>x.replace(/^\s*(?:[-*•]|\d+[.)])\s*/,"").replace(/\*\*/g,"").trim()).filter(Boolean).slice(0,4);S.push({title:"Kết quả mong đợi",bullets:[...(st.out?["Sản phẩm: "+st.out]:[]),...r],notes:"Kết quả mong đợi. "+(st.out?"Sản phẩm: "+st.out+". ":"")+r.join(" ")})}
+  const sims=(st.sims||[]).filter(pjRefOk);if(sims.length)S.push({title:"Mô phỏng nên mở",visual:"cards",cards:sims.slice(0,4).map(r=>({icon:"wave",title:pjRefLabel(r).split(" · ")[0],text:pjRefLabel(r).split(" · ").slice(1).join(" · ")})),bullets:[],notes:"Mở các mô phỏng để quan sát trực tiếp."});
+  S.push({title:"Tự kiểm tra trước khi sang bước sau",bullets:["Mình giải thích lại được mục tiêu của bước này?","Đã làm hết các việc và ghi kết quả?","Kết quả có khớp với kết quả mong đợi?"],notes:"Trước khi sang bước sau, hãy tự kiểm tra ba câu hỏi này."});return S}
+const pjSlides=(p,st,i)=>Array.isArray(st.slides)&&st.slides.length?st.slides:pjAutoSlides(p,st,i);
+function ytId40(u){const m=String(u||"").match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([\w-]{11})/);return m?m[1]:""}
+async function pjAiJSON(prompt){const r=await P.sample([{role:"user",content:prompt}],{cache:false});return looseJSON(r.text||"")}
+function pjFileAdd(p,f){p.files=p.files||[];p.files.push(Object.assign({id:mkid("pf"),at:Date.now(),step:p.cur||0},f));pjSave(p,{files:p.files},true)}
+const PJF_IC={note:"note",model:"cube",file:"file",link:"link",sim:"wave",slides:"slides",stepnote:"edit"};
+
+/* ---------- gắn thẻ vào màn hình dự án ---------- */
+{const _rp42=pjRenderProj;pjRenderProj=function(ov){_rp42.apply(this,arguments);try{pj42(ov)}catch(e){console.warn("pj42",e)}}}
+function pj42(ov){const p=pjGet(PJ.id);if(!p)return;const i=Math.max(0,Math.min(p.steps.length-1,p.cur||0));const st=p.steps[i];const sec=$(".pj-step",ov);if(!sec||!st)return;
+  if(!PJ_TABS.some(t=>t[0]===PJ.tab))PJ.tab="ov";
+  const bar=document.createElement("div");bar.className="pj42-tabs";bar.setAttribute("role","tablist");
+  bar.innerHTML=PJ_TABS.map(([k,l,icn])=>`<button role="tab" data-pjtab="${k}" aria-selected="${PJ.tab===k}">${ic(icn)}<span>${l}</span>${k==="files"&&(p.files||[]).length?`<small>${p.files.length}</small>`:""}</button>`).join("");
+  const goal=$(".pj-goal",sec);(goal||$(".pj-sh",sec)).after(bar);
+  const ovp=document.createElement("div");ovp.className="pj42-p";ovp.dataset.p="ov";$$(":scope>.pj-blk",sec).forEach(b=>ovp.appendChild(b));bar.after(ovp);
+  const pane=document.createElement("div");pane.className="pj42-p";pane.dataset.p="x";ovp.after(pane);
+  const show=()=>{ovp.hidden=PJ.tab!=="ov";pane.hidden=PJ.tab==="ov";$$("[data-pjtab]",bar).forEach(b=>b.setAttribute("aria-selected",b.dataset.pjtab===PJ.tab));if(PJ.tab!=="ov")({lec:pjLec,test:pjTest,fol:pjFol,prac:pjPrac,files:pjFiles})[PJ.tab](pane,p,st,i)};
+  $$("[data-pjtab]",bar).forEach(b=>b.onclick=()=>{PJ.tab=b.dataset.pjtab;local.set("pjTab",PJ.tab);show()});show()}
+/* mở mô hình từ dự án → lưu xong tự vào Tệp dự án */
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("#pjOv [data-pjsim],#pjOv [data-pjm3]");if(!b)return;const p=pjGet(PJ.id);if(p){PJ40ctx={pid:p.id,step:p.cur||0};setTimeout(()=>{PJ40ctx=null},4000)}},true);
+{const _ome42=openModelEditor;openModelEditor=async function(){const ctx=PJ40ctx;PJ40ctx=null;const r=await _ome42.apply(this,arguments);
+  if(ctx){const btn=$("#m3Save");const pp=pjGet(ctx.pid);if(btn&&pp){btn.innerHTML=`${ic("check")} Lưu vào dự án`;btn.title="Lưu mô hình vào Tệp dự án “"+pp.title+"”"}if(btn)btn.addEventListener("click",()=>setTimeout(()=>{try{const p=pjGet(ctx.pid);if(!p||typeof M3==="undefined"||!M3||!M3.artId)return;p.files=p.files||[];const nm=(M3.spec&&M3.spec.title)||"Mô hình 3D";const ex=p.files.find(f=>f.art===M3.artId);
+      if(ex){ex.name=nm;ex.at=Date.now();pjSave(p,{files:p.files},true)}else{pjFileAdd(p,{kind:"model",art:M3.artId,name:nm,step:ctx.step});toast("Đã lưu mô hình vào Tệp dự án “"+p.title+"”",2200)}}catch(e){}},900))}return r}}
+
+/* ---------- Bài giảng: slide + video giảng + YouTube ---------- */
+function pjLec(el,p,st,i){const sl=pjSlides(p,st,i);let k=Math.min(PJ.slI||0,sl.length-1);const yid=ytId40(st.yt);const q=encodeURIComponent(`${st.t} ${p.title}`.slice(0,90));
+  el.innerHTML=`<div class="pj42-lec"><div class="pj42-slw"><div class="sstage pj42-st" id="pjSl"></div>
+      <div class="pj42-slc"><button class="ghost ic" data-sl="-1" aria-label="Slide trước">${ic("back")}</button><span id="pjSlN"></span><button class="ghost ic" data-sl="1" aria-label="Slide sau" style="transform:scaleX(-1)">${ic("back")}</button><span class="grow"></span>
+        <button class="pill-btn primary" data-lec="play">${ic("play")} Video giảng (có lời đọc)</button><button class="pill-btn" data-lec="full">${ic("full")} Trình chiếu</button></div>
+      <div class="pj42-notes" id="pjSlNotes"></div><div class="pj42-dots">${sl.map((_,j)=>`<button data-slj="${j}" aria-label="Slide ${j+1}"></button>`).join("")}</div></div>
+    <aside class="pj42-side">
+      <div class="pj-blk"><div class="pj-bh"><b>${ic("yt")} Video bài giảng trên YouTube</b></div>
+        ${yid?`<div class="ytwrap"><iframe src="https://www.youtube-nocookie.com/embed/${yid}" title="Video bài giảng" allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>`:`<p class="muted" style="font-size:13px;margin:0">Dán link video giảng cho bước này (YouTube). Video được lưu cùng bước.</p>`}
+        <div class="row2"><input class="input" data-lec="yt" value="${esc(st.yt||"")}" placeholder="https://youtu.be/…" aria-label="Link YouTube"><button class="btn" data-lec="ytok">Lưu</button></div>
+        <a class="btn" href="https://www.youtube.com/results?search_query=${q}" target="_blank" rel="noopener">${ic("search")} Tìm video về “${esc(st.t.slice(0,40))}”</a></div>
+      <div class="pj-blk"><div class="pj-bh"><b>${ic("slides")} Bộ slide của bước</b><span class="muted" style="font-size:12px">${st.slides&&st.slides.length?"AI soạn":"tự tạo từ nội dung"} · ${sl.length} slide</span></div>
+        <button class="btn" data-lec="ai" ${P.sample?"":"disabled title='Cần API key AI'"}>${ic("spark")} AI soạn bài giảng chi tiết</button>
+        ${st.slides&&st.slides.length?`<button class="btn" data-lec="reset">${ic("undo")} Dùng lại slide tự tạo</button>`:""}
+        <button class="btn" data-lec="save">${ic("folder")} Lưu slide vào Tệp dự án</button>
+        <p class="muted" style="font-size:12px;margin:0">“Video giảng” chiếu slide tự chuyển trang và đọc lời giảng bằng giọng máy (bật phụ đề, đổi tốc độ trong trình chiếu).</p></div></aside></div>`;
+  const host=$("#pjSl",el);let fr=null;
+  const draw=()=>{k=Math.max(0,Math.min(sl.length-1,k));PJ.slI=k;fr=slFrame(host,sl[k],k,{title:p.title},pjA(p),UI.slTheme||"blue");requestAnimationFrame(()=>slFit(host,fr.frame));$("#pjSlN",el).textContent=`${k+1}/${sl.length}`;$("#pjSlNotes",el).innerHTML=sl[k].notes?`<b>Lời giảng:</b> ${esc(sl[k].notes)}`:"";$$("[data-slj]",el).forEach((b,j)=>b.classList.toggle("on",j===k))};
+  draw();try{const ro=new ResizeObserver(()=>fr&&slFit(host,fr.frame));ro.observe(host)}catch(e){}
+  $$("[data-sl]",el).forEach(b=>b.onclick=()=>{k+= +b.dataset.sl;draw()});$$("[data-slj]",el).forEach(b=>b.onclick=()=>{k=+b.dataset.slj;draw()});
+  host.onclick=()=>{k=(k+1)%sl.length;draw()};
+  $("[data-lec=play]",el).onclick=()=>slideShow(pjA(p),sl,{title:p.title},0);$("[data-lec=full]",el).onclick=()=>slideShow(pjA(p),sl,{title:p.title},k);
+  const yi=$("[data-lec=yt]",el);$("[data-lec=ytok]",el).onclick=()=>{const v=yi.value.trim();if(v&&!ytId40(v))return toast("Link YouTube chưa đúng",1800);st.yt=v;pjSave(p,{steps:p.steps},true);if(v)pjFileAdd(p,{kind:"link",name:"Video giảng – "+st.t,url:v,step:i});else pjRender();toast(v?"Đã gắn video cho bước này":"Đã bỏ video",1500)};
+  yi.onkeydown=e=>{if(e.key==="Enter")$("[data-lec=ytok]",el).click()};
+  $("[data-lec=save]",el).onclick=()=>{pjFileAdd(p,{kind:"slides",name:`Slide – Bước ${i+1}: ${st.t}`,slides:JSON.parse(JSON.stringify(sl)),step:i});toast("Đã lưu bộ slide vào Tệp dự án",1600);pjRender()};
+  const rs=$("[data-lec=reset]",el);if(rs)rs.onclick=()=>{st.slides=[];pjSave(p,{steps:p.steps},true);PJ.slI=0;pjRender()};
+  $("[data-lec=ai]",el).onclick=async e=>{if(!P.sample)return toast("Cần API key AI trong Cài đặt",2200);const b=e.currentTarget;b.disabled=true;b.innerHTML=`<span class="spin"></span> AI đang soạn…`;
+    try{const j=await pjAiJSON(`Bạn là giảng viên kỹ thuật điện tử – máy tính. Soạn bộ slide bài giảng (tiếng Việt) cho MỘT bước của dự án, giảng dễ hiểu cho sinh viên năm 2.
+Dự án: ${p.title}. ${p.summary||""}
+Bước ${i+1}: ${st.t}. Mục tiêu: ${st.goal||""}
+Chỉ dẫn: ${st.guide||""}
+Việc cần làm: ${st.tasks.map(t=>t.t).join("; ")}
+Kết quả mong đợi: ${st.out||""} ${st.res||""}
+Trả về DUY NHẤT JSON: {"slides":[{"title":"…","bullets":["tối đa 4 ý ngắn"],"notes":"lời giảng 2-4 câu, nói như đang giảng","visual":"none|cards","cards":[{"icon":"gear|clock|chip|chart|bolt|book|idea|warn|loop|wave","title":"…","text":"…"}]}]} gồm 6-9 slide: mở đầu, nguyên lý (vì sao làm vậy), các bước làm chi tiết, lỗi thường gặp, cách kiểm tra kết quả, tóm tắt. Slide đầu có "layout":"title".`);
+      const S=(j&&Array.isArray(j.slides)?j.slides:[]).filter(s=>s&&s.title).slice(0,12).map(s=>{const o={title:String(s.title),bullets:(Array.isArray(s.bullets)?s.bullets:[]).map(String).slice(0,5),notes:String(s.notes||"")};if(s.layout==="title")o.layout="title";if(s.visual==="cards"&&Array.isArray(s.cards)&&s.cards.length){o.visual="cards";o.cards=s.cards.slice(0,4).map(c=>({icon:String(c.icon||"idea"),title:String(c.title||""),text:String(c.text||"")}))}return o});
+      if(!S.length)throw new Error("AI không trả về slide");st.slides=S;PJ.slI=0;pjSave(p,{steps:p.steps},true);toast("Đã soạn "+S.length+" slide",1600);pjRender()}catch(err){toast("Chưa soạn được: "+(err.message||err),2600);b.disabled=false;b.innerHTML=`${ic("spark")} AI soạn bài giảng chi tiết`}}}
+
+/* ---------- Làm theo: từng thao tác một ---------- */
+function pjFolItems(st){const it=[];pjParas(st).forEach(t=>it.push({k:"read",t,lab:"Đọc & hiểu"}));st.tasks.forEach((t,ti)=>it.push({k:"do",t:t.t,ti,lab:"Làm"}));
+  (st.sims||[]).filter(pjRefOk).forEach(r=>it.push({k:"sim",t:"Mở "+pjRefLabel(r)+", chỉnh thông số và quan sát kết quả.",ref:r,lab:"Mô phỏng"}));
+  if(st.res||st.out||st.viz)it.push({k:"check",t:(st.out?"Sản phẩm: **"+st.out+"**\n\n":"")+(st.res||"So sánh kết quả của bạn với mục tiêu của bước."),lab:"Kiểm tra kết quả"});
+  if(!it.length)it.push({k:"read",t:"Bước này chưa có chỉ dẫn. Mở thẻ Tổng quan để viết, hoặc nhờ trợ lý AI “Cách thực hiện chi tiết”.",lab:"Đọc & hiểu"});return it}
+const FOL_IC={read:"book",do:"check",sim:"wave",check:"flag"};
+function pjFol(el,p,st,i){const it=pjFolItems(st);st.fol=st.fol&&typeof st.fol==="object"?st.fol:{i:0,d:[]};const F=st.fol;F.d=Array.isArray(F.d)?F.d:[];let k=Math.max(0,Math.min(it.length-1,F.i||0));
+  const draw=()=>{const x=it[k];const doneN=it.filter((_,j)=>F.d.includes(j)).length;const all=doneN===it.length;
+    el.innerHTML=`<div class="pj42-fol"><div class="pj42-fm"><div class="pj42-prog"><i style="width:${Math.round(doneN/it.length*100)}%"></i></div>
+      ${all?`<div class="pj42-card done"><div class="pj42-big">🎉</div><h3>Đã làm theo hết ${it.length} thao tác!</h3><p>Ghi lại kết quả vào thẻ <b>Thực hành</b>, rồi đánh dấu bước này xong.</p><div class="row2"><button class="pill-btn primary" data-fo="finish">${ic("check")} Đánh dấu xong bước ${i+1}</button><button class="pill-btn" data-fo="again">${ic("undo")} Làm lại từ đầu</button></div></div>`:
+      `<div class="pj42-card k-${x.k}"><div class="pj42-ch"><span class="pj42-badge">${ic(FOL_IC[x.k])} ${x.lab}</span><span class="muted">Thao tác ${k+1}/${it.length}</span></div><div class="pj42-num">${k+1}</div><div class="pj-md">${mdBlock(x.t,[])}</div>
+        ${x.k==="do"?`<label class="pj42-did"><input type="checkbox" class="chk" data-fo="did" ${st.tasks[x.ti]&&st.tasks[x.ti].done?"checked":""}> Mình đã làm xong việc này</label>`:""}
+        ${x.k==="sim"?`<button class="pill-btn primary" data-pjm3 data-fo="sim">${ic("cube")} Mở mô phỏng</button>`:""}
+        ${x.k==="check"&&st.viz&&typeof VIZ!=="undefined"&&VIZ[st.viz]?`<div class="pj-viz">${VIZ[st.viz]()}</div>`:""}
+        <form class="pj42-qnote" data-fo="note"><input class="input" placeholder="Ghi nhanh kết quả / số đo / thắc mắc ở thao tác này… (Enter để lưu vào ghi chú)" aria-label="Ghi nhanh"></form>
+        <div class="pj42-nav"><button class="pill-btn" data-fo="prev" ${k?"":"disabled"}>${ic("back")} Trước</button><span class="grow"></span><button class="pill-btn" data-fo="skip">Bỏ qua</button><button class="pill-btn primary" data-fo="next">${ic("check")} Xong, tiếp</button></div></div>`}</div>
+      <aside class="pj42-tl" aria-label="Tiến trình làm theo"><b>Tiến trình</b><ol>${it.map((y,j)=>`<li class="${j===k&&!all?"on":""} ${F.d.includes(j)?"ok":""}"><button data-foj="${j}"><span class="d">${F.d.includes(j)?ic("check"):j+1}</span><span class="t"><small>${y.lab}</small>${esc(String(y.t).replace(/\*\*/g,"").slice(0,70))}</span></button></li>`).join("")}</ol></aside></div>`;
+    const save=()=>{F.i=k;pjSave(p,{steps:p.steps})};const q=s=>$(`[data-fo=${s}]`,el);
+    $$("[data-foj]",el).forEach(b=>b.onclick=()=>{k=+b.dataset.foj;if(F.d.length===it.length)F.d=F.d.filter(j=>j!==k);save();draw()});
+    if(all){q("finish").onclick=()=>{st.done=true;pjSave(p,{steps:p.steps},true);pjRender();toast("Xong bước "+(i+1)+" ✓",1500)};q("again").onclick=()=>{F.d=[];k=0;save();draw()};return}
+    q("prev").onclick=()=>{k--;save();draw()};q("skip").onclick=()=>{k=Math.min(it.length-1,k+1);save();draw()};
+    q("next").onclick=()=>{if(!F.d.includes(k))F.d.push(k);if(x.k==="do"&&st.tasks[x.ti])st.tasks[x.ti].done=true;const nx=it.findIndex((_,j)=>j>k&&!F.d.includes(j));k=nx>=0?nx:it.findIndex((_,j)=>!F.d.includes(j));if(k<0)k=it.length-1;save();draw();if(!RM()){const c=$(".pj42-card",el);if(c)c.animate([{opacity:0,transform:"translateY(8px)"},{opacity:1,transform:"none"}],{duration:220,easing:"ease-out"})}};
+    const did=q("did");if(did)did.onchange=()=>{if(st.tasks[x.ti])st.tasks[x.ti].done=did.checked;pjSave(p,{steps:p.steps})};
+    const sm=q("sim");if(sm)sm.onclick=()=>{PJ40ctx={pid:p.id,step:i};m3OpenRef(x.ref)};
+    const nf=q("note");nf.onsubmit=e=>{e.preventDefault();const inp=$("input",nf);const v=inp.value.trim();if(!v)return;st.notes=(st.notes?st.notes.replace(/\s+$/,"")+"\n":"")+`• [${x.lab} ${k+1}] ${v}`;pjSave(p,{steps:p.steps});inp.value="";toast("Đã thêm vào ghi chú của bước",1300)}};
+  draw()}
+
+/* ---------- Thực hành ---------- */
+function pjPracDefault(st){const q=[{q:`Mục tiêu của bước “${st.t}” là gì? Viết lại bằng lời của bạn.`,ans:st.goal||"",u:""}];
+  st.tasks.slice(0,4).forEach(t=>q.push({q:`Thực hiện: **${t.t}**. Ghi lại cách làm và kết quả (số đo, hình dạng tín hiệu, đoạn mã…).`,ans:"",u:""}));
+  if(st.res||st.out)q.push({q:"Kết quả bạn thu được có khớp với kết quả mong đợi không? Nếu chưa, nguyên nhân có thể là gì?",ans:(st.out?"Sản phẩm: "+st.out+"\n\n":"")+(st.res||""),u:""});
+  if(st.sol)q.push({q:"Tự giải bài của bước này trước, rồi mới so với lời giải mẫu.",ans:st.sol,u:""});return q}
+function pjPrac(el,p,st,i){const items=Array.isArray(st.prac)&&st.prac.length?st.prac:pjPracDefault(st);const real=()=>{if(st.prac!==items){st.prac=items}};
+  const draw=()=>{const ok=items.filter(x=>x.ok).length;
+    el.innerHTML=`<div class="pj42-prac"><div class="pj42-ph"><b>${items.length} bài thực hành</b><span class="muted">· đã đạt ${ok}</span><span class="grow"></span><button class="btn" data-pr="ai" ${P.sample?"":"disabled title='Cần API key AI'"}>${ic("spark")} AI ra bài tập mới</button><button class="btn" data-pr="add">${ic("plus")} Thêm câu</button><button class="btn" data-pr="save">${ic("folder")} Lưu bài làm vào Tệp</button></div>
+      ${items.map((x,j)=>`<div class="pj42-q ${x.ok?"ok":""}"><div class="pj42-qh"><span class="pj42-qn">${j+1}</span><div class="pj-md">${mdBlock(x.q,[])}</div>${x.ok?`<span class="pj42-okb">${ic("check")} Đạt</span>`:""}</div>
+        <textarea class="input" rows="3" data-pru="${j}" placeholder="Bài làm của bạn…" aria-label="Bài làm câu ${j+1}">${esc(x.u||"")}</textarea>
+        <div class="pj42-qa">${x.hint?`<details><summary>Gợi ý</summary><div class="pj-md">${mdBlock(x.hint,[])}</div></details>`:""}${x.ans?`<details ${x.show?"open":""} data-prs="${j}"><summary>Đáp án / kết quả tham khảo</summary><div class="pj-md">${mdBlock(x.ans,[])}</div></details>`:""}
+          <span class="grow"></span><button class="ghost" data-prok="${j}">${ic("check")} ${x.ok?"Bỏ đạt":"Tự đánh dấu đạt"}</button><button class="btn" data-prai="${j}" ${P.sample?"":"disabled"}>${ic("spark")} AI chấm</button><button class="ghost ic" data-prx="${j}" aria-label="Xóa câu">${ic("close")}</button></div>
+        ${x.fb?`<div class="pj42-fb">${mdBlock(x.fb,[])}</div>`:""}</div>`).join("")}
+      <div class="pj-blk"><div class="pj-bh"><b>Ghi chú / bài làm chung của bước</b><span class="muted" style="font-size:12px">tự lưu</span></div><textarea class="input pj-ta" data-prn rows="5" placeholder="Kết quả tính toán, mã, số đo, câu hỏi…">${esc(st.notes||"")}</textarea></div></div>`;
+    $$("[data-pru]",el).forEach(t=>t.oninput=()=>{real();items[+t.dataset.pru].u=t.value;pjSave(p,{steps:p.steps})});
+    $$("[data-prok]",el).forEach(b=>b.onclick=()=>{real();const x=items[+b.dataset.prok];x.ok=!x.ok;pjSave(p,{steps:p.steps},true);draw()});
+    $$("[data-prx]",el).forEach(b=>b.onclick=()=>{real();items.splice(+b.dataset.prx,1);pjSave(p,{steps:p.steps},true);draw()});
+    $("[data-prn]",el).oninput=e=>{st.notes=e.target.value;pjSave(p,{steps:p.steps})};
+    $("[data-pr=add]",el).onclick=()=>{const v=prompt("Câu hỏi / bài tập mới:");if(!v||!v.trim())return;real();items.push({q:v.trim(),ans:"",u:""});pjSave(p,{steps:p.steps},true);draw()};
+    $("[data-pr=save]",el).onclick=()=>{const md=`# Thực hành – Bước ${i+1}: ${st.t}\n\n`+items.map((x,j)=>`## Câu ${j+1}${x.ok?" ✓":""}\n${x.q}\n\n**Bài làm:**\n${x.u||"(chưa làm)"}\n${x.fb?"\n**Nhận xét:**\n"+x.fb+"\n":""}`).join("\n")+(st.notes?`\n## Ghi chú\n${st.notes}\n`:"");
+      pjFileAdd(p,{kind:"note",name:`Bài làm – Bước ${i+1}: ${st.t}`,text:md,step:i});toast("Đã lưu bài làm vào Tệp dự án",1600);pjRender()};
+    $$("[data-prai]",el).forEach(b=>b.onclick=async()=>{const x=items[+b.dataset.prai];if(!x.u||!x.u.trim())return toast("Viết bài làm trước đã",1600);real();b.disabled=true;b.innerHTML=`<span class="spin"></span>`;
+      try{const r=await P.sample([{role:"user",content:`Chấm bài thực hành của sinh viên (tiếng Việt, ngắn gọn, thân thiện). Dự án: ${p.title}. Bước: ${st.t}. Mục tiêu: ${st.goal||""}.\nĐề: ${x.q}\n${x.ans?"Đáp án tham khảo: "+x.ans+"\n":""}Bài làm: ${x.u}\n\nTrả lời: dòng đầu “ĐẠT” hoặc “CHƯA ĐẠT”, sau đó 2-4 gạch đầu dòng: điểm đúng, điểm cần sửa, gợi ý bước tiếp.`}],{cache:false});
+        x.fb=r.text||"";x.ok=/^\s*\**\s*ĐẠT/i.test(x.fb)&&!/^\s*\**\s*CHƯA/i.test(x.fb);pjSave(p,{steps:p.steps},true)}catch(err){toast(aiErr?aiErr(err):"Lỗi AI",2400)}draw()});
+    $("[data-pr=ai]",el).onclick=async e=>{const b=e.currentTarget;b.disabled=true;b.innerHTML=`<span class="spin"></span> Đang ra đề…`;
+      try{const j=await pjAiJSON(`Ra 4-6 bài thực hành (tiếng Việt) cho sinh viên KT điện tử – máy tính, bám sát bước dự án sau. Có câu tính toán, câu thao tác/đo đạc, câu giải thích nguyên lý.\nDự án: ${p.title}\nBước: ${st.t}. Mục tiêu: ${st.goal||""}\nChỉ dẫn: ${st.guide||""}\nViệc: ${st.tasks.map(t=>t.t).join("; ")}\nTrả về DUY NHẤT JSON: {"items":[{"q":"đề bài (markdown, có số liệu cụ thể)","hint":"gợi ý ngắn","ans":"đáp án/kết quả tham khảo"}]}`);
+        const N=(j&&Array.isArray(j.items)?j.items:[]).filter(x=>x&&x.q).slice(0,8).map(x=>({q:String(x.q),hint:String(x.hint||""),ans:String(x.ans||""),u:""}));if(!N.length)throw new Error("AI không trả về bài tập");real();items.push(...N);pjSave(p,{steps:p.steps},true);toast("Đã thêm "+N.length+" bài",1500)}catch(err){toast("Chưa ra được đề: "+(err.message||err),2400)}draw()}};
+  draw()}
+
+/* ---------- Tệp dự án ---------- */
+function pjFiles(el,p,st,i){p.files=Array.isArray(p.files)?p.files:[];const only=PJ.fOnly;
+  const virt=p.steps.map((s,j)=>s.notes&&s.notes.trim()?{id:"vn"+j,kind:"stepnote",name:`Ghi chú – Bước ${j+1}: ${s.t}`,step:j,size:s.notes.length,virtual:1}:null).filter(Boolean);
+  const all=[...p.files,...virt].filter(f=>!only||f.step===i).sort((a,b)=>(a.step-b.step)||((b.at||0)-(a.at||0)));
+  const kb=n=>n>1e6?(n/1e6).toFixed(1)+" MB":n>1e3?Math.round(n/1e3)+" KB":n?n+" B":"";
+  const meta=f=>[`Bước ${(f.step||0)+1}`,{note:"Ghi chú",model:"Mô hình 3D",file:f.mime||"Tệp",link:"Liên kết",sim:"Mô phỏng",slides:`${(f.slides||[]).length} slide`,stepnote:"Ghi chú của bước"}[f.kind],kb(f.size||(f.text||"").length),f.at?new Date(f.at).toLocaleDateString("vi-VN",{day:"numeric",month:"numeric"}):""].filter(Boolean).join(" · ");
+  el.innerHTML=`<div class="pj42-files"><div class="pj42-fh"><b>${ic("folder")} ${esc(p.title)}</b><span class="muted">${p.files.length+virt.length} mục</span><span class="grow"></span>
+      <label class="chk-row"><input type="checkbox" class="chk" data-pf="only" ${only?"checked":""}> Chỉ bước ${i+1}</label></div>
+    <div class="pj42-ftb"><button class="btn" data-pf="note">${ic("note")} Ghi chú mới</button><button class="btn" data-pf="model" data-pjm3>${ic("cube")} Mô hình 3D mới</button><label class="btn">${ic("upload")} Tải tệp lên<input type="file" multiple hidden data-pf="up"></label><button class="btn" data-pf="link">${ic("link")} Liên kết</button><select class="pj-simadd" data-pf="sim" aria-label="Thêm mô phỏng">${pjSimOptions()}</select></div>
+    <div class="pj42-drop" data-pf="drop">${all.length?`<ul class="pj42-fl">${all.map(f=>`<li data-fid="${esc(f.id)}"><span class="pj42-fi k-${f.kind}">${ic(PJF_IC[f.kind]||"file")}</span><button class="pj42-fn" data-fo2="open">${esc(f.name)}<small>${esc(meta(f))}</small></button>
+        ${f.virtual?"":`<button class="ghost ic" data-fo2="ren" aria-label="Đổi tên" title="Đổi tên">${ic("edit")}</button>`}<button class="ghost ic" data-fo2="dl" aria-label="Tải về" title="Tải về">${ic("dl")}</button>${f.virtual?"":`<button class="ghost ic" data-fo2="del" aria-label="Xóa" title="Xóa">${ic("trash")}</button>`}</li>`).join("")}</ul>`
+      :`<div class="pj42-empty">${ic("folder")}<b>Thư mục dự án đang trống</b><span>Ghi chú, mô hình 3D lưu từ dự án, slide, bài làm, tệp tải lên và liên kết sẽ nằm ở đây. Kéo thả tệp vào để thêm.</span></div>`}</div></div>`;
+  const q=s=>$(`[data-pf=${s}]`,el);const R=()=>pjFiles(el,p,st,i);
+  q("only").onchange=e=>{PJ.fOnly=e.target.checked;R()};
+  q("note").onclick=()=>pjNoteDlg(p,{kind:"note",name:`Ghi chú – Bước ${i+1}`,text:"",step:i},true);
+  q("model").onclick=()=>{PJ40ctx={pid:p.id,step:i};openModelEditor(null,M3_TPL.blank.spec)};
+  q("link").onclick=()=>{const u=prompt("Dán liên kết (tài liệu, video, datasheet, repo…):");if(!u||!/^https?:\/\//i.test(u.trim()))return u&&toast("Liên kết phải bắt đầu bằng http(s)://",1800);let nm=u.trim();try{nm=new URL(u.trim()).hostname+new URL(u.trim()).pathname.slice(0,30)}catch(e){}pjFileAdd(p,{kind:"link",name:nm,url:u.trim(),step:i});R()};
+  q("sim").onchange=e=>{const v=e.target.value;if(!v)return;pjFileAdd(p,{kind:"sim",name:pjRefLabel(v),ref:v,step:i});R()};
+  const up=async files=>{for(const f of [...files].slice(0,10)){try{let url=null,asset=null;if(P.assets){try{const r=await P.assets.upload(f);url=r.url;asset=r.id}catch(e){}}
+      if(!url){if(f.size>700e3){toast(f.name+": tệp lớn, chỉ lưu được khi có kho tệp",2400);continue}url=await fileToURL(f)}
+      pjFileAdd(p,{kind:"file",name:f.name,url,asset:asset||"",mime:f.type||"",size:f.size,step:i})}catch(e){toast("Không thêm được "+f.name)}}R()};
+  q("up").onchange=e=>up(e.target.files);const dz=q("drop");dz.ondragover=e=>{e.preventDefault();dz.classList.add("over")};dz.ondragleave=()=>dz.classList.remove("over");dz.ondrop=e=>{e.preventDefault();dz.classList.remove("over");if(e.dataTransfer.files.length)up(e.dataTransfer.files)};
+  $$("[data-fid]",el).forEach(li=>{const id=li.dataset.fid;const f=all.find(x=>x.id===id);if(!f)return;
+    $$("[data-fo2]",li).forEach(b=>b.onclick=async()=>{const a=b.dataset.fo2;
+      if(a==="del")return confirmDialog("Xóa “"+f.name+"”?","Mục này sẽ bị xóa khỏi thư mục dự án.","Xóa",()=>{if(f.asset&&P.assets)P.assets.delete(f.asset).catch(()=>{});p.files=p.files.filter(x=>x.id!==id);pjSave(p,{files:p.files},true);R()});
+      if(a==="ren"){const v=prompt("Tên mới:",f.name);if(v&&v.trim()){f.name=v.trim();pjSave(p,{files:p.files},true);R()}return}
+      if(a==="dl")return pjFileDl(p,f);
+      if(a==="open")return pjFileOpen(p,f)})})}
+function pjNoteDlg(p,f,isNew){const c=openDialog({title:isNew?"Ghi chú mới":"Ghi chú",body:`<div class="field"><input class="input" id="pnN" value="${esc(f.name)}" aria-label="Tên ghi chú"></div><textarea class="input" id="pnT" rows="14" style="width:100%;font:14px/1.5 var(--f-mono)" placeholder="Viết ghi chú (Markdown)…">${esc(f.text||"")}</textarea>`,foot:`<button class="btn" data-dclose>Hủy</button><button class="btn primary" id="pnS">${ic("check")} Lưu</button>`});
+  $("#pnS",c).onclick=()=>{f.name=$("#pnN",c).value.trim()||f.name;f.text=$("#pnT",c).value;f.size=f.text.length;if(isNew)pjFileAdd(p,f);else{f.at=Date.now();pjSave(p,{files:p.files},true)}closeDialog();pjRender();toast("Đã lưu ghi chú",1200)}}
+async function pjFileOpen(p,f){
+  if(f.kind==="stepnote"){p.cur=f.step;PJ.tab="ov";local.set("pjTab","ov");pjSave(p,{cur:p.cur});pjRender();setTimeout(()=>{const t=$('#pjOv [data-pjf2="notes"]');if(t){t.scrollIntoView({block:"center"});t.focus()}},60);return}
+  if(f.kind==="note")return pjNoteDlg(p,f,false);
+  if(f.kind==="slides")return slideShow(pjA(p),f.slides||[],{title:p.title},0);
+  if(f.kind==="sim")return m3OpenRef(f.ref);
+  if(f.kind==="link")return window.open(f.url,"_blank","noopener");
+  if(f.kind==="model"){const d=await Store.get(f.art).catch(()=>null);if(!d)return toast("Không tìm thấy mô hình (có thể đã bị xóa)",2200);PJ40ctx={pid:p.id,step:f.step||0};return openModelEditor(d)}
+  if(f.kind==="file"){const u=typeof img40URL==="function"?await img40URL(f.url):f.url;if(/^image\//.test(f.mime||"")){openDialog({title:f.name,body:`<img src="${esc(u)}" alt="${esc(f.name)}" style="max-width:100%;border-radius:10px;display:block;margin:auto">`});return}
+    if(/pdf/.test(f.mime||"")){const w=window.open(u,"_blank","noopener");if(!w)pjFileDl(p,f);return}return pjFileDl(p,f)}}
+async function pjFileDl(p,f){let blob=null,name=f.name;
+  if(f.kind==="note"||f.kind==="stepnote"){const t=f.kind==="stepnote"?p.steps[f.step].notes:f.text;blob=new Blob([t||""],{type:"text/markdown"});if(!/\.md$/.test(name))name+=".md"}
+  else if(f.kind==="slides"){blob=new Blob([JSON.stringify({title:f.name,slides:f.slides},null,1)],{type:"application/json"});name+=".json"}
+  else if(f.kind==="model"){const d=await Store.get(f.art).catch(()=>null);if(!d)return toast("Không tìm thấy mô hình",1800);blob=new Blob([JSON.stringify(d.data||{},null,1)],{type:"application/json"});name+=".model.json"}
+  else if(f.kind==="link"||f.kind==="sim"){blob=new Blob([f.url||f.ref||""],{type:"text/plain"});name+=".txt"}
+  else{try{blob=await (await fetch(f.url)).blob()}catch(e){}}
+  if(!blob)return toast("Không tải được tệp",1600);try{if(P.downloads&&P.downloads.save){await P.downloads.save({filename:name,data:blob});return}}catch(e){if(e&&e.code==='cancelled')return}
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}
+
+/* =====================================================================
+   v38 — thanh công cụ kéo thả để sắp xếp · gom nút tạo môn/bài về một chỗ
+   · Thực hành theo mô hình 3D: chỉ dẫn từng bước (làm theo / bỏ qua / làm giúp)
+   ===================================================================== */
+/* ---------- 1. Thanh công cụ: giữ & kéo lên xuống để đổi thứ tự ---------- */
+function railDrag43(){const r=$("#rail");if(!r||!UI.dash)return;const d=UI.dash;
+  d.rail.order=[...new Set(d.rail.order)];$$("[data-r]",r).filter(b=>RAIL_ALL[b.dataset.r]&&!b.classList.contains("brand")).forEach(b=>{b.addEventListener("pointerdown",e=>{if(e.button!==0)return;const y0=e.clientY,x0=e.clientX;let on=false,hold=0;const touch=e.pointerType!=="mouse";
+    const start=()=>{on=true;hideTip();b.classList.add("rail-drag");r.classList.add("rail-sorting");try{b.setPointerCapture(e.pointerId)}catch(_){}};
+    if(touch)hold=setTimeout(start,280);
+    const mv=ev=>{if(!on){if(!touch&&Math.abs(ev.clientY-y0)>6&&Math.abs(ev.clientY-y0)>Math.abs(ev.clientX-x0))start();else if(touch&&Math.hypot(ev.clientX-x0,ev.clientY-y0)>10)clearTimeout(hold);if(!on)return}
+      ev.preventDefault();const sib=$$("[data-r]",r).filter(x=>x!==b&&RAIL_ALL[x.dataset.r]&&!x.classList.contains("brand"));
+      for(const s of sib){const rr=s.getBoundingClientRect();const mid=rr.top+rr.height/2;const br=b.getBoundingClientRect();
+        if(ev.clientY<mid&&br.top>rr.top){const f=sib.map(x=>[x,x.getBoundingClientRect().top]);s.before(b);flip(f);break}
+        if(ev.clientY>mid&&br.top<rr.top){const f=sib.map(x=>[x,x.getBoundingClientRect().top]);s.after(b);flip(f);break}}};
+    const flip=f=>{if(RM())return;f.forEach(([x,t])=>{const dy=t-x.getBoundingClientRect().top;if(dy)x.animate([{transform:`translateY(${dy}px)`},{transform:"none"}],{duration:160,easing:"ease-out"})})};
+    const up=()=>{clearTimeout(hold);removeEventListener("pointermove",mv,true);removeEventListener("pointerup",up,true);removeEventListener("pointercancel",up,true);if(!on)return;
+      b.classList.remove("rail-drag");r.classList.remove("rail-sorting");const vis=$$("[data-r]",r).filter(x=>!x.classList.contains("brand")).map(x=>x.dataset.r).filter(k=>RAIL_ALL[k]);const hid=new Set(d.rail.hidden);let k=0;
+      d.rail.order=d.rail.order.map(x=>hid.has(x)||!vis.includes(x)?x:vis[k++]);saveDash();
+      const stop=ce=>{ce.stopPropagation();ce.preventDefault()};b.addEventListener("click",stop,{capture:true,once:true});setTimeout(()=>b.removeEventListener("click",stop,true),400);toast("Đã đổi thứ tự thanh công cụ",1200)};
+    addEventListener("pointermove",mv,{capture:true,passive:false});addEventListener("pointerup",up,true);addEventListener("pointercancel",up,true)})})}
+{const _rr43=renderRail;renderRail=function(){const r=_rr43.apply(this,arguments);try{railDrag43()}catch(e){console.warn(e)}return r}}
+setTimeout(()=>{try{renderRail()}catch(e){}},80);
+
+/* ---------- 2. Môn học: chỉ một chỗ tạo môn / bài (trên thanh tiêu đề khối) ---------- */
+BLK.courses.act=`<button class="btn" data-qa="subj">${ic("plus")} Môn học</button><button class="btn primary" data-newls43>${ic("plus")} Bài học</button>`;
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-newls43]");if(!b)return;e.preventDefault();newLessonDialog(null,null,{stay:true})});
+{const _rc43=renderCourses;renderCourses=function(){const r=_rc43.apply(this,arguments);const box=$("#courseBox");if(box){$$(".crs-bar [data-newsj2],.crs-bar [data-newls],.crs-new",box).forEach(x=>x.remove());const bar=$(".crs-bar",box);if(bar)bar.classList.add("crs-bar43")}return r}}
+
+/* ---------- 3. Thực hành theo mô hình: chỉ dẫn từng bước ---------- */
+const PJ_M3MAP={chip:"nand",pcb:"led",robot:"bjt",filter:"rc",meas:"rc",fsm:"nandsw",oop:"parts",rlc:"rc"};
+const TUT_ORD=t=>({breadboard:0,board:0,battery:1}[t]??(t==="wire"?8:5));
+const TUT_TXT={breadboard:"Đặt **Breadboard** làm nền. Hai dải đỏ/xanh dọc mép là đường nguồn (+/−); mỗi cột 5 lỗ ở giữa nối thông với nhau.",board:"Đặt **bảng mạch PCB** làm nền để gắn linh kiện.",
+  battery:"Thêm **nguồn (pin)**. Đây là nơi dòng điện bắt đầu: đi ra từ cực (+), qua mạch, về cực (−).",resistor:"Thêm **điện trở** để hạn dòng (định luật Ohm I = U/R). Đọc giá trị trong thẻ Thuộc tính.",
+  led:"Thêm **LED**. Chân dài là anode (+) phải hướng về phía nguồn dương, nếu ngược LED không sáng.",capacitor:"Thêm **tụ điện**: tích điện rồi xả, tạo trễ / lọc nhiễu.",ic:"Thêm **IC**. Chú ý vết khuyết để xác định chân 1; VCC và GND phải nối đúng.",
+  transistor:"Thêm **transistor** làm công tắc điện tử: dòng nhỏ vào cực B điều khiển dòng lớn C → E.",switch:"Thêm **công tắc** để đóng/ngắt mạch bằng tay.",wire:"Bật công cụ **Nối dây**, bấm vào điểm đầu rồi điểm cuối để nối."};
+function tutBuild(spec){const parts=(spec.parts||[]).filter(p=>p&&M3_TYPES[p.type]&&p.type!=="text"&&p.type!=="arrow");const A=typeof m3Analyze==="function"?(()=>{try{return m3Analyze(spec)}catch(e){return null}})():null;
+  const sorted=[...parts].sort((a,b)=>TUT_ORD(a.type)-TUT_ORD(b.type));const nW=sorted.filter(p=>p.type==="wire").length;let w=0;
+  return sorted.map(p=>{const tl=M3_TYPES[p.type].l;const isW=p.type==="wire";if(isW)w++;let why="";if(!isW&&typeof m3WhyPart==="function"){try{why=m3WhyPart(p,null,A)||""}catch(e){}}
+    const P=p.props||{};const val=p.type==="resistor"&&P.ohm?` (${P.ohm>=1000?(P.ohm/1000).toLocaleString("vi-VN")+" kΩ":P.ohm+" Ω"})`:"";
+    return {type:p.type,p,title:isW?`Nối dây ${w}/${nW}${p.name&&!/^Dây dẫn \d+$/.test(p.name)?" – "+p.name:""}`:`Thêm ${p.name||tl}${val}`,text:TUT_TXT[p.type]||`Thêm **${tl}** từ thẻ Linh kiện.`,why}})}
+window.M3_TUT=null;
+function tutStart(p,st,i,key){const T=M3_TPL[key];if(!T)return toast("Không tìm thấy mô hình mẫu",1800);const target=JSON.parse(JSON.stringify(T.spec));const steps=tutBuild(target);if(!steps.length)return toast("Mô hình này không có linh kiện để hướng dẫn",2000);
+  st.mt=st.mt&&st.mt.k===key?st.mt:{k:key,i:0,d:[]};pjSave(p,{steps:p.steps});
+  window.M3_TUT={key,label:T.l,steps,target,prog:st.mt,save:()=>pjSave(p,{steps:p.steps}),proj:p.title};
+  PJ40ctx={pid:p.id,step:i};openModelEditor(null,{title:"Thực hành – "+T.l,parts:[]})}
+M3_PLUG.push(function(st){const T=window.M3_TUT;if(!T)return;window.M3_TUT=null;const {rebuild,snap}=st.api;
+  const card=document.createElement("div");card.className="m3t";card.setAttribute("role","dialog");card.setAttribute("aria-label","Hướng dẫn thực hành từng bước");document.body.appendChild(card);
+  const pr=T.prog;pr.d=Array.isArray(pr.d)?pr.d:[];let i=Math.max(0,Math.min(T.steps.length,pr.i||0)),min=false,okT=0;
+  const need=k=>T.steps.slice(0,k+1).filter(s=>s.type===T.steps[k].type).length;
+  const have=t=>st.spec.parts.filter(p=>p.type===t).length;
+  const doneNow=k=>k<T.steps.length&&have(T.steps[k].type)>=need(k);
+  const hl=()=>{$$(".m3t-hl").forEach(x=>x.classList.remove("m3t-hl"));if(min)return;const s=T.steps[i];let el=null;
+    if(!s){el=$("#m3Run");const sv=$("#m3Save");if(sv)sv.classList.add("m3t-hl")}
+    else if(s.type==="wire")el=$('[data-tl="wire"]');
+    else{if(st.tab!=="lib"){const tb=$('[data-m3tab="lib"]');if(tb)tb.click()}el=$(`[data-add="${s.type}"]`)}
+    if(el)el.classList.add("m3t-hl")};
+  const go=k=>{i=Math.max(0,Math.min(T.steps.length,k));pr.i=i;T.save();draw()};
+  const next=()=>{let k=T.steps.findIndex((_,j)=>j>i&&!pr.d.includes(j));if(k<0)k=T.steps.findIndex((_,j)=>!pr.d.includes(j));go(k<0?T.steps.length:k)};
+  const draw=()=>{const s=T.steps[i];const n=T.steps.length;const dn=pr.d.length;
+    card.className="m3t"+(min?" min":"");
+    card.innerHTML=min?`<button class="m3t-pill" data-t="max">${ic("play")} Hướng dẫn · bước ${Math.min(i+1,n)}/${n}</button>`:
+     `<div class="m3t-h"><span class="m3t-k">${ic("flag")} Thực hành theo mô hình</span><span class="grow"></span><button class="ghost ic" data-t="min" aria-label="Thu nhỏ hướng dẫn" title="Thu nhỏ">${ic("min")}</button><button class="ghost ic" data-t="x" aria-label="Tắt hướng dẫn" title="Tắt hướng dẫn">${ic("close")}</button></div>
+      <div class="m3t-pg"><i style="width:${Math.round(dn/n*100)}%"></i></div><div class="m3t-dots">${T.steps.map((_,j)=>`<button data-tj="${j}" class="${j===i?"on":""} ${pr.d.includes(j)?"ok":""}" aria-label="Bước ${j+1}"></button>`).join("")}</div>
+      ${s?`<div class="m3t-n">Bước ${i+1}/${n} · ${esc(M3_TYPES[s.type].l)}</div><h4>${esc(s.title)}</h4><div class="m3t-x">${mdBlock(s.text,[])}</div>${s.why?`<details class="m3t-why"><summary>Vì sao?</summary><div>${s.why}</div></details>`:""}
+        <div class="m3t-st ${doneNow(i)?"ok":""}">${doneNow(i)?`${ic("check")} Xong! Sang bước tiếp…`:`<span class="m3t-dot"></span> Đang chờ bạn làm… (nút đang nhấp nháy)`}</div>
+        <div class="m3t-b"><button class="pill-btn" data-t="prev" ${i?"":"disabled"} aria-label="Bước trước">${ic("back")}</button><span class="grow"></span><button class="pill-btn" data-t="skip">Bỏ qua</button><button class="pill-btn primary" data-t="help">${ic("spark")} Làm giúp</button></div>`
+      :`<div class="m3t-n">Hoàn thành ${dn}/${n} bước</div><h4>🎉 Bạn đã lắp xong “${esc(T.label)}”</h4><div class="m3t-x"><p>Bấm <b>▶ Mô phỏng</b> để chạy thử, mở thẻ <b>Hướng dẫn</b> bên phải để xem nguyên lý và cách nối từng dây.</p><p>Bấm <b>Lưu vào dự án</b> để cất mô hình vào Tệp dự án “${esc(T.proj||"")}”.</p></div>
+        <div class="m3t-b"><button class="pill-btn" data-t="again">${ic("undo")} Làm lại</button><span class="grow"></span><button class="pill-btn primary" data-t="save">${ic("check")} Lưu vào dự án</button></div>`}`;
+    const q=a=>$(`[data-t=${a}]`,card);
+    if(min){q("max").onclick=()=>{min=false;draw()};hl();return}
+    q("min").onclick=()=>{min=true;draw()};q("x").onclick=()=>{close()};
+    $$("[data-tj]",card).forEach(b=>b.onclick=()=>go(+b.dataset.tj));
+    if(s){q("prev").onclick=()=>go(i-1);q("skip").onclick=()=>next();
+      q("help").onclick=()=>{snap();const ids=new Set(st.spec.parts.map(x=>x.id));const np=m3CleanPart(JSON.parse(JSON.stringify(s.p)),0,ids);if(np){st.spec.parts.push(np);rebuild(np.id);st.saved=false}if(!pr.d.includes(i))pr.d.push(i);next()}}
+    else{q("again").onclick=()=>{pr.d=[];go(0)};q("save").onclick=()=>{const b=$("#m3Save");if(b)b.click()}}
+    hl()};
+  const close=()=>{clearInterval(iv);$$(".m3t-hl").forEach(x=>x.classList.remove("m3t-hl"));card.remove()};
+  const iv=setInterval(()=>{if(!document.body.contains(st.api.stage)){close();return}if(min)return;if(i<T.steps.length&&doneNow(i)){if(!pr.d.includes(i)){pr.d.push(i);T.save();draw();clearTimeout(okT);okT=setTimeout(next,850)}}else hl()},600);
+  draw()});
+/* thẻ Thực hành: thêm phần “thực hành theo mô hình” ở đầu */
+{const _pp43=pjPrac;pjPrac=function(el,p,st,i){el.innerHTML=`<div class="pj43-tut"></div><div class="pj43-pr"></div>`;_pp43.call(this,$(".pj43-pr",el),p,st,i);pjTutCard($(".pj43-tut",el),p,st,i)}}
+function pjTutCard(el,p,st,i){const rec=PJ_M3MAP[p.tpl]||"led";const keys=Object.keys(M3_TPL).filter(k=>k!=="blank"&&M3_TPL[k].spec&&(M3_TPL[k].spec.parts||[]).length>1);const key=st.mt&&M3_TPL[st.mt.k]?st.mt.k:rec;
+  const steps=M3_TPL[key]?tutBuild(JSON.parse(JSON.stringify(M3_TPL[key].spec))):[];const pr=st.mt&&st.mt.k===key?st.mt:{i:0,d:[]};const dn=(pr.d||[]).length;
+  el.innerHTML=`<div class="pj43-c"><div class="pj43-ci">${ic("cube")}</div><div class="pj43-cb"><b>Thực hành theo mô hình 3D — chỉ dẫn từng bước</b><span class="muted">Lắp mô hình mẫu trong Xưởng 3D: mỗi bước nút cần bấm sẽ nhấp nháy. Tự làm theo, bỏ qua, hoặc bấm “Làm giúp”. Xong bước này app tự hiện bước tiếp.</span>
+      <div class="pj43-row"><select class="input" data-tut="k" aria-label="Chọn mô hình thực hành">${keys.map(k=>`<option value="${k}" ${k===key?"selected":""}>${k===rec?"★ ":""}${esc(M3_TPL[k].l)}</option>`).join("")}</select>
+        <button class="pill-btn primary" data-tut="go">${ic("play")} ${dn&&dn<steps.length?`Tiếp tục (${dn}/${steps.length})`:"Bắt đầu"}</button></div>
+      <ol class="pj43-steps">${steps.slice(0,12).map((s,j)=>`<li class="${(pr.d||[]).includes(j)?"ok":""}">${esc(s.title)}</li>`).join("")}${steps.length>12?`<li class="muted">… và ${steps.length-12} bước nữa</li>`:""}</ol></div></div>`;
+  $("[data-tut=k]",el).onchange=e=>{st.mt={k:e.target.value,i:0,d:[]};pjSave(p,{steps:p.steps});pjTutCard(el,p,st,i)};
+  $("[data-tut=go]",el).onclick=()=>tutStart(p,st,i,$("[data-tut=k]",el).value)}
+
+/* =====================================================================
+   v38 — vẽ lại chi tiết hơn 3 cảnh: Mèo đen trong vườn · Quán cà phê mèo · Cầu vượt mùa hè
+   (bố cục tự vẽ; khối lớn hơn, tán lá từng chiếc lá, đổ bóng, vân gỗ, vết bê tông…)
+   ===================================================================== */
+/* tán lá: từng chiếc lá nhỏ, tối ở dưới, sáng phía trên-trái */
+function leaves44(g,cx,cy,rx,ry,C,r,dens=1){const inE=(x,y,k=1)=>(x*x)/(rx*rx*k)+(y*y)/(ry*ry*k)<=1;
+  for(let y=-Math.ceil(ry);y<=ry;y++)for(let x=-Math.ceil(rx);x<=rx;x++){const d=(x*x)/(rx*rx)+(y*y)/(ry*ry);if(d<=.82||(d<=1&&r()<.55))PR(g,cx+x,cy+y,1,1,C[0])}
+  const leaf=(x,y,c,f)=>{if(f){PR(g,x,y,3,1,c);PR(g,x,y+1,2,1,c);PR(g,x-1,y-1,1,1,c)}else{PR(g,x,y,3,1,c);PR(g,x+1,y+1,2,1,c);PR(g,x+3,y-1,1,1,c)}};
+  const N=Math.round(rx*ry*.55*dens);
+  [[1,1,0],[2,.55,-.25],[3,.22,-.45]].forEach(([ci,fr,bias])=>{for(let i=0;i<N*fr;i++){const a=r()*6.283,k=Math.sqrt(r());let x=Math.cos(a)*rx*k,y=Math.sin(a)*ry*k;y+=bias*ry*.6;x+=bias*rx*.35;if(!inE(x,y,.9))continue;leaf(Math.round(cx+x),Math.round(cy+y),C[ci],r()<.5)}});
+  for(let i=0;i<N*.06;i++){const a=r()*6.283,k=Math.sqrt(r())*.8;const x=cx+Math.cos(a)*rx*k-rx*.2,y=cy+Math.sin(a)*ry*k-ry*.3;PR(g,x,y,1,1,C[4]||C[3])}}
+const LV_G=["#1f4a3a","#2f6b48","#4f9a58","#86c460","#c4e88a"],LV_B=["#1c3a3c","#29574a","#3f7f5c","#69a86a","#a8d880"];
+function cat44(g,x,y,s,C,dir=1,pose="sit"){/* C: b,rim,in,eye,pupil */const X=v=>x+v*s*dir;const E=(cx,cy,rx,ry,c)=>ell39(g,X(cx),y+cy*s,rx*s,ry*s,c);
+  if(pose==="loaf"){E(0,-3,7,3.6,C.b);E(5,-6,3.6,3.2,C.b);for(let i=0;i<=2*s;i++){PR(g,X(3)-i*.3*dir,y-9*s-i*.0,1,1,C.b)}
+    PR(g,X(2.6),y-9.6*s,Math.max(1,s),Math.max(1,1.6*s),C.b);PR(g,X(6.4),y-9.6*s,Math.max(1,s),Math.max(1,1.6*s),C.b);
+    for(let i=0;i<9*s;i++)PR(g,X(-6)-i*.5*dir,y-1-Math.sin(i/(9*s)*3.1)*2.2*s,Math.max(1,s*.9),Math.max(1,s*.9),C.b);
+    PR(g,X(-5),y-6*s,Math.max(1,6*s),1,C.rim);
+    PR(g,X(4),y-6.6*s,Math.max(1,s),Math.max(1,s),C.eye);PR(g,X(6.2),y-6.6*s,Math.max(1,s),Math.max(1,s),C.eye);return}
+  E(0,-5,4.2,5.2,C.b);E(0,-1.4,5,1.6,C.b);E(.6,-12,3.4,3,C.b);
+  PR(g,X(-2.6),y-16*s,Math.max(1,1.4*s),Math.max(1,2.4*s),C.b);PR(g,X(2.4),y-16*s,Math.max(1,1.4*s),Math.max(1,2.4*s),C.b);
+  PR(g,X(-2.2),y-15.2*s,Math.max(1,.7*s),Math.max(1,1.2*s),C.in);PR(g,X(2.8),y-15.2*s,Math.max(1,.7*s),Math.max(1,1.2*s),C.in);
+  for(let i=0;i<8*s;i++)PR(g,X(-4)-i*.45*dir,y-1-Math.sin(i/(8*s)*2.8)*2.4*s,Math.max(1,s*.9),Math.max(1,s*.9),C.b);
+  PR(g,X(-3.6),y-9*s,Math.max(1,s*.6),Math.max(1,6*s),C.rim);
+  PR(g,X(-1.2),y-12.6*s,Math.max(1,1.1*s),Math.max(1,1.3*s),C.eye);PR(g,X(1.8),y-12.6*s,Math.max(1,1.1*s),Math.max(1,1.3*s),C.eye);
+  if(C.pupil){PR(g,X(-.9),y-12.4*s,1,Math.max(1,s),C.pupil);PR(g,X(2.1),y-12.4*s,1,Math.max(1,s),C.pupil)}
+  if(C.nose)PR(g,X(.5),y-11*s,Math.max(1,.8*s),Math.max(1,.6*s),C.nose)}
+const CAT_BLACK={b:"#16141c",rim:"#34303e",in:"#5a3a4a",eye:"#ffd34a",pupil:"#16141c"},CAT_WHITE={b:"#f6f1ea",rim:"#d8cfc2",in:"#ffb7c8",eye:"#3a3040",nose:"#f08aa8"};
+
+Object.assign(SCENES,{
+ blackcat:{l:"Mèo đen trong vườn",draw(cv,w,h,seed){const g=pxG(cv,w,h),r=rngOf(seed+"bc2"),S=S39(w,h)*1.25;
+   /* trời + hàng rào cây xa */
+   vgrad(g,w,h,0,h*.4,["#cfe9e6","#e4f2e2","#f3f4dc"]);
+   for(let i=0;i<Math.ceil(w/26)+1;i++)leaves44(g,i*26+r()*8,h*.3,18,10,LV_B,r,.8);PR(g,0,h*.36,w,h*.08,"#29574a");
+   vgrad(g,w,h,h*.44,h,["#6fb86a","#5aa65e","#478f50","#3c7d48"]);
+   /* nhà gỗ bên trái */
+   const hw=Math.round(w*.58),hb=Math.round(h*.6);PR(g,0,0,hw,hb,"#c89a6c");
+   for(let x=0;x<hw;x+=Math.max(5,Math.round(7*S))){PR(g,x,0,1,hb,"#9c7148");if(r()<.5)PR(g,x+2,r()*hb,1,Math.round(6*S),"#d8ae80");PR(g,x+3,0,1,hb,"#d2a676")}
+   PR(g,0,0,hw+6*S,Math.round(9*S),"#5a3a26");PR(g,0,Math.round(9*S),hw+6*S,Math.round(2*S),"#3a2418");PR(g,0,Math.round(11*S),hw,Math.round(5*S),"#a8805a");
+   const wx=Math.round(w*.08),wy=Math.round(h*.2),ww=Math.round(w*.3),wh=Math.round(h*.3);PR(g,wx-3,wy-3,ww+6,wh+6,"#6a4a30");PR(g,wx,wy,ww,wh,"#efe6d2");
+   for(let x=wx;x<wx+ww;x+=Math.round(ww/6))PR(g,x,wy,1,wh,"#b8a688");for(let y=wy;y<wy+wh;y+=Math.round(wh/4))PR(g,wx,y,ww,1,"#b8a688");PR(g,wx+ww/2,wy,2,wh,"#6a4a30");
+   g.globalAlpha=.25;PR(g,wx+4,wy+3,ww*.3,2,"#ffffff");g.globalAlpha=1;
+   /* hiên gỗ */
+   const dT=hb,dB=Math.round(h*.7);PR(g,0,dT,hw+Math.round(10*S),dB-dT,"#d9b07a");for(let x=0;x<hw+10*S;x+=Math.round(13*S))PR(g,x,dT,1,dB-dT,"#b88a58");PR(g,0,dT,hw+10*S,1,"#f0cc96");
+   PR(g,0,dB,hw+Math.round(10*S),Math.round(3*S),"#8a5a34");PR(g,0,dB+3*S,hw+10*S,Math.round(10*S),"#3e2c22");for(let x=8;x<hw;x+=Math.round(34*S))PR(g,x,dB+3*S,Math.round(4*S),Math.round(10*S),"#6a4a30");
+   /* chậu cây trên hiên */
+   [[.47,"#c76d4e"],[.06,"#7c8fb8"]].forEach(([f,c])=>{const x=w*f,y=dT+2;rrect39(g,x-7*S,y-9*S,14*S,10*S,3,c);PR(g,x-7*S,y-9*S,14*S,1,"#ffffff55");leaves44(g,x,y-15*S,10*S,7*S,LV_G,r,1.1)});
+   /* sân cỏ */
+   for(let i=0;i<w*h/9;i++){const x=r()*w,y=h*.44+r()*h*.56;if(x<hw+10*S&&y<dB+13*S)continue;PR(g,x,y,1,2,r()<.5?"#3f8a45":"#8ccf6a")}
+   /* lối đá */
+   [[.62,.86],[.74,.78],[.86,.72],[.5,.95],[.96,.66]].forEach(([fx,fy],k)=>{const x=w*fx,y=h*fy,rx=(13-k)*S,ry=(4.5-k*.3)*S;ell39(g,x,y+1.5*S,rx,ry,"#4f5e60");ell39(g,x,y,rx,ry,"#a9b6b8");ell39(g,x-rx*.25,y-ry*.3,rx*.5,ry*.4,"#d2dcdd")});
+   /* hoa trắng nhỏ */
+   for(let i=0;i<Math.round(w*h/160);i++){const x=r()*w,y=h*(.72+r()*.28);if(x<hw+10*S&&y<dB+13*S)continue;PR(g,x,y,1,1,"#ffffff");PR(g,x-1,y+1,1,1,"#ffffff");PR(g,x+1,y+1,1,1,"#ffffff");PR(g,x,y+2,1,1,"#ffffff");PR(g,x,y+1,1,1,"#ffe27a")}
+   /* cây lớn bên phải + dây phơi có lá leo */
+   PR(g,w*.9,h*.12,Math.max(3,5*S),h*.55,"#5a3a26");PR(g,w*.9+1,h*.12,1,h*.55,"#7a5236");
+   leaves44(g,w*.9,h*.12,44*S,30*S,LV_G,r,1);leaves44(g,w*.78,h*.22,26*S,18*S,LV_G,r,1);
+   for(let x=hw;x<w*.9;x++){const t=(x-hw)/(w*.9-hw);const y=h*.12+Math.sin(t*3.14)*8*S;PR(g,x,y,1,1,"#e8f0e0");if(r()<.18)leaves44(g,x,y+3,3,2,LV_G,r,1.4)}
+   /* bụi cây phía trước */
+   leaves44(g,w*.02,h*.98,40*S,22*S,LV_G,r,1);leaves44(g,w*.99,h*.93,34*S,24*S,LV_G,r,1);leaves44(g,w*.66,h*1.02,22*S,12*S,LV_G,r,1);
+   /* bình tưới */
+   const bx=w*.72,by=h*.9;rrect39(g,bx-8*S,by-9*S,16*S,10*S,2,"#7f95b5");PR(g,bx-8*S,by-9*S,16*S,1,"#a8bad4");for(let i=0;i<8*S;i++)PR(g,bx+8*S+i,by-6*S-i*.7,Math.max(1,1.5*S),Math.max(1,1.5*S),"#6c82a2");PR(g,bx-4*S,by-13*S,8*S,Math.max(1,1.2*S),"#5c7090");
+   /* mèo đen nằm trên mép hiên */
+   cat44(g,w*.33,dT+1,1.5*S,CAT_BLACK,1,"loaf");
+   g.globalAlpha=.18;PR(g,w*.33-9*S,dT+1,20*S,2,"#000");g.globalAlpha=1}},
+ catcafe:{l:"Quán cà phê mèo",draw(cv,w,h,seed){const g=pxG(cv,w,h),r=rngOf(seed+"cc2"),S=S39(w,h)*1.2;const cx=w*.48;
+   /* tường + chân tường */
+   vgrad(g,w,h,0,h*.86,["#d8c6a0","#ccb68e","#bfa47c"]);for(let i=0;i<w*h/30;i++)PR(g,r()*w,r()*h*.86,1,1,r()<.5?"#c4ad86":"#e2d2b0");
+   PR(g,0,h*.78,w,h*.08,"#8f7a64");PR(g,0,h*.78,w,1,"#a8927a");
+   /* bảng hiệu: ly cà phê + tai mèo */
+   const sT=Math.round(h*.04),sW=Math.round(76*S),sH=Math.round(20*S);rrect39(g,cx-sW/2,sT,sW,sH,4,"#2e2420");rrect39(g,cx-sW/2+2,sT+2,sW-4,sH-4,3,"#3a2e28");
+   const cupX=cx-9*S,cupY=sT+6*S;rrect39(g,cupX,cupY,14*S,10*S,3,"#f4ead8");PR(g,cupX+14*S,cupY+2*S,3*S,Math.max(1,S),"#f4ead8");PR(g,cupX+16*S,cupY+2*S,Math.max(1,S),5*S,"#f4ead8");PR(g,cupX+14*S,cupY+6*S,3*S,Math.max(1,S),"#f4ead8");PR(g,cupX+2*S,cupY+1.5*S,10*S,2.5*S,"#8a5a3a");
+   PR(g,cupX+2*S,cupY-2.4*S,2*S,2*S,"#f4ead8");PR(g,cupX+10*S,cupY-2.4*S,2*S,2*S,"#f4ead8");
+   for(let i=0;i<3;i++)for(let k=0;k<4*S;k++)PR(g,cupX+3*S+i*3.5*S+Math.sin(k*.9+i)*1,cupY-3*S-k,1,1,"#e8dcc8");
+   [[cx-sW/2+8*S],[cx+sW/2-14*S]].forEach(([x])=>{for(let i=0;i<3;i++)PR(g,x+i*2*S,sT+sH/2-1,Math.max(1,S),Math.max(1,S),"#d9a066")});
+   /* mái hiên sọc lớn */
+   const aT=Math.round(h*.2),aB=Math.round(h*.34),st=Math.round(12*S);
+   for(let x=0;x<w;x++){const k=Math.floor(x/st)%2;for(let y=aT;y<aB;y++){const sh=(y-aT)/(aB-aT);PR(g,x,y,1,1,k?(sh>.7?"#e8d4b6":"#f6e8d2"):(sh>.7?"#b9573c":"#d9775a"))}}
+   PR(g,0,aT,w,Math.round(3*S),"#8f3f2a");PR(g,0,aT+3*S,w,1,"#ffffff33");
+   for(let x=0;x<w;x+=st){ell39(g,x+st/2,aB,st/2,3*S,Math.floor(x/st)%2?"#e8d4b6":"#b9573c");ell39(g,x+st/2,aB-1,st/2-1,2.4*S,Math.floor(x/st)%2?"#f6e8d2":"#d9775a")}
+   g.globalAlpha=.22;PR(g,0,aB+3*S,w,Math.round(6*S),"#3a2418");g.globalAlpha=1;
+   /* cửa đôi vòm có kính, ánh đèn ấm bên trong */
+   const dw=Math.round(58*S),dx=Math.round(cx-dw/2),dB=Math.round(h*.8),dT=Math.max(Math.round(h*.4),dB-Math.round(dw*1.45));const ar=dw*.42;
+   ell39(g,cx,dT+ar,dw/2+4*S,ar+3*S,"#6a3e24");PR(g,dx-4*S,dT+ar,dw+8*S,dB-dT-ar,"#6a3e24");
+   const glass=(x,y,ww,hh)=>{PR(g,x,y,ww,hh,"#3a3248");g.globalAlpha=.55;PR(g,x,y+hh*.45,ww,hh*.55,"#f2c46a");g.globalAlpha=1;PR(g,x+2,y+2,Math.max(1,ww*.18),hh*.6,"#ffffff22")};
+   ell39(g,cx,dT+ar,dw/2,ar,"#3a3248");g.globalAlpha=.5;ell39(g,cx,dT+ar+2,dw/2-3,ar*.6,"#f2c46a");g.globalAlpha=1;
+   for(let i=1;i<4;i++){const a=Math.PI*(1-i/4);PR(g,cx+Math.cos(a)*ar*.95,dT+ar-Math.sin(a)*ar*.95,2,Math.sin(a)*ar*.9,"#6a3e24")}PR(g,dx,dT+ar,dw,2*S,"#6a3e24");
+   const pw=dw/2-3*S;[dx+1*S,cx+2*S].forEach(x=>{PR(g,x,dT+ar+2*S,pw,dB-dT-ar-2*S,"#7a4a2c");for(let j=0;j<3;j++)glass(x+3*S,dT+ar+5*S+j*((dB-dT-ar-14*S)/3),pw-6*S,(dB-dT-ar-14*S)/3-3*S)});
+   PR(g,cx-3*S,(dT+dB)/2+10*S,Math.max(1,1.6*S),5*S,"#e8c25a");PR(g,cx+2*S,(dT+dB)/2+10*S,Math.max(1,1.6*S),5*S,"#e8c25a");
+   /* bậc thềm + vỉa hè */
+   PR(g,dx-12*S,dB,dw+24*S,4*S,"#a3a8b0");PR(g,dx-12*S,dB,dw+24*S,1,"#c4c8ce");PR(g,dx-18*S,dB+4*S,dw+36*S,4*S,"#878c95");
+   vgrad(g,w,h,dB+8*S,h,["#8e939b","#7c8189"]);for(let x=0;x<w;x+=Math.round(18*S))PR(g,x,dB+8*S,1,h,"#6f747c");for(let y=dB+8*S;y<h;y+=Math.round(9*S))PR(g,0,y,w,1,"#7a7f87");
+   /* cửa sổ trưng bày bên phải */
+   const wx=Math.round(cx+dw*.75),wy=Math.round(h*.44),wW=Math.round(60*S),wH=Math.round(46*S);PR(g,wx-3*S,wy-3*S,wW+6*S,wH+6*S,"#6a3e24");PR(g,wx,wy,wW,wH,"#2e3448");g.globalAlpha=.4;PR(g,wx,wy+wH*.5,wW,wH*.5,"#f2c46a");g.globalAlpha=1;
+   PR(g,wx,wy+wH*.62,wW,2*S,"#8a5a3a");[[.12,"#f0e0c8"],[.36,"#e8b86a"],[.6,"#f6a6c8"],[.82,"#f0e0c8"]].forEach(([f,c])=>{rrect39(g,wx+wW*f-4*S,wy+wH*.62-7*S,8*S,7*S,2,c);PR(g,wx+wW*f-4*S,wy+wH*.62-7*S,8*S,1,"#ffffff66")});
+   PR(g,wx+3*S,wy+3*S,Math.max(1,2*S),wH*.4,"#ffffff22");PR(g,wx-5*S,wy+wH+3*S,wW+10*S,3*S,"#7a4a2c");
+   /* bảng phấn menu */
+   const mx=Math.round(dx-26*S),my=Math.round(dB-30*S);PR(g,mx,my,20*S,26*S,"#6a3e24");PR(g,mx+2*S,my+2*S,16*S,18*S,"#27302a");for(let k=0;k<5;k++)PR(g,mx+4*S,my+5*S+k*3*S,(8+r()*5)*S,Math.max(1,S*.8),k===0?"#f2c46a":"#e8e8e0");PR(g,mx+2*S,my+26*S,2*S,4*S,"#6a3e24");PR(g,mx+16*S,my+26*S,2*S,4*S,"#6a3e24");
+   /* đèn tường */
+   const lx=Math.round(dx-12*S),ly=Math.round(h*.46);glow39(g,lx,ly,18*S,"#ffd98a",.16);PR(g,lx-1,ly-9*S,2,4*S,"#2e2420");rrect39(g,lx-4*S,ly-5*S,8*S,11*S,2,"#2e2420");PR(g,lx-3*S,ly-3*S,6*S,7*S,"#ffe29a");
+   /* chậu cây */
+   [[.08,.78,14],[.9,.8,11],[(dx+dw+8*S)/w,.8,9]].forEach(([fx,fy,sz])=>{const x=w*fx,y=h*fy;rrect39(g,x-sz*.7*S,y-sz*.9*S,sz*1.4*S,sz*.95*S,3,"#c76d4e");PR(g,x-sz*.7*S,y-sz*.9*S,sz*1.4*S,1,"#e8906c");PR(g,x+sz*.3*S,y-sz*.85*S,1,sz*.8*S,"#a85a3e");leaves44(g,x,y-sz*1.7*S,sz*1.1*S,sz*.9*S,LV_G,r,1.2)});
+   /* 2 bé mèo */
+   cat44(g,dx+10*S,dB,1.15*S,CAT_WHITE,1);cat44(g,dx+dw-8*S,dB,1.15*S,CAT_BLACK,-1);
+   /* tán cây lớn phủ góc + dây leo trên mái hiên */
+   leaves44(g,w*.02,h*.06,52*S,36*S,LV_G,r,1);leaves44(g,w*.14,h*.0,30*S,18*S,LV_G,r,1);leaves44(g,w*1.0,h*.12,56*S,44*S,LV_G,r,1);leaves44(g,w*.88,h*.02,30*S,16*S,LV_G,r,1);leaves44(g,w*1.02,h*.62,26*S,34*S,LV_G,r,1);
+   for(let i=0;i<14;i++){const x=w*(.2+r()*.6);for(let k=0;k<(3+r()*8)*S;k+=2)leaves44(g,x+Math.sin(k)*1,aB-2+k,2.5,1.6,LV_G,r,2)}}},
+ summerbridge:{l:"Cầu vượt mùa hè",draw(cv,w,h,seed){const g=pxG(cv,w,h),r=rngOf(seed+"sb2"),S=S39(w,h)*1.2;
+   vgrad(g,w,h,0,h,["#3f97e6","#5aaaf0","#7cc0f6","#a6d6fa","#c6e6fb","#d8effc"]);
+   /* mây tích lớn có 3 tầng sáng tối */
+   const cloud=(x,y,s)=>{for(let k=0;k<9;k++){const ox=(r()-.5)*s*2.6,oy=-r()*s*1.4,rr=s*(.5+r()*.55);disc(g,x+ox,y+oy+s*.25,rr,"#b6d0ea")}for(let k=0;k<9;k++){const ox=(r()-.5)*s*2.4,oy=-r()*s*1.5,rr=s*(.45+r()*.5);disc(g,x+ox,y+oy,rr,"#eef6ff")}for(let k=0;k<6;k++){const ox=(r()-.6)*s*1.8,oy=-r()*s*1.6-s*.3,rr=s*(.3+r()*.35);disc(g,x+ox,y+oy,rr,"#ffffff")}PR(g,x-s*1.6,y+s*.4,s*3.2,Math.max(1,s*.18),"#9fbede")};
+   cloud(w*.62,h*.42,22*S);cloud(w*.84,h*.36,15*S);cloud(w*.34,h*.24,9*S);cloud(w*.12,h*.14,6*S);cloud(w*.95,h*.12,5*S);
+   for(let i=0;i<w*h/260;i++)PR(g,r()*w,r()*h*.25,1,1,"#9fd0f8");
+   /* biển & đồi xa dưới cầu */
+   const dT=Math.round(h*.5),fT=Math.round(h*.56),fB=Math.round(h*.78);
+   for(let x=0;x<w;x++){const y=h*.84+Math.sin(x/(22*S))*5*S+Math.sin(x/(7*S))*1.5;PR(g,x,y,1,h,"#6fa8d8");PR(g,x,y+3*S,1,h,"#5b98cc")}
+   for(let i=0;i<4;i++)cloud(w*(i/3),h*.94,9*S);
+   /* thân cầu */
+   PR(g,0,dT-10*S,w,Math.max(1,1.4*S),"#ffffff");for(let x=0;x<w;x+=Math.max(4,Math.round(6*S)))PR(g,x,dT-10*S,Math.max(1,S),10*S,"#eef2f5");PR(g,0,dT-4*S,w,Math.max(1,S),"#dfe5ea");
+   PR(g,0,dT,w,fT-dT,"#cbd3c0");PR(g,0,dT,w,1,"#e9efe2");PR(g,0,fT-2,w,2,"#a9b3a2");
+   for(let y=fT;y<fB;y++){const split=w*.46+(y-fT)*1.25;PR(g,0,y,split,1,"#eee6d4");PR(g,split,y,w-split,1,"#9aa8b8")}
+   for(let x=0;x<w;x+=Math.round(64*S)){PR(g,x,fT,1,fB-fT,"#c8c0ae");}
+   for(let i=0;i<Math.round(w/14);i++){const x=r()*w;const sh=x>w*.5;PR(g,x,fB-(3+r()*10)*S,1,(3+r()*10)*S,sh?"#8a98a8":"#d8cfbc")}
+   PR(g,0,fB,w,Math.round(2.5*S),"#5a6676");PR(g,0,fB+2.5*S,w,Math.round(4*S),"#3e4856");for(let x=w*.3;x<w;x+=Math.round(90*S)){PR(g,x,fB+6*S,Math.round(10*S),h,"#7d8a9a");PR(g,x,fB+6*S,Math.max(1,2*S),h,"#a6b2c0")}
+   /* đèn đường */
+   const px=w*.2;PR(g,px,dT-46*S,Math.max(1,1.8*S),46*S,"#e8ecf0");for(let i=0;i<14*S;i++)PR(g,px+i,dT-46*S-Math.sin(i/(14*S)*1.6)*4*S,Math.max(1,1.6*S),Math.max(1,1.6*S),"#e8ecf0");rrect39(g,px+12*S,dT-50*S,8*S,3*S,1,"#c8d0d8");
+   /* đèn giao thông + biển chỉ hướng (bố cục riêng) */
+   const mY=(fT+fB)/2;rrect39(g,w*.58,mY-7*S,38*S,14*S,6*S,"#36404c");PR(g,w*.58+3*S,mY-7*S,32*S,1,"#56606c");[0,1,2].forEach(i=>{const lx=w*.58+7*S+i*12*S;disc(g,lx,mY,4.4*S,"#1f262e");if(i===0){glow39(g,lx,mY,8*S,"#8fffc8",.16);disc(g,lx,mY,4*S,"#5fe0a0");PR(g,lx-2*S,mY-2*S,Math.max(1,S),Math.max(1,S),"#d8fff0")}});
+   PR(g,w*.58+18*S,fB,Math.max(1,2*S),4*S,"#36404c");
+   disc(g,w*.36,mY,11*S,"#ffffff");disc(g,w*.36,mY,9.6*S,"#3f86d6");PR(g,w*.36-1*S,mY-6*S,2*S,12*S,"#ffffff");for(let i=0;i<4*S;i++)PR(g,w*.36-i,mY-6*S+i,2*i+2,1,"#ffffff");
+   rrect39(g,w*.08,mY-8*S,34*S,16*S,2,"#2f8a5a");PR(g,w*.08+2*S,mY-6*S,30*S,1,"#ffffff");PR(g,w*.08+2*S,mY+5*S,30*S,1,"#ffffff");PR(g,w*.08+5*S,mY-1,12*S,2*S,"#ffffff");for(let i=0;i<3*S;i++)PR(g,w*.08+17*S+i,mY-3*S+i*.7,1,6*S-i*1.4,"#ffffff");PR(g,w*.08+23*S,mY-2*S,8*S,Math.max(1,S),"#cfeedd");PR(g,w*.08+23*S,mY+1*S,6*S,Math.max(1,S),"#cfeedd");
+   /* cây hai bên, lá từng chiếc */
+   leaves44(g,w*.0,h*.36,40*S,34*S,LV_G,r,1);leaves44(g,w*.08,h*.12,22*S,16*S,LV_G,r,1);leaves44(g,w*.04,h*.86,36*S,24*S,LV_G,r,1);leaves44(g,w*1.0,h*.82,34*S,26*S,LV_G,r,1);leaves44(g,w*.97,h*.5,16*S,14*S,LV_G,r,1);
+   for(let i=0;i<6;i++){const x=w*(.25+r()*.5),y=h*(.08+r()*.3);PR(g,x,y,1,1,"#2f4a6a");PR(g,x+1,y+1,1,1,"#2f4a6a");PR(g,x+2,y,1,1,"#2f4a6a")}
+   for(let i=0;i<7;i++){const x=w*(.25+r()*.6),y=h*(.2+r()*.3);PR(g,x,y,2,1,r()<.5?"#8ccf6a":"#d8e86a");PR(g,x+1,y+1,1,1,"#5fae4a")}}}
+});
+
+/* =====================================================================
+   v39 — DỰ ÁN:
+   • Thẻ “Kiểm tra”: đề do AI ra, bám sát nội dung dự án + tài liệu của môn, mỗi câu có căn cứ,
+     AI tự kiểm tra lại đáp án; không có AI thì tạo đề từ chính nội dung dự án.
+   • Thẻ “Thực hành”: hướng dẫn từng bước NGAY TRÊN MÔ HÌNH 3D của chính dự án
+     (mạch 555, bộ đếm 74HC393, bộ lọc 1 kHz, đo NTC, RLC, FSM đèn giao thông, cảm biến robot…):
+     bóng mờ chỉ chỗ đặt linh kiện, vòng sáng ở chân cần nối, nhãn ngay trên mô hình;
+     làm theo → app tự nhận ra và sang bước tiếp; hoặc Bỏ qua / Làm giúp.
+   ===================================================================== */
+/* ---------- mô hình thực hành của từng dự án mẫu ----------
+   parts: {id,type,name,pos,rot,props,label,ph(bước dự án),why, fin:{props,ph,why}}  ·  wires: [a,b,ph,tên,vì sao]
+   checks[k]: [{t,on,why}] (quan sát/kiểm tra trên mô hình)  ·  sims[k]: mô phỏng 2D liên quan */
+const BB=(ph,w=12,d=6)=>({id:"bb",type:"breadboard",name:"Breadboard",pos:[0,0,0],props:{w,d},ph,why:"Breadboard: mỗi cột 5 lỗ nối thông; linh kiện cắm vào, dây nối giữa các chân."});
+const PJ_LABS={
+ pcb:{title:"Đèn nháy NE555 (astable) trên breadboard",parts:[BB(1),
+   {id:"bat",type:"battery",name:"Pin 9 V",pos:[-7.6,-.35,0],props:{kind:"9v"},ph:1,why:"Yêu cầu của dự án: nguồn 9 V."},
+   {id:"u1",type:"ic",name:"NE555",pos:[0,0,0],props:{label:"NE555",pins:8},label:"NE555",ph:1,why:"Chân 1 GND · 2 TRIG · 3 OUT · 4 RESET · 5 CTRL · 6 THR · 7 DIS · 8 VCC."},
+   {id:"r1",type:"resistor",name:"R1",pos:[-2.6,0,-1.9],props:{ohm:10000},label:"R1",ph:1,fin:{props:{ohm:1000},ph:2,why:"R1 = 1 kΩ (đủ lớn để dòng xả vào chân 7 không quá tải). Cùng R2, C quyết định t_H = 0,693·(R1+R2)·C ≈ 0,48 s."}},
+   {id:"r2",type:"resistor",name:"R2",pos:[0,0,-2.4],props:{ohm:10000},label:"R2",ph:1,fin:{props:{ohm:68000},ph:2,why:"R1 + 2R2 = 1 + 136 = 137 kΩ ≈ 144 kΩ cần tìm → f = 1,44 / (137 kΩ · 10 µF) ≈ 1,05 Hz (nằm trong 1 Hz ± 10 %)."}},
+   {id:"c1",type:"capacitor",name:"C1 (tụ định thời)",pos:[-2.0,0,2.1],props:{label:"C1"},label:"C1",ph:1,fin:{props:{label:"10µF",uf:10},ph:2,why:"Chọn C = 10 µF như bước 3 rồi tính R. Tụ nạp qua R1+R2, xả qua R2 giữa 1/3 VCC (3 V) và 2/3 VCC (6 V)."}},
+   {id:"c2",type:"capacitor",name:"C2 10 nF",pos:[2.2,0,-2.0],props:{label:"10nF",uf:.01},label:"10 nF",ph:1,why:"Tụ 10 nF ở chân 5 (CTRL) giữ ổn định ngưỡng 2/3 VCC, chống nhiễu."},
+   {id:"r3",type:"resistor",name:"R3 (hạn dòng LED)",pos:[2.6,0,2.1],props:{ohm:330},label:"R3",ph:1,fin:{props:{ohm:470},ph:2,why:"I_LED ≈ (9 − 1,7 − 2) / 470 ≈ 11 mA ≤ 20 mA theo yêu cầu (ngõ ra 555 sụt ~1,7 V, LED đỏ ~2 V)."}},
+   {id:"d1",type:"led",name:"LED đỏ",pos:[4.4,0,2.1],props:{color:"red",on:true},label:"LED",ph:1,why:"Tải của mạch: nháy theo ngõ ra chân 3."}],
+  wires:[["bat.+","u1.8",1,"Pin (+) → chân 8 VCC","Cấp nguồn cho IC."],["u1.8","u1.4",1,"Chân 8 → chân 4 RESET","RESET tích cực mức thấp: nối lên VCC để IC luôn chạy."],["bat.-","u1.1",1,"Pin (−) → chân 1 GND",""],
+   ["u1.8","r1.a",1,"VCC → R1",""],["r1.b","u1.7",1,"R1 → chân 7 DIS","Đường nạp tụ đi qua R1 rồi R2."],["u1.7","r2.a",1,"Chân 7 → R2",""],["r2.b","u1.6",1,"R2 → chân 6 THR","Khi xả, tụ xả qua R2 vào chân 7."],
+   ["u1.6","u1.2",1,"Chân 6 ↔ chân 2 TRIG","Hai bộ so sánh (2/3 và 1/3 VCC) cùng đo điện áp tụ."],["u1.2","c1.+",1,"Chân 2 → C1 (+)",""],["c1.-","u1.1",1,"C1 (−) → GND","Tụ điện phân: cực − về GND."],
+   ["u1.5","c2.+",1,"Chân 5 → C2",""],["c2.-","u1.1",1,"C2 → GND",""],["u1.3","r3.a",1,"Chân 3 OUT → R3","Ngõ ra xung vuông."],["r3.b","d1.A",1,"R3 → LED anode (+)",""],["d1.K","u1.1",1,"LED cathode (−) → GND",""]],
+  checks:{0:[{t:"Đối chiếu yêu cầu: nguồn 9 V",on:"bat",why:"Nguồn quyết định dòng LED và ngưỡng 1/3–2/3 VCC = 3 V–6 V."},{t:"Tải là một LED, dòng ≤ 20 mA",on:"d1"}],
+   3:[{t:"Điện áp tụ C1 dao động giữa 3 V và 6 V",on:"c1",why:"555 so sánh v_C với 1/3 và 2/3 VCC; khi chạm 6 V ngõ ra xuống thấp và chân 7 xả tụ."},{t:"Chân 3 ra xung vuông ≈ 1 Hz, duty ≈ (R1+R2)/(R1+2R2) ≈ 51 %",on:"u1"}],
+   4:[{t:"Bố trí: C2 và tụ lọc nguồn đặt sát IC; dây chân 2–6–C1 ngắn",on:"c2"},{t:"Đường nguồn (đỏ/đen) đi rộng hơn đường tín hiệu (≥ 0,5 mm)",on:"bat"}],
+   5:[{t:"DRC: các chân IC cách 2,54 mm — dây/đường mạch không được chạm nhau",on:"u1"}],
+   6:[{t:"Hàn linh kiện thấp trước: R1, R2, R3 → đế IC → tụ → LED",on:"r1"},{t:"Kiểm tra cực tính: C1 (+) về chân 2/6; LED anode về R3",on:"c1"},{t:"Cấp nguồn, đếm: khoảng 10 lần nháy / 10 giây",on:"d1"}]},
+  sims:{3:["sim:rc","sim:pwm"]}},
+ chip:{title:"Bộ đếm 4 bit 74HC393 + 4 LED",parts:[BB(1,14),
+   {id:"bat",type:"battery",name:"Nguồn 5 V",pos:[-8.4,-.35,0],props:{kind:"9v"},label:"5 V",ph:1,why:"Họ 74HC chạy 2–6 V; dùng 5 V."},
+   {id:"u1",type:"ic",name:"74HC393",pos:[-1.4,0,0],props:{label:"74HC393",pins:14},label:"74HC393",ph:1,why:"Bộ đếm nhị phân 4 bit (4 flip-flop) — đúng kiến trúc “thanh ghi 4 bit + cộng 1”. Chân 1 CP (đếm ở cạnh xuống), 2 MR (reset mức CAO), 3–6 = Q0…Q3, 7 GND, 14 VCC."},
+   {id:"sw",type:"switch",name:"Nút xung nhịp clk",pos:[-5.2,0,2.2],props:{on:false},label:"clk",ph:1,why:"Mỗi lần nhấn–nhả tạo một cạnh xung để đếm (thực tế cần chống dội)."},
+   {id:"rp",type:"resistor",name:"R kéo xuống 10 kΩ",pos:[-4.2,0,-2.2],props:{ohm:10000},label:"10 kΩ",ph:1,why:"Giữ chân CP ở mức 0 khi chưa nhấn nút, tránh ngõ vào thả nổi."},
+   ...[0,1,2,3].map(k=>({id:"r"+k,type:"resistor",name:`R${k} 330 Ω`,pos:[1.4+k*1.5,0,-2.2],rot:[0,90,0],props:{ohm:330},label:"330 Ω",ph:1,why:"Hạn dòng LED ≈ (5 − 2)/330 ≈ 9 mA."})),
+   ...[0,1,2,3].map(k=>({id:"d"+k,type:"led",name:`LED q[${k}]`,pos:[1.4+k*1.5,0,2.2],props:{color:"green",on:true},label:`q${k}`,ph:1,why:`Hiển thị bit q[${k}] của bộ đếm.`}))],
+  wires:[["bat.+","u1.14",6,"Nguồn (+) → chân 14 VCC","Gán chân nguồn."],["bat.-","u1.7",6,"Nguồn (−) → chân 7 GND",""],["u1.2","u1.7",6,"Chân 2 MR → GND","MR = 0: không reset, cho phép đếm (tương ứng rst_n = 1)."],
+   ["bat.+","sw.a",6,"VCC → nút clk",""],["sw.b","u1.1",6,"Nút → chân 1 CP","clk của bộ đếm."],["u1.1","rp.a",6,"Chân 1 → R kéo xuống",""],["rp.b","u1.7",6,"R kéo xuống → GND",""],
+   ...[0,1,2,3].flatMap(k=>[["u1."+(3+k),"r"+k+".a",6,`Q${k} (chân ${3+k}) → R${k}`,k===0?"Mỗi ngõ ra Q gán cho một LED — giống bước gán chân trên FPGA.":""],["r"+k+".b","d"+k+".A",6,`R${k} → LED q[${k}]`,""],["d"+k+".K","u1.7",6,`LED q[${k}] → GND`,""]])],
+  checks:{0:[{t:"Ngõ vào: clk = nút nhấn; ngõ ra: q[3:0] = 4 LED",on:"sw"},{t:"Đếm 0 → 15 rồi quay về 0 (tràn)",on:"u1"}],
+   2:[{t:"`reg [3:0] q` ↔ 4 flip-flop bên trong 74HC393",on:"u1",why:"RTL mô tả đúng phần cứng này: always @(posedge clk) q <= q + 1."},{t:"Lưu ý: MR của 74HC393 reset mức CAO, ngược với rst_n mức thấp",on:"u1"}],
+   3:[{t:"Testbench: nhấn clk 16 lần, so q với giá trị kỳ vọng 0…15",on:"sw"}],4:[{t:"Kết quả tổng hợp hợp lý: đúng 4 flip-flop, không có latch",on:"u1"}],
+   5:[{t:"Tần số tối đa vài chục MHz ở 5 V — nút nhấn rất chậm nên timing dư; nhưng phải chống dội",on:"sw"}],
+   7:[{t:"Nhấn nút 5 lần → LED q3..q0 = 0101",on:"d0"},{t:"Nhấn đủ 16 lần → về 0000 (tràn); cờ tc = 1 khi q = 1111",on:"d3"}]},sims:{1:["sim:adder"],3:["sim:latch"]}},
+ filter:{title:"Bộ lọc thông thấp 1 kHz: RC bậc 1 → Sallen-Key bậc 2",parts:[BB(1,14),
+   {id:"bat",type:"battery",name:"Nguồn tín hiệu vào (giả lập)",pos:[-8.4,-.35,0],props:{kind:"9v"},label:"V_in",ph:1,why:"Thay cho máy phát sóng sin khi lắp thật."},
+   {id:"r1",type:"resistor",name:"R = 1,6 kΩ",pos:[-4.6,0,-1.2],props:{ohm:1000},label:"R",ph:1,fin:{props:{ohm:1600},ph:1,why:"f_c = 1/(2πRC) = 1/(2π · 1,6 kΩ · 100 nF) ≈ 995 Hz ≈ 1 kHz."}},
+   {id:"c1",type:"capacitor",name:"C = 100 nF",pos:[-3.2,0,.4],props:{label:"100nF",uf:.1},label:"100 nF",ph:1,why:"Tụ nối xuống GND: tần số càng cao trở kháng tụ càng nhỏ → tín hiệu bị “tắt” xuống đất."},
+   {id:"u1",type:"ic",name:"Op-amp LM358",pos:[1.6,0,0],props:{label:"LM358",pins:8},label:"LM358",ph:2,why:"Chân 1 OUT, 2 IN−, 3 IN+, 4 GND, 8 V+."},
+   {id:"r2",type:"resistor",name:"R1 = 10 kΩ",pos:[-1.6,0,-1.9],props:{ohm:10000},label:"10 kΩ",ph:2,why:"R1 = R2 = R cho cấu trúc độ lợi đơn vị."},
+   {id:"r3",type:"resistor",name:"R2 = 10 kΩ",pos:[.2,0,2.2],props:{ohm:10000},label:"10 kΩ",ph:2},
+   {id:"c2",type:"capacitor",name:"C1 = 22 nF (hồi tiếp)",pos:[-0.4,0,-2.6],props:{label:"22nF",uf:.022},label:"22 nF",ph:2,why:"C1 ≈ 2·C2 cho Q ≈ 0,707 (Butterworth). f_c = 1/(2π · 10 kΩ · √(22 nF · 10 nF)) ≈ 1,07 kHz."},
+   {id:"c3",type:"capacitor",name:"C2 = 10 nF",pos:[3.8,0,2.2],props:{label:"10nF",uf:.01},label:"10 nF",ph:2}],
+  wires:[["bat.+","r1.a",1,"V_in → R",""],["r1.b","c1.+",1,"R → C (V_out lấy ở nút này)","Đây là cầu chia áp phụ thuộc tần số: H = 1/(1 + jωRC)."],["c1.-","bat.-",1,"C → GND",""],
+   ["c1.+","r2.a",2,"Ngõ ra bậc 1 → R1",""],["r2.b","r3.a",2,"R1 → R2",""],["r3.b","u1.3",2,"R2 → chân 3 IN+",""],["r2.b","c2.+",2,"Nút giữa R1–R2 → C1",""],["c2.-","u1.1",2,"C1 → chân 1 OUT","Hồi tiếp dương qua C1 tạo đỉnh cộng hưởng nhẹ, cho Q = 0,707."],
+   ["u1.3","c3.+",2,"IN+ → C2",""],["c3.-","bat.-",2,"C2 → GND",""],["u1.1","u1.2",2,"OUT ↔ IN− (độ lợi = 1)","Bộ đệm theo áp."],["bat.+","u1.8",2,"Nguồn → chân 8 V+",""],["bat.-","u1.4",2,"GND → chân 4",""]],
+  checks:{0:[{t:"Yêu cầu: f_c = 1 kHz, suy giảm ≥ 30 dB tại 10 kHz → bậc 1 chỉ được 20 dB, cần bậc 2",on:"c1"}],3:[{t:"AC sweep: đo f tại −3 dB ở chân 1 OUT",on:"u1"}],
+   4:[{t:"Đo V_out/V_in tại 100 Hz, 1 kHz (≈ −3 dB), 10 kHz (≈ −40 dB)",on:"u1"}],5:[{t:"Dung sai C ±10 % làm f_c lệch tới ~10 %",on:"c2"}]},sims:{1:["sim:rc"],2:["sim:opamp"],3:["sim:rc"]}},
+ meas:{title:"Đo nhiệt độ NTC: chia áp → đệm → lọc",parts:[BB(1,14),
+   {id:"bat",type:"battery",name:"Nguồn 3,3 V",pos:[-8.4,-.35,0],props:{kind:"9v"},label:"3,3 V",ph:1,why:"Cùng mức V_ref của ADC vi điều khiển."},
+   {id:"rn",type:"resistor",name:"NTC 10 kΩ (25 °C)",pos:[-4.8,0,-1.2],props:{ohm:10000},label:"NTC",ph:1,why:"R(T) = 10 kΩ·exp(3950·(1/T − 1/298,15)); nóng lên → R giảm → V_out tăng."},
+   {id:"rf",type:"resistor",name:"R cố định 10 kΩ",pos:[-3.0,0,.9],props:{ohm:4700},label:"R",ph:1,fin:{props:{ohm:10000},ph:1,why:"R = R_NTC(25 °C) = 10 kΩ cho độ dốc lớn nhất quanh 25 °C; V_out(25 °C) = 1,65 V."}},
+   {id:"u1",type:"ic",name:"Op-amp LM358",pos:[.8,0,0],props:{label:"LM358",pins:8},label:"LM358",ph:2,why:"Mắc đệm (theo áp) để ADC không làm tải cầu chia áp."},
+   {id:"r7",type:"resistor",name:"R lọc 10 kΩ",pos:[3.6,0,-1.6],props:{ohm:10000},label:"10 kΩ",ph:2},
+   {id:"c1",type:"capacitor",name:"C lọc 10 µF",pos:[5.0,0,.8],props:{label:"10µF",uf:10},label:"10 µF",ph:2,why:"f_c = 1/(2π·10 kΩ·10 µF) ≈ 1,6 Hz — nhiệt độ thay đổi chậm nên lọc mạnh nhiễu."}],
+  wires:[["bat.+","rn.a",1,"3,3 V → NTC",""],["rn.b","rf.a",1,"NTC → R (điểm giữa = V_out)","V_out = 3,3·R/(R + R_NTC)."],["rf.b","bat.-",1,"R → GND",""],
+   ["rn.b","u1.3",2,"V_out → chân 3 IN+",""],["u1.1","u1.2",2,"OUT ↔ IN− (đệm)",""],["bat.+","u1.8",2,"Nguồn → chân 8",""],["bat.-","u1.4",2,"GND → chân 4",""],["u1.1","r7.a",2,"OUT → R lọc",""],["r7.b","c1.+",2,"R lọc → C (vào ADC)",""],["c1.-","bat.-",2,"C → GND",""]],
+  checks:{0:[{t:"NTC 10 kΩ ở 25 °C, β = 3950",on:"rn"}],3:[{t:"ADC 12 bit, 3,3 V → LSB ≈ 0,8 mV; đọc ở nút sau R–C lọc",on:"c1"}],4:[{t:"Hiệu chuẩn 2 điểm: ghi V_out ở 0 °C và 100 °C",on:"rn"}],5:[{t:"Dung sai R cố định ±1 % gây sai số hệ thống loại B",on:"rf"}]},sims:{1:["sim:divider"],2:["sim:opamp"]}},
+ rlc:{title:"Mạch RLC nối tiếp đóng nguồn bậc thang",parts:[BB(0,14),
+   {id:"bat",type:"battery",name:"Nguồn V = 9 V",pos:[-8.4,-.35,0],props:{kind:"9v"},ph:0},
+   {id:"sw",type:"switch",name:"Công tắc (t = 0)",pos:[-5,0,-1.6],props:{on:true},label:"t = 0",ph:0,why:"Đóng tại t = 0 tạo nguồn bậc thang V·u(t)."},
+   {id:"r1",type:"resistor",name:"R",pos:[-2.6,0,-1.6],props:{ohm:20},label:"R = 20 Ω",ph:0,fin:{props:{ohm:200},ph:4,why:"R = 200 Ω: α = R/2L = 10 000 s⁻¹ > ω₀ ≈ 3162 rad/s → quá tắt dần, không còn dao động."}},
+   {id:"L",type:"cylinder",name:"Cuộn cảm L = 10 mH",pos:[0,.3,-1.6],rot:[0,0,90],scale:[.5,1.4,.5],color:"#c98a4e",label:"L = 10 mH",ph:0,why:"Xưởng 3D chưa mô phỏng cuộn cảm: L hiển thị dạng khối, dây R → C đi qua vị trí của nó."},
+   {id:"c1",type:"capacitor",name:"C = 10 µF",pos:[2.6,0,0],props:{label:"10µF",uf:10},label:"C = 10 µF",ph:0}],
+  wires:[["bat.+","sw.a",0,"Nguồn (+) → công tắc",""],["sw.b","r1.a",0,"Công tắc → R",""],["r1.b","c1.+",0,"R → (L) → C","KVL: L·di/dt + R·i + v_C = V."],["c1.-","bat.-",0,"C → nguồn (−)",""]],
+  checks:{1:[{t:"α = R/2L = 20/(2·0,01) = 1000 s⁻¹; ω₀ = 1/√(LC) ≈ 3162 rad/s → α < ω₀: dao động tắt dần",on:"r1"}],2:[{t:"V_C(s) = V / (s·(LCs² + RCs + 1)) — đọc giá trị L, C trên mô hình",on:"c1"}],3:[{t:"Nghiệm có dạng e^{−1000t}·cos(3000t): vọt lố rồi về 9 V",on:"c1"}]},sims:{4:["sim:rc"]}},
+ fsm:{title:"Thanh ghi trạng thái 2 bit (S1 S0) bằng 74HC74",parts:[BB(1,14),
+   {id:"bat",type:"battery",name:"Nguồn 5 V",pos:[-8.4,-.35,0],props:{kind:"9v"},label:"5 V",ph:1},
+   {id:"u1",type:"ic",name:"74HC74 (2 D flip-flop)",pos:[-1,0,0],props:{label:"74HC74",pins:14},label:"74HC74",ph:1,why:"Mã nhị phân 2 bit cần 2 flip-flop. Chân: 1 CLR1, 2 D1, 3 CLK1, 4 PR1, 5 Q1, 6 Q1', 7 GND, 8 Q2', 9 Q2, 10 PR2, 11 CLK2, 12 D2, 13 CLR2, 14 VCC."},
+   {id:"sw",type:"switch",name:"Nút clk (hết thời gian)",pos:[-5.4,0,2.2],props:{on:false},label:"clk",ph:1,why:"Thay cho tín hiệu “bộ đếm hết thời gian”."},
+   {id:"rp",type:"resistor",name:"R kéo xuống 10 kΩ",pos:[-4.4,0,-2.2],props:{ohm:10000},label:"10 kΩ",ph:1},
+   {id:"r0",type:"resistor",name:"R 330 Ω (S0)",pos:[2.6,0,-2.2],rot:[0,90,0],props:{ohm:330},ph:1},{id:"r1",type:"resistor",name:"R 330 Ω (S1)",pos:[4.4,0,-2.2],rot:[0,90,0],props:{ohm:330},ph:1},
+   {id:"d0",type:"led",name:"LED S0 (bit 0)",pos:[2.6,0,2.2],props:{color:"green",on:true},label:"S0",ph:1},{id:"d1",type:"led",name:"LED S1 (bit 1)",pos:[4.4,0,2.2],props:{color:"yellow",on:true},label:"S1",ph:1}],
+  wires:[["bat.+","u1.14",1,"VCC → chân 14",""],["bat.-","u1.7",1,"GND → chân 7",""],["u1.14","u1.1",1,"CLR1 lên VCC","CLR, PR tích cực mức thấp: nối VCC để không tác động."],["u1.14","u1.4",1,"PR1 lên VCC",""],["u1.14","u1.10",1,"PR2 lên VCC",""],["u1.14","u1.13",1,"CLR2 lên VCC",""],
+   ["u1.6","u1.2",1,"Q1' → D1 (FF1 lật mỗi xung)","D = Q' biến D-FF thành T-FF: S0 đảo mỗi cạnh clk."],["u1.8","u1.12",1,"Q2' → D2",""],["u1.6","u1.11",1,"Q1' → CLK2","FF2 lật khi S0 đi 1 → 0: hai FF đếm 00 → 01 → 10 → 11."],
+   ["bat.+","sw.a",1,"VCC → nút clk",""],["sw.b","u1.3",1,"Nút → CLK1",""],["u1.3","rp.a",1,"CLK1 → R kéo xuống",""],["rp.b","u1.7",1,"R → GND",""],
+   ["u1.5","r0.a",1,"Q1 (S0) → R",""],["r0.b","d0.A",1,"R → LED S0",""],["d0.K","u1.7",1,"LED S0 → GND",""],["u1.9","r1.a",1,"Q2 (S1) → R",""],["r1.b","d1.A",1,"R → LED S1",""],["d1.K","u1.7",1,"LED S1 → GND",""]],
+  checks:{0:[{t:"4 trạng thái S0…S3 → cần 2 bit = 2 flip-flop",on:"u1"}],2:[{t:"`state <= next;` trong always @(posedge clk) chính là 2 D-FF này",on:"u1"}],3:[{t:"Nhấn clk: (S1 S0) = 00 → 01 → 10 → 11 → 00, đúng chuỗi S0 → S1 → S2 → S3",on:"d0"}],4:[{t:"Trên FPGA thay nút bằng bộ đếm thời gian (20 s xanh / 3 s vàng)",on:"sw"}]},sims:{2:["sim:latch"],3:["sim:gates"]}},
+ robot:{title:"Cảm biến dò line TCRT5000 + tầng công suất",parts:[BB(1,14),
+   {id:"bat",type:"battery",name:"Nguồn 5 V",pos:[-8.4,-.35,0],props:{kind:"9v"},label:"5 V",ph:1},
+   {id:"r1",type:"resistor",name:"R 220 Ω (LED hồng ngoại)",pos:[-4.6,0,-1.8],props:{ohm:220},label:"220 Ω",ph:1,why:"I_IR ≈ (5 − 1,2)/220 ≈ 17 mA, trong mức của TCRT5000."},
+   {id:"d1",type:"led",name:"LED hồng ngoại",pos:[-2.6,0,-1.8],props:{color:"red",on:true},label:"IR",ph:1},
+   {id:"r2",type:"resistor",name:"R kéo lên 10 kΩ",pos:[-4.6,0,1.8],props:{ohm:10000},label:"10 kΩ",ph:1,why:"Vạch đen phản xạ ít → phototransistor tắt → V_out ≈ 5 V; nền trắng → V_out thấp."},
+   {id:"q1",type:"transistor",name:"Phototransistor",pos:[-2.4,0,1.8],props:{label:"Photo"},label:"Photo-Q",ph:1},
+   {id:"sw",type:"switch",name:"Tín hiệu PWM (giả lập)",pos:[1.6,0,-1.8],props:{on:true},label:"PWM",ph:2,why:"Thực tế là chân PWM của vi điều khiển."},
+   {id:"r3",type:"resistor",name:"R base 1 kΩ",pos:[3.4,0,-1.8],props:{ohm:1000},label:"1 kΩ",ph:2},
+   {id:"q2",type:"transistor",name:"Transistor công suất",pos:[5.2,0,0],props:{label:"NPN"},label:"NPN",ph:2,why:"Một nhánh của cầu H: dòng nhỏ vào B đóng dòng lớn qua động cơ."},
+   {id:"r4",type:"resistor",name:"R 330 Ω",pos:[3.4,0,1.8],props:{ohm:330},ph:2},
+   {id:"d2",type:"led",name:"Động cơ (thay bằng LED)",pos:[5.2,0,2.2],props:{color:"yellow",on:true},label:"M",ph:2}],
+  wires:[["bat.+","r1.a",1,"5 V → R 220 Ω",""],["r1.b","d1.A",1,"R → LED IR",""],["d1.K","bat.-",1,"LED IR → GND",""],["bat.+","r2.a",1,"5 V → R kéo lên",""],["r2.b","q1.C",1,"R → cực C (V_out cảm biến)","Nối V_out vào chân ADC của vi điều khiển."],["q1.E","bat.-",1,"Cực E → GND",""],
+   ["bat.+","sw.a",2,"5 V → PWM",""],["sw.b","r3.a",2,"PWM → R base",""],["r3.b","q2.B",2,"R base → cực B",""],["q2.E","bat.-",2,"Cực E → GND",""],["bat.+","r4.a",2,"5 V → R",""],["r4.b","d2.A",2,"R → tải",""],["d2.K","q2.C",2,"Tải → cực C",""]],
+  checks:{0:[{t:"Pin đặt thấp, gần trục bánh: trọng tâm ổn định khi cua",on:"bat"}],3:[{t:"Vi điều khiển đọc V_out cảm biến bằng ADC; ngõ ra PWM thay cho công tắc",on:"q1"}],4:[{t:"Sai số e lấy từ chênh lệch các cảm biến; u = Kp·e + Kd·de/dt điều chỉnh PWM",on:"sw"}],5:[{t:"Tăng Kp tới khi robot lắc đều rồi giảm ~60 %",on:"sw"}]},sims:{2:["sim:pwm"]}}
+};
+const labFor=p=>PJ_LABS[p.tpl]||(p.lab&&p.lab.parts?p.lab:null);
+const PINL=(L,ref)=>{const [id,pin]=String(ref).split(".");const x=L.parts.find(q=>q.id===id);return (x?x.name:id)+(pin?" · chân "+pin:"")};
+function labSteps(L,k){const S=[];const nm=id=>(L.parts.find(q=>q.id===id)||{}).name||id;
+  L.parts.filter(x=>x.ph===k).forEach(x=>S.push({kind:"place",id:x.id,title:"Đặt "+x.name,why:x.why||""}));
+  L.wires.filter(w=>w[2]===k).forEach(w=>S.push({kind:"wire",w,title:"Nối "+w[3],why:w[4]||""}));
+  L.parts.filter(x=>x.fin&&x.fin.ph===k).forEach(x=>S.push({kind:"value",id:x.id,title:`Đặt giá trị ${x.name}: ${valTxt(x.type,x.fin.props)}`,why:x.fin.why||""}));
+  ((L.checks||{})[k]||[]).forEach(c=>S.push({kind:"check",c,title:c.t,why:c.why||""}));
+  ((L.sims||{})[k]||[]).filter(r=>typeof pjRefOk!=="function"||pjRefOk(r)).forEach(r=>S.push({kind:"sim",ref:r,title:"Mở "+(typeof pjRefLabel==="function"?pjRefLabel(r):r),why:"Xem đồ thị/hiện tượng của đúng phần này."}));
+  return S}
+const valTxt=(t,pr)=>t==="resistor"?(pr.ohm>=1e6?pr.ohm/1e6+" MΩ":pr.ohm>=1000?(pr.ohm/1000).toLocaleString("vi-VN")+" kΩ":pr.ohm+" Ω"):t==="capacitor"?String(pr.label||pr.uf+"µF").replace("u","µ"):JSON.stringify(pr);
+function labPart(x,k){const o=JSON.parse(JSON.stringify(x));delete o.ph;delete o.why;delete o.fin;if(x.fin&&x.fin.ph<k)o.props=Object.assign({},o.props||{},x.fin.props);return o}
+function labWire(spec,w,ids,map){const T=new Map(m3Terms(spec).map(t=>[t.pid+"|"+t.pin,t]));const rs=[w[0],w[1]].map(r=>{const [id,pin]=r.split(".");const p=spec.parts.find(q=>q.id===((map&&map[id])||id));return p&&T.get(p.id+"|"+m3PinName(p,pin))});if(!rs[0]||!rs[1])return null;
+  const [a,b]=rs;const isP=t=>t.part.type==="battery"&&t.pin==="+",isN=t=>t.part.type==="battery"&&t.pin==="-";const col=isP(a)||isP(b)?"#e05a4f":isN(a)||isN(b)?"#2f3640":["#e8b04a","#4caf7d","#5b8def","#c77dff","#ff8a3d"][ids.size%5];
+  const p=m3CleanPart({id:"w"+(ids.size+1),type:"wire",name:w[3].slice(0,40),color:col,props:{pts:m3Route([a.pos[0],a.pos[1]+.03,a.pos[2]],[b.pos[0],b.pos[1]+.03,b.pos[2]]),a:{id:a.pid,pin:a.pin},b:{id:b.pid,pin:b.pin},flow:true}},0,ids);if(p)p.props.auto=true;return p}
+function labBase(L,k){const ids=new Set();const parts=L.parts.filter(x=>x.ph<k).map(x=>m3CleanPart(labPart(x,k),0,ids)).filter(Boolean);const spec={title:L.title,parts};
+  L.wires.filter(w=>w[2]<k).forEach(w=>{const p=labWire(spec,w,ids);if(p)spec.parts.push(p)});return spec}
+/* liên thông qua dây (dây là phần tử riêng trong m3Netlist nên tự hợp nhất hai đầu dây) */
+function m3Conn(spec){const N=m3Netlist(spec);const par=new Map();const f=x=>{while(par.has(x)&&par.get(x)!==x)x=par.get(x);return x};const u=(a,b)=>{a=f(a);b=f(b);if(a!==b)par.set(a,b)};
+  spec.parts.filter(p=>p.type==="wire").forEach(w=>u(N.node(w.id+"|a"),N.node(w.id+"|b")));return (A,B)=>{const a=N.node(A),b=N.node(B);return a>=0&&b>=0&&f(a)===f(b)}}
+
+/* ---------- lớp hướng dẫn trên mô hình ---------- */
+window.M3_LAB=null;
+M3_PLUG.push(function(st){const J=window.M3_LAB;if(!J)return;window.M3_LAB=null;const {T,V,stage,rebuild,snap,select}=st.api;const L=J.L,k=J.k,S=J.steps,pr=J.prog;pr.d=Array.isArray(pr.d)?pr.d:[];
+  const map=Object.assign({},J.map||{});st.spec.parts.forEach(p=>{if(L.parts.some(x=>x.id===p.id))map[p.id]=p.id});st._labMap=map;
+  const card=document.createElement("div");card.className="m3t m3l";document.body.appendChild(card);
+  const lab=document.createElement("div");lab.className="m3l-tag";lab.hidden=true;stage.appendChild(lab);
+  const G=new T.Group();G.renderOrder=20;V.scene.add(G);let i=Math.max(0,Math.min(S.length,pr.i||0)),min=false,okT=0,t0=performance.now(),tagPos=null;
+  const accent=new T.Color(getComputedStyle(document.documentElement).getPropertyValue("--accent").trim()||"#ffc94d");
+  const clearG=()=>{G.children.slice().forEach(o=>{G.remove(o);o.traverse(x=>{if(x.geometry)x.geometry.dispose();if(x.material)x.material.dispose()})})};
+  const ring=(pos,r=.7)=>{const m=new T.Mesh(new T.RingGeometry(r*.82,r,40),new T.MeshBasicMaterial({color:accent,transparent:true,opacity:.9,side:T.DoubleSide,depthTest:false}));m.rotation.x=-Math.PI/2;m.position.set(pos[0],(pos[1]||0)+.08,pos[2]);m.renderOrder=21;m.userData.pulse=1;G.add(m);return m};
+  const dot=pos=>{const m=new T.Mesh(new T.SphereGeometry(.13,16,12),new T.MeshBasicMaterial({color:accent,transparent:true,opacity:.95,depthTest:false}));m.position.set(...pos);m.renderOrder=22;m.userData.pulse=1;G.add(m);return m};
+  const ghost=part=>{try{const o=m3Build(T,m3CleanPart(JSON.parse(JSON.stringify(part)),0,new Set()));o.traverse(x=>{if(x.material){const ms=(Array.isArray(x.material)?x.material:[x.material]).map(m=>{const c=m.clone();c.transparent=true;c.opacity=.38;c.depthWrite=false;if(c.color)c.color.lerp(accent,.35);return c});x.material=Array.isArray(x.material)?ms:ms[0]}});o.userData.ghost=1;G.add(o)}catch(e){}};
+  const termOf=ref=>{const [id,pin]=ref.split(".");const p=st.spec.parts.find(q=>q.id===map[id]);if(!p)return null;const nm=m3PinName(p,pin);return m3Terms({parts:[p]}).find(t=>t.pin===nm)||null};
+  const partOf=id=>st.spec.parts.find(q=>q.id===map[id]);
+  const def=id=>L.parts.find(x=>x.id===id);
+  const done=j=>{const s=S[j];if(!s)return false;if(pr.d.includes(j)&&(s.kind==="check"||s.kind==="sim"))return true;
+    if(s.kind==="place")return !!partOf(s.id);
+    if(s.kind==="wire"){const A=termOf(s.w[0]),B=termOf(s.w[1]);if(!A||!B)return false;return m3Conn(st.spec)(A.pid+"|"+A.pin,B.pid+"|"+B.pin)}
+    if(s.kind==="value"){const p=partOf(s.id),x=def(s.id);if(!p)return false;const want=x.fin.props;if(p.type==="resistor")return Math.abs(p.props.ohm-want.ohm)<=want.ohm*.006;if(p.type==="capacitor"){const n=v=>String(v||"").replace(/\s/g,"").replace(/u/g,"µ").toLowerCase();return n(p.props.label)===n(want.label)||(want.uf&&p.props.uf&&Math.abs(p.props.uf-want.uf)<want.uf*.01)}return false}
+    return false};
+  /* linh kiện mới người dùng vừa thêm → gán cho bước đang làm và đặt vào đúng chỗ */
+  const claim=()=>{const s=S[i];if(!s||s.kind!=="place"||partOf(s.id))return;const x=def(s.id);const used=new Set(Object.values(map));const n=st.spec.parts.find(p=>p.type===x.type&&!used.has(p.id));if(!n)return;
+    map[s.id]=n.id;n.pos=[...x.pos];if(x.rot)n.rot=[...x.rot];if(x.scale)n.scale=[...x.scale];n.name=x.name;if(x.label)n.label=x.label;if(x.props)n.props=Object.assign({},n.props,JSON.parse(JSON.stringify(x.props)));rebuild(n.id);toast("Đã đặt “"+x.name+"” vào đúng vị trí",1300)};
+  const help=()=>{const s=S[i];if(!s)return;snap();const ids=new Set(st.spec.parts.map(p=>p.id));
+    if(s.kind==="place"&&!partOf(s.id)){const np=m3CleanPart(labPart(def(s.id),k),0,ids);if(np){st.spec.parts.push(np);map[s.id]=np.id;rebuild(np.id)}}
+    if(s.kind==="wire"){const p=labWire(st.spec,s.w,ids,map);if(p){st.spec.parts.push(p);rebuild(p.id)}}
+    if(s.kind==="value"){const p=partOf(s.id);if(p){p.props=Object.assign({},p.props,def(s.id).fin.props);{const d0=def(s.id);p.label=(d0.label&&!/Ω|µF|nF/.test(d0.label)?d0.label+" = ":"")+valTxt(p.type,p.props)}rebuild(p.id)}}
+    if(s.kind==="sim")m3OpenRef(s.ref);
+    st.saved=false;if(!pr.d.includes(i))pr.d.push(i);J.save(map);setTimeout(next,s.kind==="sim"?100:450)};
+  const go=j=>{i=Math.max(0,Math.min(S.length,j));pr.i=i;J.save(map);draw()};
+  const next=()=>{let j=S.findIndex((_,q)=>q>i&&!pr.d.includes(q));if(j<0)j=S.findIndex((_,q)=>!pr.d.includes(q));go(j<0?S.length:j)};
+  const scene=()=>{clearG();tagPos=null;lab.hidden=true;const s=S[i];if(!s||min)return;
+    if(s.kind==="place"){const x=def(s.id);if(!partOf(s.id)){ghost(x);ring(x.pos,.75)}else ring(x.pos,.75);tagPos=[x.pos[0],1.4,x.pos[2]];lab.textContent=x.name+(x.props&&x.type==="resistor"&&!(x.fin&&x.fin.ph===k)?" · "+valTxt("resistor",x.props):"")}
+    if(s.kind==="wire"){const A=termOf(s.w[0]),B=termOf(s.w[1]);if(A)dot(A.pos);if(B)dot(B.pos);if(A&&B){const pts=m3Route(A.pos,B.pos).map(q=>new T.Vector3(...q));const g=new T.BufferGeometry().setFromPoints(new T.CatmullRomCurve3(pts).getPoints(40));const ln=new T.Line(g,new T.LineDashedMaterial({color:accent,dashSize:.12,gapSize:.08,depthTest:false,transparent:true}));ln.computeLineDistances();ln.renderOrder=22;G.add(ln);tagPos=pts[Math.floor(pts.length/2)].toArray();tagPos[1]+=.5}
+      lab.textContent=PINL(L,s.w[0])+"  ⟶  "+PINL(L,s.w[1])}
+    if(s.kind==="value"||s.kind==="check"){const id=s.kind==="value"?s.id:s.c.on;const p=id&&partOf(id);if(p){ring(p.pos,1);tagPos=[p.pos[0],1.5,p.pos[2]];lab.textContent=s.kind==="value"?`${def(s.id).name} → ${valTxt(p.type,def(s.id).fin.props)}`:(def(id)||{}).name||""}}
+    lab.hidden=!tagPos;V.touch()};
+  const hl=()=>{$$(".m3t-hl").forEach(x=>x.classList.remove("m3t-hl"));if(min)return;const s=S[i];let el=null;
+    if(!s){el=$("#m3Save")}else if(s.kind==="wire")el=$('[data-tl="wire"]:not([aria-pressed="true"])');
+    else if(s.kind==="place"&&!partOf(s.id)){if(st.tab!=="lib"){const tb=$('[data-m3tab="lib"]');if(tb)tb.click()}el=$(`[data-add="${def(s.id).type}"]`)}
+    else if(s.kind==="value"){const p=partOf(s.id);if(p&&st.sel!==p.id)select(p.id);if(st.tab!=="prop"){const tb=$('[data-m3tab="prop"]');if(tb)tb.click()}el=$('#m3P input[data-pr="ohm"],#m3P input[data-pr="label"]')}
+    if(el)el.classList.add("m3t-hl")};
+  const KIND={place:"Đặt linh kiện",wire:"Nối dây",value:"Chỉnh giá trị",check:"Quan sát / kiểm tra",sim:"Mô phỏng"};
+  const how=s=>s.kind==="place"?`Bấm nút <b>${esc(M3_TYPES[def(s.id).type].l)}</b> đang nhấp nháy ở thẻ Linh kiện — app sẽ đặt nó vào <b>bóng mờ</b> trên breadboard.`:s.kind==="wire"?`Bật <b>Nối dây</b>, bấm chấm sáng thứ nhất rồi chấm sáng thứ hai trên mô hình.`:s.kind==="value"?`Linh kiện đã được chọn — sửa ô giá trị đang nhấp nháy ở thẻ <b>Thuộc tính</b>.`:s.kind==="sim"?`Mở mô phỏng để xem hiện tượng, rồi quay lại.`:`Nhìn vào linh kiện có vòng sáng trên mô hình.`;
+  const draw=()=>{const s=S[i];const n=S.length;const dn=S.filter((_,j)=>pr.d.includes(j)||done(j)).length;card.className="m3t m3l"+(min?" min":"");
+    card.innerHTML=min?`<button class="m3t-pill" data-t="max">${ic("play")} Thực hành · ${Math.min(i+1,n)}/${n}</button>`:
+     `<div class="m3t-h"><span class="m3t-k">${ic("flag")} Bước ${J.k+1} dự án: ${esc(J.stepT)}</span><span class="grow"></span><button class="ghost ic" data-t="min" aria-label="Thu nhỏ" title="Thu nhỏ">${ic("min")}</button><button class="ghost ic" data-t="x" aria-label="Tắt hướng dẫn">${ic("close")}</button></div>
+      <div class="m3t-pg"><i style="width:${Math.round(dn/n*100)}%"></i></div><div class="m3t-dots">${S.map((_,j)=>`<button data-tj="${j}" class="${j===i?"on":""} ${pr.d.includes(j)||done(j)?"ok":""}" aria-label="Thao tác ${j+1}"></button>`).join("")}</div>
+      ${s?`<div class="m3t-n">${i+1}/${n} · ${KIND[s.kind]}</div><h4>${esc(s.title)}</h4><div class="m3t-x">${how(s)}</div>${s.why?`<div class="m3l-why">${ic("spark")} ${esc(s.why)}</div>`:""}
+        <div class="m3t-st ${done(i)?"ok":""}">${done(i)?`${ic("check")} Đúng rồi! Sang thao tác tiếp…`:`<span class="m3t-dot"></span> Đang chờ bạn làm trên mô hình…`}</div>
+        <div class="m3t-b"><button class="pill-btn" data-t="prev" ${i?"":"disabled"} aria-label="Thao tác trước">${ic("back")}</button><span class="grow"></span><button class="pill-btn" data-t="skip">Bỏ qua</button><button class="pill-btn primary" data-t="help">${s.kind==="check"?`${ic("check")} Đã xem`:s.kind==="sim"?`${ic("play")} Mở`:`${ic("spark")} Làm giúp`}</button></div>`
+      :`<div class="m3t-n">Xong ${dn}/${n} thao tác</div><h4>🎉 Hoàn thành phần thực hành của bước ${J.k+1}</h4><div class="m3t-x"><p>${esc(L.title)}</p><p>Mở thẻ <b>Hướng dẫn</b> bên phải để xem lại nguyên lý từng dây, hoặc bấm ▶ Mô phỏng nếu mạch hỗ trợ.</p></div>
+        <div class="m3t-b"><button class="pill-btn" data-t="again">${ic("undo")} Làm lại</button><span class="grow"></span><button class="pill-btn primary" data-t="save">${ic("check")} Lưu vào dự án</button></div>`}`;
+    const q=a=>$(`[data-t=${a}]`,card);
+    if(min){q("max").onclick=()=>{min=false;draw();scene()};hl();scene();return}
+    q("min").onclick=()=>{min=true;draw()};q("x").onclick=close;$$("[data-tj]",card).forEach(b=>b.onclick=()=>go(+b.dataset.tj));
+    if(s){q("prev").onclick=()=>go(i-1);q("skip").onclick=next;q("help").onclick=help}else{q("again").onclick=()=>{pr.d=[];go(0)};q("save").onclick=()=>{const b=$("#m3Save");if(b)b.click()}}
+    hl();scene()};
+  const place=()=>{if(!tagPos||lab.hidden)return;const v=new T.Vector3(...tagPos).project(V.cam);const c=V.renderer.domElement.getBoundingClientRect(),sr=stage.getBoundingClientRect();lab.style.left=(c.left-sr.left+(v.x+1)/2*c.width)+"px";lab.style.top=(c.top-sr.top+(1-v.y)/2*c.height)+"px";lab.style.opacity=v.z>1?0:1};
+  let raf=0;const loop=t=>{if(!document.body.contains(stage)){close();return}raf=requestAnimationFrame(loop);const ph=(t-t0)/1000;G.children.forEach(o=>{if(o.userData.pulse){const k2=1+.12*Math.sin(ph*5);o.scale.set(k2,k2,k2);if(o.material)o.material.opacity=.55+.4*Math.abs(Math.sin(ph*3))}else if(o.userData.ghost)o.traverse(x=>{if(x.material&&!Array.isArray(x.material))x.material.opacity=.28+.18*Math.sin(ph*4)})});if(G.children.length)V.touch();place()};raf=requestAnimationFrame(loop);
+  const close=()=>{cancelAnimationFrame(raf);clearInterval(iv);clearG();V.scene.remove(G);lab.remove();$$(".m3t-hl").forEach(x=>x.classList.remove("m3t-hl"));card.remove();V.touch()};
+  let last="";const iv=setInterval(()=>{if(!document.body.contains(stage)){close();return}if(min)return;claim();const sig=st.spec.parts.length+"|"+i;if(i<S.length&&done(i)){if(!pr.d.includes(i)){pr.d.push(i);J.save(map);draw();clearTimeout(okT);okT=setTimeout(next,800)}}else{if(sig!==last){last=sig;scene()}hl()}},500);
+  draw()});
+function labStart(p,k,full){const L=labFor(p);if(!L)return;const st=p.steps[k];const steps=full?[]:labSteps(L,k);const kk=full?99:k;const base=labBase(L,full?99:k);
+  st.lab=st.lab&&typeof st.lab==="object"?st.lab:{i:0,d:[]};pjSave(p,{steps:p.steps});
+  if(!full&&steps.length){window.M3_LAB={L,k,steps,stepT:st.t,prog:st.lab,map:st.lab.map||{},save:m=>{st.lab.map=Object.assign({},m);pjSave(p,{steps:p.steps})}}}
+  PJ40ctx={pid:p.id,step:k};openModelEditor(null,Object.assign(base,{title:(full?"Mô hình dự án – ":"Thực hành bước "+(k+1)+" – ")+L.title}))}
+
+/* ---------- thẻ Thực hành ---------- */
+pjPrac=function(el,p,st,i){const L=labFor(p);
+  if(!L){el.innerHTML=`<div class="pj43-c"><div class="pj43-ci">${ic("cube")}</div><div class="pj43-cb"><b>Dự án này chưa có mô hình thực hành</b><span class="muted">AI sẽ dựng mô hình 3D sát với nội dung dự án (linh kiện, giá trị, dây nối), sau đó app hướng dẫn bạn lắp lại từng thao tác ngay trên mô hình.</span>
+      <div class="pj43-row"><button class="pill-btn primary" data-lb="ai" ${P.sample?"":"disabled title='Cần API key AI (Cài đặt → AI)'"}>${ic("spark")} AI dựng mô hình cho dự án</button></div></div></div>`;
+    const b=$("[data-lb=ai]",el);if(b)b.onclick=async()=>{b.disabled=true;b.innerHTML=`<span class="spin"></span> AI đang dựng…`;try{const desc=`Dự án: ${p.title}. ${p.summary||""}\n`+p.steps.map((s,j)=>`Bước ${j+1} ${s.t}: ${s.guide||""}`).join("\n");const sp=await m3Generate(desc.slice(0,6000),"");
+        const parts=(sp.parts||[]).filter(x=>x.type!=="wire"&&x.type!=="text");const ws=(sp.parts||[]).filter(x=>x.type==="wire"&&x.props&&x.props.a&&x.props.b);
+        p.lab={title:sp.title||p.title,parts:parts.map(x=>Object.assign({},x,{ph:i,why:""})),wires:ws.map(w=>[w.props.a.id+"."+w.props.a.pin,w.props.b.id+"."+w.props.b.pin,i,w.name||"Dây",""]),checks:{},sims:{}};
+        pjSave(p,{lab:p.lab},true);toast("Đã dựng mô hình thực hành",1500);pjRender()}catch(e){toast("Chưa dựng được: "+(e.message||e),2600);b.disabled=false;b.innerHTML=`${ic("spark")} AI dựng mô hình cho dự án`}};return}
+  const S=labSteps(L,i);const pr=st.lab||{d:[]};const dn=(pr.d||[]).length;const KI={place:"cube",wire:"link",value:"edit",check:"view",sim:"wave"};
+  el.innerHTML=`<div class="pj45"><div class="pj43-c"><div class="pj43-ci">${ic("cube")}</div><div class="pj43-cb"><b>Thực hành trên mô hình · Bước ${i+1}: ${esc(st.t)}</b><span class="muted">${esc(L.title)}. Mỗi thao tác hiện ngay trên mô hình 3D: bóng mờ chỗ đặt linh kiện, chấm sáng ở chân cần nối, nhãn giải thích. Làm đúng là app tự sang thao tác tiếp; hoặc Bỏ qua / Làm giúp.</span>
+      ${S.length?`<div class="pj43-row"><button class="pill-btn primary" data-lb="go">${ic("play")} ${dn&&dn<S.length?`Tiếp tục (${dn}/${S.length})`:dn>=S.length?"Làm lại":"Bắt đầu thực hành bước này"}</button><button class="pill-btn" data-lb="full">${ic("view")} Xem mô hình hoàn chỉnh</button></div>`
+      :`<span>Bước này làm trên giấy / phần mềm, không có thao tác lắp mạch.</span><div class="pj43-row"><button class="pill-btn" data-lb="full">${ic("view")} Xem mô hình của dự án</button></div>`}</div></div>
+    ${S.length?`<ol class="pj45-l">${S.map((s,j)=>`<li class="${(pr.d||[]).includes(j)?"ok":""}"><span class="pj45-i">${ic(KI[s.kind])}</span><span><b>${esc(s.title)}</b>${s.why?`<small>${esc(s.why)}</small>`:""}</span></li>`).join("")}</ol>`:""}</div>`;
+  const g=$("[data-lb=go]",el);if(g)g.onclick=()=>{if((st.lab&&(st.lab.d||[]).length>=S.length)){st.lab={i:0,d:[]};pjSave(p,{steps:p.steps})}labStart(p,i)};
+  $("[data-lb=full]",el).onclick=()=>labStart(p,i,true)};
+
+/* ---------- thẻ Kiểm tra ---------- */
+async function pjTestMaterial(p,scope,i){const steps=scope==="all"?p.steps.map((s,j)=>[s,j]):[[p.steps[i],i]];let t=`# DỰ ÁN: ${p.title}\n${p.summary||""}\n`;
+  steps.forEach(([s,j])=>{t+=`\n## Bước ${j+1}: ${s.t}\nMục tiêu: ${s.goal||""}\nChỉ dẫn: ${s.guide||""}\nViệc cần làm: ${s.tasks.map(x=>x.t).join("; ")}\n${s.out?"Sản phẩm: "+s.out+"\n":""}${s.res?"Kết quả mong đợi: "+s.res+"\n":""}${s.sol?"Lời giải mẫu: "+s.sol+"\n":""}`});
+  const L=labFor(p);if(L){t+=`\n## Mô hình thực hành: ${L.title}\n`+L.parts.filter(x=>x.why||x.fin).map(x=>`- ${x.name}${x.fin?" = "+valTxt(x.type,x.fin.props):""}: ${(x.fin&&x.fin.why)||x.why||""}`).join("\n")+"\n"+L.wires.filter(w=>w[4]).map(w=>`- Dây ${w[3]}: ${w[4]}`).join("\n")}
+  const docs=[];if(p.subj){let budget=30000;for(const nb of UI.nbs.filter(n=>n.subj===p.subj).slice(0,8)){let srcs=[];try{srcs=await Store.query({nb:nb.id,type:"src"})}catch(e){}for(const s of srcs.slice(0,4)){if(budget<=0)break;try{const x=(await sourceText(s)||"").slice(0,Math.min(9000,budget));if(x.trim()){t+=`\n## TÀI LIỆU: ${s.name} (bài ${nb.title})\n${x}\n`;budget-=x.length;docs.push(s.name)}}catch(e){}}}}
+  return {t,docs}}
+function pjGround(b,T){const w=b.replace(/[^\p{L}\p{N}\s.,=±%/+−-]/gu," ").split(/\s+/).filter(x=>x.length>1);if(w.length<3)return T.includes(b)&&b.length>3;const hit=w.filter(x=>T.includes(x)).length/w.length;let win=false;for(let k=0;k+4<=w.length&&!win;k++)if(T.includes(w.slice(k,k+4).join(" ")))win=true;return hit>=.8&&win}
+const nrm45=s=>String(s||"").toLowerCase().normalize("NFC").replace(/[*_`>#]/g,"").replace(/\s+/g," ").trim();
+function pjTestLocal(p,scope,i,n){const pool=[];const steps=scope==="all"?p.steps.map((s,j)=>[s,j]):[[p.steps[i],i]];const rnd=a=>a.map(x=>[Math.random(),x]).sort((a,b)=>a[0]-b[0]).map(x=>x[1]);
+  const mc=(q,right,wrong,basis,src)=>{const opts=rnd([right,...rnd(wrong.filter(w=>w&&nrm45(w)!==nrm45(right))).slice(0,3)]);if(opts.length<2)return;pool.push({type:"mc",q,options:opts,answer:opts.indexOf(right),explain:"Theo nội dung dự án.",basis,src,ok:1})};
+  steps.forEach(([s,j])=>{if(s.goal)mc(`Mục tiêu của bước “${s.t}” là gì?`,s.goal,p.steps.filter(x=>x!==s).map(x=>x.goal),s.goal,"Bước "+(j+1));if(s.out)mc(`Sản phẩm cần có sau bước “${s.t}”?`,s.out,p.steps.filter(x=>x!==s).map(x=>x.out),s.out,"Bước "+(j+1))});
+  const L=labFor(p);if(L)L.parts.filter(x=>x.fin&&x.type==="resistor"&&(scope==="all"||x.fin.ph===i||x.ph===i)).forEach(x=>{const v=x.fin.props.ohm;const f=o=>valTxt("resistor",{ohm:o});mc(`Trong mô hình “${L.title}”, ${x.name} có giá trị bao nhiêu?`,f(v),[f(v*10),f(v/10),f(v*2.2)],x.fin.why,"Mô hình thực hành")});
+  return rnd(pool).slice(0,n)}
+async function pjTestAI(p,scope,i,n,lv,onSt){const M=await pjTestMaterial(p,scope,i);onSt&&onSt("AI đang ra đề…");
+  const j=await pjAiJSON(`Bạn là giảng viên Kỹ thuật Điện tử – Máy tính. Ra ${n} câu kiểm tra tiếng Việt mức ${lv} về ${scope==="all"?"toàn bộ dự án":"bước "+(i+1)} dưới đây.
+QUY TẮC BẮT BUỘC:
+- Chỉ hỏi điều có trong TÀI LIỆU bên dưới, hoặc kiến thức kỹ thuật chuẩn đã kiểm chứng (định luật, công thức, datasheet phổ biến). Không bịa số liệu, không hỏi điều tài liệu không nói.
+- Mỗi câu có "basis": trích NGUYÊN VĂN ngắn (≤ 25 từ) từ tài liệu; nếu dựa trên kiến thức chuẩn thì ghi "Kiến thức chuẩn: <định luật/công thức>". "src": "Bước N" hoặc tên tài liệu.
+- Câu tính toán: tự tính lại cẩn thận, ghi đáp số kèm đơn vị và sai số cho phép.
+- Trộn: câu hiểu nguyên lý, câu tính toán, câu tình huống thực tế (đo, lắp, lỗi thường gặp).
+Trả về DUY NHẤT JSON: {"questions":[{"type":"mc","q":"…","options":["…","…","…","…"],"answer":0,"explain":"…","basis":"…","src":"…"},{"type":"num","q":"…","answer":1.05,"unit":"Hz","tol":0.05,"explain":"…","basis":"…","src":"…"},{"type":"tf","q":"…","answer":true,"explain":"…","basis":"…","src":"…"}]}
+TÀI LIỆU:
+${M.t.slice(0,60000)}`);
+  let Q=(j&&Array.isArray(j.questions)?j.questions:[]).filter(q=>q&&q.q&&(q.type==="mc"?Array.isArray(q.options)&&q.options.length>=2&&Number.isInteger(+q.answer):q.type==="num"?isFinite(+q.answer):q.type==="tf"));if(!Q.length)throw new Error("AI không trả về câu hỏi hợp lệ");
+  /* kiểm tra căn cứ có thật trong tài liệu */
+  const T=nrm45(M.t);Q.forEach(q=>{const b=nrm45(q.basis);q.grounded=/^kiến thức chuẩn/.test(b)?"std":pjGround(b,T)?"doc":"no"});
+  onSt&&onSt("AI đang kiểm tra lại đáp án…");
+  try{const v=await pjAiJSON(`Kiểm tra lại từng câu hỏi dưới đây dựa trên TÀI LIỆU và kiến thức kỹ thuật chuẩn. Với câu tính toán hãy TÍNH LẠI. Trả về DUY NHẤT JSON {"items":[{"i":0,"ok":true,"answer":<đáp án đúng nếu cần sửa>,"note":"lý do ngắn"}]}. ok=false nếu câu sai, mơ hồ, nhiều đáp án đúng hoặc không có căn cứ.
+CÂU HỎI: ${JSON.stringify(Q.map((q,k)=>({i:k,type:q.type,q:q.q,options:q.options,answer:q.answer,unit:q.unit,basis:q.basis})))}
+TÀI LIỆU:
+${M.t.slice(0,40000)}`);
+    (v&&Array.isArray(v.items)?v.items:[]).forEach(x=>{const q=Q[+x.i];if(!q)return;if(x.ok===false){if(x.answer!=null&&x.answer!==""&&(q.type!=="mc"||Number.isInteger(+x.answer))){q.answer=q.type==="tf"?!!x.answer:+x.answer;q.fixed=1;q.ok=1;if(x.note)q.explain=(q.explain||"")+" (Đã sửa khi kiểm tra lại: "+x.note+")"}else q.drop=1}else q.ok=1})}catch(e){}
+  Q=Q.filter(q=>!q.drop&&q.grounded!=="no");if(!Q.length)throw new Error("Không còn câu nào đủ căn cứ sau khi kiểm tra — thử lại");return {Q,docs:M.docs}}
+function pjTest(el,p,st,i){const S=PJ.test=PJ.test&&PJ.test.pid===p.id?PJ.test:{pid:p.id,scope:"step",n:8,lv:"vận dụng",Q:null,A:{},done:false,docs:[]};
+  const hist=(p.tests||[]).slice(-5).reverse();
+  const draw=()=>{const Q=S.Q;let sc=0;if(S.done&&Q)Q.forEach((q,k)=>{if(pjRight(q,S.A[k]))sc++});
+    el.innerHTML=`<div class="pj45t"><div class="pj45t-cfg"><b>${ic("check")} Bài kiểm tra</b><span class="muted">AI ra đề bám sát nội dung dự án${p.subj?" và tài liệu của môn":""}; mỗi câu có căn cứ, AI tự kiểm tra lại đáp án trước khi đưa cho bạn.</span>
+        <div class="pj43-row"><select class="input" data-ts="scope"><option value="step" ${S.scope==="step"?"selected":""}>Bước ${i+1}: ${esc(st.t.slice(0,40))}</option><option value="all" ${S.scope==="all"?"selected":""}>Cả dự án</option></select>
+          <select class="input" data-ts="n">${[5,8,12].map(v=>`<option ${S.n===v?"selected":""} value="${v}">${v} câu</option>`).join("")}</select>
+          <select class="input" data-ts="lv">${["cơ bản","vận dụng","nâng cao"].map(v=>`<option ${S.lv===v?"selected":""}>${v}</option>`).join("")}</select>
+          <button class="pill-btn primary" data-ts="go">${ic("spark")} ${Q?"Ra đề mới":"Tạo bài kiểm tra"}</button></div>
+        ${P.sample?"":`<small class="muted">Chưa có API key AI: đề được tạo từ chính nội dung dự án (mục tiêu, sản phẩm, giá trị linh kiện).</small>`}
+        ${hist.length?`<div class="pj45t-h">Gần đây: ${hist.map(h=>`<span class="chip">${h.score}/${h.n} · ${new Date(h.at).toLocaleDateString("vi-VN",{day:"numeric",month:"numeric"})}</span>`).join("")}</div>`:""}</div>
+      ${S.busy?`<div class="pj45t-busy"><span class="spin"></span> ${esc(S.busy)}</div>`:""}
+      ${Q?`${S.docs&&S.docs.length?`<div class="muted pj45t-src">Căn cứ: nội dung dự án + ${S.docs.length} tài liệu (${esc(S.docs.slice(0,3).join(", "))}${S.docs.length>3?"…":""})</div>`:""}
+        ${Q.map((q,k)=>{const a=S.A[k];const r=S.done&&pjRight(q,a);return `<div class="pj42-q ${S.done?(r?"ok":"bad"):""}"><div class="pj42-qh"><span class="pj42-qn">${k+1}</span><div class="pj-md">${mdBlock(q.q,[])}</div>${q.fixed?`<span class="chip" title="AI đã sửa đáp án khi kiểm tra lại">đã soát</span>`:""}</div>
+          ${q.type==="mc"?`<div class="pj45t-o">${q.options.map((o,j)=>`<label class="${S.done&&j===+q.answer?"right":""} ${S.done&&a===j&&j!==+q.answer?"wrong":""}"><input type="radio" name="tq${k}" value="${j}" ${a===j?"checked":""} ${S.done?"disabled":""}><span>${mdInline?mdInline(String(o),[]):esc(o)}</span></label>`).join("")}</div>`
+           :q.type==="tf"?`<div class="pj45t-o">${[[true,"Đúng"],[false,"Sai"]].map(([v,l])=>`<label class="${S.done&&v===!!q.answer?"right":""} ${S.done&&a===v&&v!==!!q.answer?"wrong":""}"><input type="radio" name="tq${k}" value="${v}" ${a===v?"checked":""} ${S.done?"disabled":""}><span>${l}</span></label>`).join("")}</div>`
+           :`<div class="pj45t-num"><input class="input" type="number" step="any" data-tn="${k}" value="${a??""}" ${S.done?"disabled":""} placeholder="Đáp số"><span>${esc(q.unit||"")}</span></div>`}
+          ${S.done?`<div class="pj42-fb"><b>${r?"✓ Đúng":"✗ Chưa đúng"}</b>${q.type==="num"?` — đáp án ${(+q.answer).toLocaleString("vi-VN")} ${esc(q.unit||"")}`:""}. ${mdInline?mdInline(String(q.explain||""),[]):esc(q.explain||"")}${q.basis?`<div class="pj45t-b">${ic("book")} <i>${esc(q.basis)}</i> <small>— ${esc(q.src||"")}</small></div>`:""}</div>`:""}</div>`}).join("")}
+        <div class="pj45t-end">${S.done?`<b class="pj45t-sc">${sc}/${Q.length} câu đúng</b><span class="grow"></span><button class="btn" data-ts="redo">${ic("undo")} Làm lại</button><button class="btn" data-ts="save">${ic("folder")} Lưu kết quả vào Tệp dự án</button>`:`<span class="muted">${Object.keys(S.A).length}/${Q.length} câu đã trả lời</span><span class="grow"></span><button class="pill-btn primary" data-ts="submit">${ic("check")} Nộp bài</button>`}</div>`:""}</div>`;
+    const q_=a=>$(`[data-ts=${a}]`,el);
+    q_("scope").onchange=e=>{S.scope=e.target.value};q_("n").onchange=e=>{S.n=+e.target.value};q_("lv").onchange=e=>{S.lv=e.target.value};
+    q_("go").onclick=async()=>{S.Q=null;S.A={};S.done=false;S.docs=[];if(!P.sample){S.Q=pjTestLocal(p,S.scope,i,S.n);if(!S.Q.length)toast("Dự án chưa đủ nội dung để ra đề",1800);draw();return}
+      S.busy="Đang gom nội dung dự án và tài liệu…";draw();try{const r=await pjTestAI(p,S.scope,i,S.n,S.lv,m=>{S.busy=m;draw()});S.Q=r.Q;S.docs=r.docs}catch(e){toast("Chưa ra được đề: "+(e.message||e),2800)}S.busy="";draw()};
+    $$("input[type=radio]",el).forEach(x=>x.onchange=()=>{const k=+x.name.slice(2);const q=S.Q[k];S.A[k]=q.type==="tf"?x.value==="true":+x.value;const c=$(".pj45t-end .muted",el);if(c)c.textContent=`${Object.keys(S.A).length}/${S.Q.length} câu đã trả lời`});
+    $$("[data-tn]",el).forEach(x=>x.oninput=()=>{const v=x.value.trim();if(v==="")delete S.A[+x.dataset.tn];else S.A[+x.dataset.tn]=+v});
+    const sb=q_("submit");if(sb)sb.onclick=()=>{S.done=true;let sc2=0;S.Q.forEach((q,k)=>{if(pjRight(q,S.A[k]))sc2++});p.tests=[...(p.tests||[]),{at:Date.now(),score:sc2,n:S.Q.length,scope:S.scope,step:i}].slice(-30);pjSave(p,{tests:p.tests},true);draw();el.scrollIntoView({block:"start"})};
+    const rd=q_("redo");if(rd)rd.onclick=()=>{S.A={};S.done=false;draw()};
+    const sv=q_("save");if(sv)sv.onclick=()=>{const md=`# Kiểm tra – ${S.scope==="all"?"cả dự án":"Bước "+(i+1)+": "+st.t}\n\n`+S.Q.map((q,k)=>`## Câu ${k+1} ${pjRight(q,S.A[k])?"✓":"✗"}\n${q.q}\n${q.type==="mc"?q.options.map((o,j)=>`- ${j===+q.answer?"**":""}${o}${j===+q.answer?"**":""}`).join("\n"):"Đáp án: "+(q.type==="tf"?(q.answer?"Đúng":"Sai"):q.answer+" "+(q.unit||""))}\n\nBạn chọn: ${S.A[k]??"(bỏ trống)"}\n\n${q.explain||""}\n> ${q.basis||""} — ${q.src||""}\n`).join("\n");
+      pjFileAdd(p,{kind:"note",name:`Kiểm tra – ${S.scope==="all"?"cả dự án":"Bước "+(i+1)}`,text:md,step:i});toast("Đã lưu vào Tệp dự án",1400)}};
+  draw()}
+function pjRight(q,a){if(a==null)return false;if(q.type==="mc")return +a===+q.answer;if(q.type==="tf")return !!a===!!q.answer;const ans=+q.answer;const tol=q.tol!=null&&isFinite(+q.tol)?Math.abs(+q.tol):.02;return Math.abs(+a-ans)<=Math.max(Math.abs(ans)*(tol<1?tol:0),tol>=1?tol:0,1e-9)}
+/* OOP: mô hình sơ đồ lớp 3D có sẵn của môn ECE206 */
+if(typeof M3_TPL!=="undefined"&&M3_TPL.e206_class&&M3_TPL.e206_class.spec){const sp=JSON.parse(JSON.stringify(M3_TPL.e206_class.spec));
+  PJ_LABS.oop={title:"Sơ đồ lớp: LinhKien ← DienTro, TuDien, LED",parts:(sp.parts||[]).filter(x=>x&&x.type!=="wire").map(x=>Object.assign(x,{ph:1,why:x.label||""})),wires:[],
+    checks:{0:[{t:"Mỗi loại linh kiện có mã, tên, số lượng và giá trị riêng → thuộc tính chung đặt ở lớp cơ sở LinhKien"}],2:[{t:"Thuộc tính private, truy cập qua getter; lớp cơ sở có hàm hủy ảo"}],3:[{t:"Gọi moTa() qua con trỏ LinhKien → chạy đúng phiên bản của lớp con (đa hình)"}],4:[{t:"Kiểm thử: thêm rồi tìm thấy, xóa rồi không còn"}],5:[{t:"Mỗi lớp tự ghi một dòng CSV (luuCSV() ảo)"}]}}}
+
+Object.assign(IC,{view:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'});
+/* =====================================================================
+   v40 — THỰC HÀNH KIỂU “HƯỚNG DẪN CHƠI GAME” TRÊN MÔ PHỎNG 2D/3D CỦA DỰ ÁN
+   - mỗi loại dự án có một mô phỏng chạy được (RAM mảng 2D, 555, bộ đếm, FSM, bộ lọc, RLC, NTC, robot)
+   - hướng dẫn từng nhiệm vụ: làm gì → (bạn làm) → điều gì xảy ra → nhiệm vụ tiếp; vùng cần bấm được rọi sáng
+   ===================================================================== */
+const L2={},L2_TPL={pcb:"ne555",chip:"counter",fsm:"fsm",filter:"filter",rlc:"rlc",meas:"ntc",robot:"robot"};
+function l2Txt(p){return [p.title,p.summary,...p.steps.map(s=>s.t+" "+(s.goal||""))].join(" ").toLowerCase()}
+function l2Pick(p){if(p.tpl&&L2_TPL[p.tpl])return L2_TPL[p.tpl];const t=l2Txt(p);for(const [k,d] of Object.entries(L2))if(d.match&&d.match.test(t))return k;return null}
+const l2Hex=(v,n=2)=>"0x"+(v>>>0).toString(16).toUpperCase().padStart(n,"0");
+const l2Bin=(v,n)=>(v>>>0).toString(2).padStart(n,"0");
+/* chọn bộ nhiệm vụ cho bước dự án: mẫu → theo chỉ số bước; tự tạo → theo từ khóa tên bước */
+function l2Tut(def,p,i){const st=p.steps[i];const t=(st.t+" "+(st.goal||"")).toLowerCase();let key=null;
+  if(p.tpl&&def.byIdx&&def.byIdx[i])key=def.byIdx[i];else if(def.byKw)for(const [re,k] of def.byKw)if(re.test(t)){key=k;break}
+  key=key||def.fallback;return {key,...def.tuts[key]}}
+
+/* ---- máy hướng dẫn v41: mỗi nhiệm vụ = danh sách thao tác cụ thể (ở đâu · làm thế nào), tự tick khi làm đúng,
+        báo “Hoàn thành” ngay, làm sai thì nói sai ở đâu + cách đúng rồi cho làm tiếp ---- */
+const L2_CLICKY=new Set(["pin","comp","blk","pick","cell","enc","ord","tab","st"]);
+const l2Plain=t=>String(t||"").replace(/\*\*|`/g,"");
+function l2WaitTypes(s){if(s._wt)return s._wt;const src=s.wait?String(s.wait):"";const m=[...src.matchAll(/e\.type\s*===\s*["'](\w+)["']/g)].map(x=>x[1]);return s._wt=new Set(m)}
+function l2Where(el,ov){if(!el)return "";const st=$(".l2-st",ov)||ov;const R=st.getBoundingClientRect(),r=el.getBoundingClientRect();const cx=(r.left+r.width/2-R.left)/R.width,cy=(r.top+r.height/2-R.top)/R.height;
+  const lab=(el.querySelector("label>span")||el.querySelector("label")||{}).textContent||el.getAttribute("aria-label")||(el.matches("button")?el.textContent:"")||"";const L=l2Plain(lab).replace(/\s+/g," ").trim().slice(0,40);
+  const area=cx<.3?"cột điều khiển bên trái":cy>.62?"phần phía dưới":cx>.75?"bên phải":"khung mô phỏng ở giữa";return L?`mục “${L}” — ${area}`:area}
+function l2How(el){if(!el)return "";if(el.querySelector('input[type=range]')||el.matches('input[type=range]'))return "Nhấn giữ nút tròn trên thanh trượt rồi kéo: sang phải để tăng, sang trái để giảm. Giá trị hiện ngay bên phải tên; nhả chuột khi đạt.";
+  if(el.matches(".seg")||el.querySelector(".seg"))return "Bấm vào đúng lựa chọn trong nhóm nút — nút đang chọn sẽ sáng màu.";
+  if(el.matches("svg,canvas")||el.querySelector("svg,canvas"))return "Bấm trực tiếp lên phần tử trên hình (rê chuột tới, con trỏ đổi thành bàn tay là đúng chỗ).";
+  if(el.matches("[role=tab],[data-tab]"))return "Bấm vào thẻ này để mở nội dung bên dưới.";return "Bấm nút này một lần."}
+function l2Desc(e){const d=e.data||{};return {pin:`chân ${d.n}`,comp:`linh kiện ${String(d.c||"").toUpperCase()}`,blk:`khối “${d.b}”`,pick:`trạng thái S${d.s}`,cell:`ô (${d.r}, ${d.c})`,enc:"cách mã hóa khác",ord:`bậc ${d.o||""}`,tab:`thẻ khác`,st:"phần tử khác"}[e.type]||e.type}
+
+function l2Open(p,i,key,opt={}){const def=L2[key];if(!def)return;const st=p.steps[i];const T=opt.free?{key:"free",title:"Chơi tự do",steps:[]}:l2Tut(def,p,i);
+  $$(".l2").forEach(x=>{x._l2close?x._l2close(true):x.remove()});const ov=document.createElement("div");ov.className="l2";ov.setAttribute("role","dialog");ov.setAttribute("aria-label",def.title);
+  ov.innerHTML=`<div class="l2-h"><span class="l2-badge">${def.d3?"3D":"2D"}</span><div class="l2-tt"><b>${esc(def.title)}</b><small>Bước ${i+1}: ${esc(st.t)} · ${esc(T.title)}</small></div><span class="grow"></span>
+    <button class="btn" data-l2a="tour">${ic("play")} Hướng dẫn</button><button class="btn" data-l2a="free">${ic("view")} Chơi tự do</button><button class="btn" data-l2a="save">${ic("folder")} Lưu vào Tệp</button><button class="ghost ic" data-l2a="x" aria-label="Đóng">${ic("close")}</button></div>
+    <div class="l2-body"><div class="l2-st"></div></div><div class="l2-spot" hidden></div><div class="l2-hand" hidden aria-hidden="true">👆</div><div class="l2-coach" aria-live="polite"></div>`;
+  document.body.appendChild(ov);document.body.classList.add("l2-open");
+  const cfg=def.cfg?def.cfg(p):{};const E={i:0,phase:"do",steps:T.steps||[],stars:0,free:!T.steps||!T.steps.length,ev:[],hit:{},err:null,sig:"",errT:0,tries:0,okN:0};
+  st.l2=st.l2&&st.l2.k===T.key?st.l2:{k:T.key,d:[]};
+  const cur=()=>E.free?null:E.steps[E.i];
+  /* các thao tác con của nhiệm vụ: khai báo s.do (mảng hoặc hàm) hoặc tự suy ra từ vùng target */
+  const subs=s=>{let d=typeof s.do==="function"?s.do(sim.S,sim):s.do;if(!d||!d.length)d=[{t:s.say,at:s.target,auto:1}];return d};
+  const subOk=(s,d,j)=>{const x=d[j];if(x.ok)try{return !!x.ok(sim.S,sim)}catch(e){return false}if(x.evf)return !!E.hit[j];return false};
+  const emit=(type,data)=>{const s=cur();if(!s||E.phase!=="do")return;const ev={type,data};E.ev.push(ev);if(E.ev.length>40)E.ev.shift();check(ev)};
+  const check=ev=>{const s=cur();if(!s||E.phase!=="do")return;let ok=false;
+    try{if(ev&&s.wait)ok=!!s.wait(sim.S,ev,sim);if(!ok&&s.fin&&(E.ev.length||s.finNow))ok=!!s.fin(sim.S,sim)}catch(e){console.warn(e)}
+    if(ok)return done();
+    if(ev){const d=subs(s);d.forEach((x,j)=>{if(x.evf)try{if(x.evf(ev,sim.S,sim))E.hit[j]=1}catch(e){}});
+      let m=null;try{m=s.bad?s.bad(sim.S,ev,sim):null}catch(e){}
+      if(!m&&l2WaitTypes(s).has(ev.type)){if(L2_CLICKY.has(ev.type))m={what:`Bạn vừa chọn ${l2Desc(ev)} — chưa đúng yêu cầu.`,fix:s.fix||l2Plain(s.hint||s.say)};
+        else{const el=$(s.target||"x",ov);if(el&&el.querySelector("input[type=range]")){clearTimeout(E.errT);E.errT=setTimeout(()=>{const s2=cur();if(s2!==s||E.phase!=="do")return;let fine=false;try{fine=s.fin?s.fin(sim.S,sim):false}catch(e){}if(!fine){E.err={soft:1,what:"Giá trị hiện tại chưa đạt yêu cầu.",fix:l2Plain(s.fix||s.say)};E.sig="";refresh()}},1100)}}}
+      if(m){E.err=typeof m==="string"?{what:m,fix:l2Plain(s.fix||s.hint||s.say)}:m;E.tries++;if(!RM())coach.animate([{transform:"translateX(0)"},{transform:"translateX(-6px)"},{transform:"translateX(6px)"},{transform:"translateX(0)"}],{duration:260})}
+      else if(E.err&&(E.err.soft||okN()>E.okN))E.err=null;else if(E.err)E.err.old=1}
+    E.okN=okN();refresh()};
+  const okN=()=>{const s=cur();if(!s)return 0;const d=subs(s);return d.filter((_,j)=>subOk(s,d,j)).length};
+  const sim=def.init($(".l2-st",ov),cfg,emit,p);
+  const coach=$(".l2-coach",ov),spot=$(".l2-spot",ov),hand=$(".l2-hand",ov);
+  const done=()=>{if(E.phase!=="do")return;E.phase="after";E.stars+=E.tries?.6:1;clearTimeout(E.errT);E.err=null;draw();
+    try{if(!st.l2.d.includes(E.i))st.l2.d.push(E.i);pjSave(p,{steps:p.steps})}catch(e){console.warn(e)}
+    if(!RM())coach.animate([{transform:"scale(1)"},{transform:"scale(1.04)"},{transform:"scale(1)"}],{duration:320});const s=cur();if(s&&!s.after)setTimeout(()=>{if(E.phase==="after"&&cur()===s)next()},1100)};
+  const next=()=>{E.i++;E.phase="do";E.ev=[];E.hit={};E.err=null;E.tries=0;E.sig="";E.okN=0;const s=cur();if(s&&s.run)try{s.run(sim.S,sim)}catch(e){console.warn(e)}draw();check(null)};
+  const curSub=()=>{const s=cur();if(!s||E.phase!=="do")return null;const d=subs(s);for(let j=0;j<d.length;j++)if(!subOk(s,d,j))return {x:d[j],j,d};return {x:d[d.length-1],j:d.length-1,d}};
+  const target=()=>{if(E.free)return null;if(E.phase==="after"){const b=$("[data-l2c=next]",coach);return b?{el:b,coach:1}:null}const c=curSub();const s=cur();const sel=(c&&c.x.at)||(s&&s.target);if(!sel)return null;const el=$(sel,ov);return el&&el.getClientRects().length?{el}:null};
+  const place=()=>{const t=target();if(!t){spot.hidden=true;hand.hidden=true;return}const r=t.el.getBoundingClientRect();
+    if(!t.coach){const right=r.left+r.width/2<innerWidth/2;coach.style.left=right?"auto":"18px";coach.style.right=right?"18px":"auto";spot.hidden=false;Object.assign(spot.style,{left:r.left-6+"px",top:r.top-6+"px",width:r.width+12+"px",height:r.height+12+"px"})}else spot.hidden=true;
+    hand.hidden=false;hand.classList.toggle("tap",!!t.coach);Object.assign(hand.style,{left:Math.min(innerWidth-40,r.left+r.width*.6)+"px",top:Math.min(innerHeight-40,r.bottom-4)+"px"})};
+  const progTxt=s=>{let t="";try{t=s.prog?s.prog(sim.S,sim):""}catch(e){}if(!t){const el=$(s.target||"x",ov);const sv=el&&el.querySelector("[data-sv]");if(sv){const L=(el.querySelector("label>span")||{}).textContent||"";t=`Hiện tại: ${L} = ${sv.textContent}`}}return t};
+  const dyn=s=>{const d=subs(s),c=curSub();const pr=progTxt(s);const busy=sim.S&&sim.S.busy;
+      const li=d.map((x,j)=>{const ok=subOk(s,d,j),on=c&&c.j===j&&!ok;const el=on?$(x.at||s.target||"x",ov):null;const wh=x.where||(def.where&&def.where[x.at||s.target])||l2Where(el,ov),hw=x.how||l2How(el);
+        return `<li class="${ok?"ok":on?"on":""}"><span class="l2-tn">${ok?"✓":j+1}</span><div><b>${mdInline(x.t,[])}</b>${on?`<div class="l2-how">${wh?`<div><span>📍 Ở đâu</span>${mdInline(wh,[])}</div>`:""}${hw?`<div><span>✋ Cách làm</span>${mdInline(hw,[])}</div>`:""}</div>`:""}</div></li>`}).join("");
+      return `<ol class="l2-todo ${d.length===1?"one":""}">${li}</ol>${pr?`<div class="l2-prog">${busy?"⏳ ":"📊 "}${mdInline(pr,[])}</div>`:""}
+        ${E.err?`<div class="l2-err ${E.err.soft?"soft":""} ${E.err.old?"old":""}"><div><b>${E.err.soft?"Chưa đạt":"✗ Chưa đúng"}:</b> ${mdInline(E.err.what,[])}</div>${E.err.fix?`<div><b>➜ Cách đúng:</b> ${mdInline(E.err.fix,[])}</div>`:""}<small>Cứ làm tiếp — làm đúng là nhiệm vụ tự hoàn thành.</small></div>`:""}
+        <div class="l2-st2"><span class="l2-dot"></span> ${busy?"Mô phỏng đang chạy… kết quả sẽ tự kiểm tra":"Làm trên mô phỏng — mỗi thao tác đúng sẽ tự được đánh dấu ✓"}</div>`};
+  const refresh=()=>{const s=cur();if(!s||E.phase!=="do")return place();const d=subs(s);const sig=JSON.stringify([d.map((_,j)=>subOk(s,d,j)),progTxt(s),E.err,sim.S&&sim.S.busy]);if(sig!==E.sig){E.sig=sig;const box=$(".l2-dyn",coach);if(box&&coach.dataset.k===E.i+":do")box.innerHTML=dyn(s);else draw()}place()};
+  const draw=()=>{const s=cur(),n=E.steps.length;
+    if(E.free){coach.className="l2-coach mini";coach.innerHTML=`<b>${ic("view")} Chơi tự do</b><span>Thử bất cứ gì trên mô phỏng. Bấm <b>Hướng dẫn</b> để làm theo nhiệm vụ.</span>`;place();return}
+    coach.className="l2-coach";
+    if(!s){const sc=Math.min(5,Math.max(1,Math.round(E.stars/Math.max(1,n)*5)));coach.innerHTML=`<div class="l2-ch"><b>🎉 Hoàn thành ${n}/${n} nhiệm vụ</b><span class="l2-stars">${"★".repeat(sc)}${"☆".repeat(5-sc)}</span></div><div class="l2-say">${esc(T.title)} — xong! ${T.outro?mdInline(T.outro,[]):""}</div>
+        <div class="l2-b"><button class="pill-btn" data-l2c="again">${ic("undo")} Chơi lại</button><span class="grow"></span><button class="pill-btn" data-l2c="free">Chơi tự do</button><button class="pill-btn primary" data-l2c="close">${ic("check")} Xong</button></div>`;
+      $("[data-l2c=again]",coach).onclick=()=>{E.i=-1;E.stars=0;st.l2.d=[];next()};$("[data-l2c=free]",coach).onclick=()=>{E.free=true;draw()};$("[data-l2c=close]",coach).onclick=close;place();return}
+    const head=`<div class="l2-ch"><span class="l2-q">Nhiệm vụ ${E.i+1}/${n}</span><span class="l2-dots">${E.steps.map((_,j)=>`<i class="${j<E.i||(j===E.i&&E.phase==="after")?"ok":j===E.i?"on":""}"></i>`).join("")}</span><span class="grow"></span><button class="ghost ic" data-l2c="min" aria-label="Thu gọn" title="Thu gọn">${ic("min")}</button></div><h4>${esc(s.t)}</h4>`;
+    coach.dataset.k=E.i+":"+E.phase;
+    if(E.phase==="do")coach.innerHTML=head+`${s.do?`<div class="l2-say"><b>Mục tiêu:</b> ${mdInline(s.say,[])}</div>`:""}<div class="l2-dyn">${dyn(s)}</div>
+        ${s.hint?`<details class="l2-hint"><summary>Gợi ý thêm</summary>${mdInline(s.hint,[])}</details>`:""}
+        <div class="l2-b"><button class="pill-btn" data-l2c="skip">Bỏ qua</button><span class="grow"></span>${s.help?`<button class="pill-btn" data-l2c="help">${ic("spark")} Làm giúp</button>`:""}${!s.wait&&!s.fin?`<button class="pill-btn primary" data-l2c="ok">${ic("check")} Đã hiểu</button>`:""}</div>`;
+    else coach.innerHTML=head+`<div class="l2-ok">${ic("check")} Hoàn thành!${E.tries?` <small>(sau ${E.tries} lần thử)</small>`:""}</div>${s.after?`<div class="l2-after"><b>Điều gì vừa xảy ra:</b> ${mdInline(s.after,[])}</div>`:""}<div class="l2-b"><span class="grow"></span><button class="pill-btn primary" data-l2c="next">${E.i+1<n?"Nhiệm vụ tiếp":"Xem kết quả"} ${ic("next")}</button></div>`;
+    const q=a=>$(`[data-l2c=${a}]`,coach);
+    q("min")&&(q("min").onclick=()=>coach.classList.toggle("folded"));q("skip")&&(q("skip").onclick=next);q("next")&&(q("next").onclick=next);q("ok")&&(q("ok").onclick=done);
+    q("help")&&(q("help").onclick=()=>{try{s.help(sim.S,sim)}catch(e){console.warn(e)}setTimeout(()=>{if(E.phase==="do"&&cur()===s){check(null);if(E.phase==="do"&&cur()===s&&!(sim.S&&sim.S.busy))done()}},30)});
+    place()};
+  /* kiểm tra định kỳ: hoàn thành theo trạng thái (s.fin) & cập nhật danh sách thao tác ngay cả khi mô phỏng chạy nền */
+  const iv=setInterval(()=>{if(!ov.isConnected)return clearInterval(iv);const s=cur();if(s&&E.phase==="do"){if(s.fin||E.ev.length){let ok=false;try{ok=s.fin&&E.ev.length?!!s.fin(sim.S,sim):false;if(!ok&&s.wait)ok=E.ev.slice(-6).some(ev=>s.wait(sim.S,ev,sim))}catch(e){}if(ok)return done()}refresh()}else place()},400);addEventListener("resize",place);
+  const close=quiet=>{clearInterval(iv);clearTimeout(E.errT);removeEventListener("resize",place);try{sim.destroy&&sim.destroy()}catch(e){}ov.remove();document.body.classList.remove("l2-open");try{pjSave(p,{steps:p.steps},true)}catch(e){}if(!quiet&&typeof pjRender==="function")pjRender()};ov._l2close=close;
+  $$("[data-l2a]",ov).forEach(b=>b.onclick=()=>{const a=b.dataset.l2a;if(a==="x")close();if(a==="free"){E.free=true;draw()}if(a==="tour"){E.free=false;if(!E.steps.length){const T2=l2Tut(def,p,i);E.steps=T2.steps}E.i=Math.min(E.i,E.steps.length);E.sig="";draw();check(null)}
+    if(a==="save"){const txt=sim.export?sim.export():"";pjFileAdd(p,{kind:"note",name:`${def.title} – Bước ${i+1}`,text:`# ${def.title}\nBước ${i+1}: ${st.t}\n\n${txt}`,step:i});toast("Đã lưu kết quả mô phỏng vào Tệp dự án",1500)}});
+  ov.addEventListener("keydown",e=>{if(e.key==="Escape"){e.stopPropagation();close()}});
+  const s0=E.steps[0];if(s0&&s0.run)try{s0.run(sim.S,sim)}catch(e){}draw();return {sim,E}}
+
+/* ---------- lưới con trỏ chung: các nút bit ---------- */
+const l2Bits=(v,n,attr,cls="",lab="")=>`<div class="l2-bits ${cls}" ${attr}>${Array.from({length:n},(_,k)=>{const b=n-1-k;return `<button data-bit="${b}" class="${(v>>b)&1?"on":""}" aria-pressed="${!!((v>>b)&1)}" title="${lab}${b}">${(v>>b)&1}</button>`}).join("")}</div>`;
+
+/* =====================================================================
+   RAM mảng 2 chiều (R hàng × C cột × W bit), đồng bộ, đọc-trước-ghi
+   ===================================================================== */
+L2.ram={title:"RAM mảng 2 chiều",match:/\bram\b|bộ nhớ|memory|sram|ô nhớ/,
+ cfg(p){const t=l2Txt(p);let R=16,C=16,W=8;const m=t.match(/(\d+)\s*hàng\s*[×x*]\s*(\d+)\s*cột/);if(m){R=+m[1];C=+m[2]}const w=t.match(/(\d{2,5})\s*[×x*]\s*(\d{1,2})\s*bit|(\d{2,5})\s*[×x*]\s*(\d{1,2})\b/);if(w){const words=+(w[1]||w[3]),bits=+(w[2]||w[4]);if(bits>=1&&bits<=16)W=bits;if(!m&&words>=4){const k=Math.round(Math.log2(words));R=2**Math.ceil(k/2);C=2**Math.floor(k/2)}}
+   R=Math.max(2,Math.min(32,R));C=Math.max(2,Math.min(32,C));return {R,C,W}},
+ init(host,cfg,emit){const {R,C,W}=cfg;const rb=Math.round(Math.log2(R)),cb=Math.round(Math.log2(C)),AB=rb+cb,MAXV=(1<<W)-1;
+  const S={mem:new Array(R*C).fill(0),addr:0,din:0,we:0,dout:0,tab:"vhdl",log:[],fault:null,hl:"",flash:-1,busy:false,cyc:0,goal:-1,lastW:-1};
+  const rowOf=a=>a>>cb,colOf=a=>a&(C-1);
+  const cs=Math.max(14,Math.min(26,Math.floor(400/Math.max(R,C))));const ax=120,ay=26,aw=C*cs,ah=R*cs;const VW=ax+aw+30,VH=ay+ah+120;
+  const colr=v=>v?`hsl(${(v/MAXV)*300|0} 70% ${68-((v/MAXV)*18|0)}%)`:"color-mix(in srgb, var(--ink) 15%, var(--panel))";
+  host.innerHTML=`<div class="l2r"><aside class="l2r-c">
+     <div class="l2r-g" data-l2="addr"><label>Địa chỉ <span class="muted">A${AB-1}…A0</span></label><div class="l2r-ab"></div><div class="l2r-v" data-v="addr"></div></div>
+     <div class="l2r-g" data-l2="din"><label>Dữ liệu vào din <span class="muted">D${W-1}…D0</span></label><div class="l2r-db"></div><div class="l2r-v" data-v="din"></div></div>
+     <div class="l2r-g"><label>Chế độ</label><div class="seg l2r-we" data-l2="we"><button data-we="0">Đọc (we = 0)</button><button data-we="1">Ghi (we = 1)</button></div></div>
+     <button class="l2r-clk" data-l2="clk">⏵ Xung clock <small>cạnh lên</small></button>
+     <div class="l2r-g" data-l2="dout"><label>Dữ liệu ra dout</label><div class="l2r-leds"></div><div class="l2r-v" data-v="dout"></div></div>
+     <div class="l2r-g l2r-t"><label>Kiểm thử</label><div class="l2r-row"><button class="btn" data-l2="march">March C−</button><button class="btn" data-l2="checker">Bàn cờ</button></div><div class="l2r-row"><button class="btn" data-l2="fault">Lỗi kẹt-0: tắt</button><button class="btn" data-l2="clear">Xóa RAM</button></div></div></aside>
+   <div class="l2r-m"><svg class="l2r-svg" viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid meet" data-l2="array"></svg>
+     <div class="l2r-tabs" role="tablist">${[["vhdl","Mã VHDL"],["res","Tài nguyên & thời gian"],["log","Nhật ký"]].map(([k,l])=>`<button role="tab" data-tab="${k}" data-l2="tab-${k}">${l}</button>`).join("")}</div><div class="l2r-p"></div></div></div>`;
+  const svg=$(".l2r-svg",host),pane=$(".l2r-p",host);
+  const VH_=[["t","type ram_t is array (0 to "+(R-1)+", 0 to "+(C-1)+") of std_logic_vector("+(W-1)+" downto 0);"],["s","signal ram : ram_t := (others => (others => (others => '0')));"],["r","row <= to_integer(unsigned(addr("+(AB-1)+" downto "+cb+")));   -- giải mã hàng"],["c","col <= to_integer(unsigned(addr("+(cb-1)+" downto 0)));   -- giải mã cột"],["p","process(clk) begin"],["e","  if rising_edge(clk) then"],["w","    if we = '1' then ram(row, col) <= din;   -- ghi"],["x","    end if;"],["o","    dout <= ram(row, col);                   -- đọc (đồng bộ)"],["y","  end if;"],["z","end process;"]];
+  const paneDraw=()=>{$$("[data-tab]",host).forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===S.tab));
+    if(S.tab==="vhdl")pane.innerHTML=`<pre class="l2r-code">${VH_.map(([k,l])=>`<span class="${S.hl.includes(k)?"hl":""}">${esc(l)}</span>`).join("\n")}</pre>`;
+    if(S.tab==="res"){const bits=R*C*W;pane.innerHTML=`<div class="l2r-res"><div><b>${R*C}</b> từ × <b>${W}</b> bit = <b>${bits.toLocaleString("vi-VN")}</b> bit lưu trữ</div><div>Địa chỉ ${AB} bit = ${rb} bit hàng + ${cb} bit cột</div><div>Giải mã hàng ${rb}→${R} (one-hot) · bộ chọn cột ${C}:1 × ${W} bit</div><div>FPGA: suy luận thành <b>block RAM</b> (dùng ${bits} / 18 432 bit của 1 khối BRAM18) — hoặc ${bits} flip-flop nếu viết đọc bất đồng bộ</div>
+      <div class="l2r-tm"><b>Đường đọc (ví dụ minh họa):</b>${[["Giải mã hàng",1.2],["Chọn hàng (word line)",.8],["Bit line → bộ chọn cột",1.5],["Mux cột → thanh ghi dout",1.0]].map(([l,v],k)=>`<div class="l2r-bar"><span>${l}</span><i style="width:${v*40}px;animation-delay:${k*.25}s"></i><small>${v} ns</small></div>`).join("")}<div class="muted">Tổng ≈ 4,5 ns → f_max ≈ 1/(4,5 ns + setup) ≈ 200 MHz (số liệu ví dụ, xem báo cáo timing thật của công cụ).</div></div></div>`}
+    if(S.tab==="log")pane.innerHTML=`<ol class="l2r-log">${S.log.slice(-40).reverse().map(x=>`<li>${esc(x)}</li>`).join("")||"<li class=muted>Chưa có thao tác.</li>"}</ol>`};
+  const draw=()=>{const a=S.addr,r=rowOf(a),c=colOf(a);
+    $(".l2r-ab",host).innerHTML=l2Bits(a,AB,'data-bits="addr"',"",`A`).replace(/data-bit="(\d+)"/g,(m,b)=>`data-bit="${b}" data-kind="${+b>=cb?"row":"col"}"`);
+    $("[data-v=addr]",host).innerHTML=`${l2Hex(a)} → <b class="r">hàng ${r}</b> · <b class="c">cột ${c}</b>`;
+    $(".l2r-db",host).innerHTML=l2Bits(S.din,W,'data-bits="din"',"","D");$("[data-v=din]",host).textContent=`${l2Hex(S.din)} = ${S.din}`;
+    $$("[data-we]",host).forEach(b=>b.setAttribute("aria-pressed",+b.dataset.we===S.we));
+    $(".l2r-leds",host).innerHTML=Array.from({length:W},(_,k)=>`<i class="${(S.dout>>(W-1-k))&1?"on":""}"></i>`).join("");$("[data-v=dout]",host).textContent=`${l2Hex(S.dout)} = ${S.dout}`;
+    const fb=$("[data-l2=fault]",host);fb.textContent=S.fault?`Lỗi kẹt-0: ô ${S.fault.cell} bit ${S.fault.bit}`:"Lỗi kẹt-0: tắt";fb.classList.toggle("on",!!S.fault);
+    let g=`<text x="${ax}" y="11" class="t">Mảng ô nhớ ${R} × ${C} (mỗi ô ${W} bit)</text><rect x="14" y="${ay}" width="70" height="${ah}" rx="8" class="dec"/><text x="49" y="${ay+ah/2}" class="t c" transform="rotate(-90 49 ${ay+ah/2})">Giải mã hàng ${rb}→${R}</text>`;
+    for(let i=0;i<R;i++){const y=ay+i*cs+cs/2;g+=`<line x1="84" y1="${y}" x2="${ax}" y2="${y}" class="wl ${i===r?"on":""}"/>`}
+    for(let i=0;i<R;i++)for(let j=0;j<C;j++){const k=i*C+j,v=S.mem[k];g+=`<rect x="${ax+j*cs+1}" y="${ay+i*cs+1}" width="${cs-2}" height="${cs-2}" rx="3" class="cell ${i===r&&j===c?"sel":""} ${S.flash===k?"fl":""}" style="fill:${colr(v)}" data-cell="${k}"><title>Ô (${i},${j}) = ${l2Hex(v)}</title></rect>`}
+    for(let i=0;i<R;i++)g+=`<text x="${ax-3}" y="${ay+i*cs+cs/2+3}" class="t ix ${i===r?"on":""}" text-anchor="end">${i}</text>`;for(let j=0;j<C;j++)g+=`<text x="${ax+j*cs+cs/2}" y="${ay-3}" class="t c ix ${j===c?"on":""}">${j}</text>`;
+    if(S.goal>=0){const gi=rowOf(S.goal),gj=colOf(S.goal);g+=`<rect x="${ax+gj*cs-2}" y="${ay+gi*cs-2}" width="${cs+4}" height="${cs+4}" rx="5" class="goal"/><text x="${ax+gj*cs+cs/2}" y="${ay+gi*cs-6}" class="t c goalt">đích (${gi},${gj})</text>`}
+    for(let j=0;j<C;j++){const x=ax+j*cs+cs/2;g+=`<line x1="${x}" y1="${ay+ah}" x2="${x}" y2="${ay+ah+22}" class="bl ${j===c?"on":""}"/>`}
+    g+=`<rect x="${ax}" y="${ay+ah+22}" width="${aw}" height="34" rx="8" class="mux"/><text x="${ax+aw/2}" y="${ay+ah+44}" class="t c">Bộ chọn cột ${C}:1 (× ${W} bit)</text>
+      <line x1="${ax+aw/2}" y1="${ay+ah+56}" x2="${ax+aw/2}" y2="${ay+ah+78}" class="bl on"/><rect x="${ax+aw/2-60}" y="${ay+ah+78}" width="120" height="30" rx="8" class="dout"/><text x="${ax+aw/2}" y="${ay+ah+98}" class="t c">dout = ${l2Hex(S.dout)}</text>`;
+    svg.innerHTML=g;paneDraw()};
+  const log=t=>{S.log.push(t);if(S.tab==="log")paneDraw()};
+  const rd=k=>{let v=S.mem[k];if(S.fault&&S.fault.cell===k)v&=~(1<<S.fault.bit);return v};
+  const clk=()=>{if(S.busy)return;const a=S.addr,k=a;const old=rd(k);S.cyc++;if(S.we){S.mem[k]=S.din&MAXV;S.lastW=k;S.dout=old;S.hl="pewo";log(`#${S.cyc} GHI ${l2Hex(S.din)} vào ô (${rowOf(a)},${colOf(a)}) [${l2Hex(a)}]`)}else{S.dout=old;S.hl="peo";log(`#${S.cyc} ĐỌC ô (${rowOf(a)},${colOf(a)}) [${l2Hex(a)}] → ${l2Hex(old)}`)}
+    S.flash=k;draw();setTimeout(()=>{S.flash=-1;draw()},500);emit("clk",{we:S.we,a,d:S.din,q:S.dout,r:rowOf(a),c:colOf(a)})};
+  host.addEventListener("click",e=>{const b=e.target.closest("[data-bit]");if(b&&!S.busy){const grp=b.closest("[data-bits]").dataset.bits,bit=+b.dataset.bit;if(grp==="addr"){const o=S.addr;S.addr^=1<<bit;S.hl=bit>=cb?"r":"c";draw();emit("addr",{a:S.addr,r:rowOf(S.addr),c:colOf(S.addr),or:rowOf(o),oc:colOf(o),bit})}else{S.din^=1<<bit;draw();emit("din",{d:S.din})}return}
+    const w=e.target.closest("[data-we]");if(w){S.we=+w.dataset.we;S.hl="w";draw();emit("we",{we:S.we});return}
+    if(e.target.closest("[data-l2=clk]"))return clk();
+    const cl=e.target.closest("[data-cell]");if(cl&&!S.busy){const k=+cl.dataset.cell;S.addr=k;S.hl="rc";draw();emit("cell",{k,r:rowOf(k),c:colOf(k),v:S.mem[k]});emit("addr",{a:k,r:rowOf(k),c:colOf(k)});return}
+    const t=e.target.closest("[data-tab]");if(t){S.tab=t.dataset.tab;paneDraw();emit("tab",{t:S.tab});return}
+    if(e.target.closest("[data-l2=fault]")){S.fault=S.fault?null:{cell:Math.floor(Math.random()*R*C),bit:Math.floor(Math.random()*W)};draw();log(S.fault?`Bật lỗi giả lập: ô ${S.fault.cell} bit ${S.fault.bit} luôn = 0`:"Tắt lỗi giả lập");emit("fault",{on:!!S.fault});return}
+    if(e.target.closest("[data-l2=clear]")){S.mem.fill(0);draw();log("Xóa toàn bộ RAM");emit("clear",{});return}
+    if(e.target.closest("[data-l2=march]"))return runTest("march");if(e.target.closest("[data-l2=checker]"))return runTest("checker")});
+  /* March C− : ⇕w0; ⇑r0w1; ⇑r1w0; ⇓r0w1; ⇓r1w0; ⇕r0 — chạy có hoạt ảnh */
+  const runTest=async kind=>{if(S.busy)return;S.busy=true;const N=R*C,ONE=MAXV;let err=[];const ops=[];const up=[...Array(N).keys()],dn=[...up].reverse();
+    if(kind==="march"){up.forEach(k=>ops.push(["w",k,0]));[[up,0,ONE],[up,ONE,0],[dn,0,ONE],[dn,ONE,0]].forEach(([o,r_,w_])=>o.forEach(k=>{ops.push(["r",k,r_]);ops.push(["w",k,w_])}));up.forEach(k=>ops.push(["r",k,0]))}
+    else{up.forEach(k=>ops.push(["w",k,((rowOf(k)+colOf(k))&1)?0xAA&ONE:0x55&ONE]));up.forEach(k=>ops.push(["r",k,((rowOf(k)+colOf(k))&1)?0xAA&ONE:0x55&ONE]))}
+    log(`Bắt đầu ${kind==="march"?"March C−":"bàn cờ"}: ${ops.length} thao tác`);const per=Math.max(1,Math.ceil(ops.length/90));
+    for(let q=0;q<ops.length;q+=per){for(let z=q;z<Math.min(ops.length,q+per);z++){const [o,k,v]=ops[z];S.addr=k;if(o==="w")S.mem[k]=v;else{const got=rd(k);S.dout=got;if(got!==v&&err.length<20)err.push(`ô ${k} (${rowOf(k)},${colOf(k)}): đọc ${l2Hex(got)}, mong ${l2Hex(v)}`)}}S.flash=S.addr;draw();await new Promise(r=>setTimeout(r,28))}
+    S.busy=false;S.flash=-1;draw();const u=[...new Set(err.map(x=>x.split(":")[0]))];log(err.length?`✗ ${kind==="march"?"March C−":"Bàn cờ"} phát hiện lỗi: ${u.join(", ")}`:`✓ ${kind==="march"?"March C−":"Bàn cờ"}: 0 lỗi`);S.tab="log";paneDraw();emit(kind,{err:err.length,cells:u});
+    toast(err.length?`Phát hiện lỗi ở ${u[0]}`:"Kiểm thử đạt: 0 lỗi",2200)};
+  draw();
+  return {S,cfg,set:(o)=>{Object.assign(S,o);draw()},clk,run:runTest,export:()=>`RAM ${R}×${C}×${W} bit\n\nNhật ký:\n${S.log.map(x=>"- "+x).join("\n")}\n\nNội dung khác 0:\n${S.mem.map((v,k)=>v?`- ô (${rowOf(k)},${colOf(k)}) = ${l2Hex(v)}`:"").filter(Boolean).slice(0,80).join("\n")}`}},
+ byKw:[[/yêu cầu|đặc tả/,"spec"],[/báo cáo|đánh giá/,"rep"],[/vhdl|verilog|rtl|mô tả/,"hdl"],[/testbench|mô phỏng/,"tb"],[/fpga|phần cứng|kiểm thử/,"hw"],[/giải mã|decoder|hàng\/cột/,"dec"],[/tài nguyên|thời gian|timing/,"res"],[/ô nhớ|cấu trúc mảng|mảng/,"cell"]],fallback:"cell",
+ tuts:{
+  spec:{title:"Làm quen đặc tả RAM",outro:"Bạn đã nắm: số từ, độ rộng dữ liệu, độ rộng địa chỉ và cách ghi/đọc đồng bộ.",steps:[
+   {t:"Đây là mảng ô nhớ",say:"Mỗi ô vuông là **một từ nhớ**. Bấm vào **bất kỳ ô nào** trên mảng.",target:"[data-l2=array]",wait:(S,e)=>e.type==="cell",help:(S,sim)=>sim.set({addr:Math.floor(Math.random()*sim.cfg.R*sim.cfg.C)}),after:"Ô được chọn sáng lên và **địa chỉ** bên trái tự đổi theo: hàng = các bit cao, cột = các bit thấp. Mỗi ô giữ một giá trị nhiều bit."},
+   {t:"Địa chỉ lớn nhất",say:"Bật **tất cả các bit địa chỉ** lên 1 để chọn ô cuối cùng.",target:"[data-l2=addr]",wait:(S,e,sim)=>e.type==="addr"&&S.addr===sim.cfg.R*sim.cfg.C-1,help:(S,sim)=>sim.set({addr:sim.cfg.R*sim.cfg.C-1}),after:"Địa chỉ toàn bit 1 = ô cuối (góc dưới phải). Số ô = 2^(số bit địa chỉ) — đó là **dung lượng** trong đặc tả."},
+   {t:"Dữ liệu vào",say:"Tạo giá trị **din = 0xA5** (1010 0101) bằng các nút bit.",target:"[data-l2=din]",wait:(S,e)=>e.type==="din"&&S.din===0xA5,help:(S,sim)=>sim.set({din:0xA5}),after:"din là **độ rộng dữ liệu** (W bit) — mỗi lần ghi/đọc đi đủ W bit song song."},
+   {t:"Chọn chế độ Ghi",say:"Chuyển chế độ sang **Ghi (we = 1)**.",target:"[data-l2=we]",wait:(S,e)=>e.type==="we"&&S.we===1,help:(S,sim)=>sim.set({we:1})},
+   {t:"Phát một xung clock",say:"Bấm **Xung clock**. RAM đồng bộ chỉ ghi ở **cạnh lên** của clock.",target:"[data-l2=clk]",wait:(S,e)=>e.type==="clk"&&e.data.we===1,help:(S,sim)=>sim.clk(),after:"Ô đang chọn đổi màu: giá trị 0xA5 đã được lưu. Không có cạnh clock thì đổi din/địa chỉ cũng **không** ghi gì."},
+   {t:"Đọc lại",say:"Chuyển sang **Đọc**, rồi bấm **Xung clock** để đọc ô vừa ghi.",target:"[data-l2=we]",wait:(S,e)=>e.type==="clk"&&e.data.we===0,help:(S,sim)=>{sim.set({we:0});sim.clk()},hint:"Đọc đồng bộ: dout chỉ cập nhật ở cạnh clock.",after:"dout = giá trị trong ô. Đặc tả hoàn chỉnh: số từ × W bit, địa chỉ, din, dout, we, clk, đọc đồng bộ."}]},
+  cell:{title:"Ô nhớ & cấu trúc mảng",outro:"Mảng 2 chiều = hàng × cột; một ô được chọn khi **đúng hàng và đúng cột** cùng tích cực.",steps:[
+   {t:"Chọn một ô",say:"Bấm ô ở **hàng 5, cột 3** trên mảng.",target:"[data-l2=array]",wait:(S,e)=>e.type==="cell"&&e.data.r===5&&e.data.c===3,help:(S,sim)=>sim.set({addr:5*sim.cfg.C+3}),after:"Đường **word line** của hàng 5 sáng (cam) và **bit line** cột 3 sáng: chỉ ô giao nhau được chọn."},
+   {t:"Nạp dữ liệu",say:"Đặt **din = 0x3C**.",target:"[data-l2=din]",wait:(S,e)=>e.type==="din"&&S.din===0x3C,help:(S,sim)=>sim.set({din:0x3C})},
+   {t:"Ghi vào ô",say:"Chọn **Ghi** rồi bấm **Xung clock**.",target:"[data-l2=we]",wait:(S,e)=>e.type==="clk"&&e.data.we===1&&e.data.r===5&&e.data.c===3,help:(S,sim)=>{sim.set({we:1});sim.clk()},after:"Ô (5,3) đổi màu → 8 flip-flop của ô đã chốt 0x3C. Các ô khác **không đổi** vì hàng/cột của chúng không được chọn."},
+   {t:"Ghi ô thứ hai cùng hàng",say:"Đổi **chỉ bit cột** để sang ô (5,4), đặt din = 0x0F rồi ghi.",target:"[data-l2=addr]",wait:(S,e)=>e.type==="clk"&&e.data.we===1&&e.data.r===5&&e.data.c===4,help:(S,sim)=>{sim.set({addr:5*sim.cfg.C+4,din:0x0F,we:1});sim.clk()},after:"Cùng word line (hàng 5), khác bit line → bộ chọn cột quyết định ô nào nhận dữ liệu."},
+   {t:"Đọc ô đầu tiên",say:"Quay về ô (5,3), chọn **Đọc** và bấm clock.",target:"[data-l2=array]",wait:(S,e)=>e.type==="clk"&&e.data.we===0&&e.data.r===5&&e.data.c===3,help:(S,sim)=>{sim.set({addr:5*sim.cfg.C+3,we:0});sim.clk()},after:"dout = 0x3C: dữ liệu vẫn còn — ô nhớ **giữ giá trị** cho tới lần ghi tiếp theo."}]},
+  dec:{title:"Bộ giải mã hàng & bộ chọn cột",outro:"Địa chỉ được tách: bit cao → giải mã hàng (one-hot), bit thấp → bộ chọn cột.",steps:[
+   {t:"Đổi một bit HÀNG",say:"Bấm một trong các **bit địa chỉ cao** (màu cam).",target:"[data-l2=addr] [data-kind=row]",wait:(S,e,sim)=>e.type==="addr"&&e.data.bit>=Math.log2(sim.cfg.C)&&e.data.r!==e.data.or,help:(S,sim)=>sim.set({addr:S.addr^(1<<Math.log2(sim.cfg.C))}),after:"Word line sáng **nhảy sang hàng khác**: bộ giải mã luôn bật đúng **một** đường (one-hot)."},
+   {t:"Đổi một bit CỘT",say:"Giờ bấm một **bit địa chỉ thấp** (màu xanh).",target:"[data-l2=addr] [data-kind=col]",wait:(S,e)=>e.type==="addr"&&e.data.c!==e.data.oc&&e.data.r===e.data.or,help:(S,sim)=>sim.set({addr:S.addr^1}),after:"Hàng giữ nguyên, **bit line** sáng đổi cột → bộ chọn cột C:1 đưa đúng cột ra dout."},
+   {t:"Câu đố địa chỉ",say:"Đặt địa chỉ **0x7C**. Đoán trước: ô ở hàng mấy, cột mấy?",target:"[data-l2=addr]",wait:(S,e)=>e.type==="addr"&&S.addr===0x7C,help:(S,sim)=>sim.set({addr:0x7C}),after:"0x7C = 0111 1100 → 4 bit cao 0111 = **hàng 7**, 4 bit thấp 1100 = **cột 12** (với mảng 16 × 16)."},
+   {t:"Xem mã giải mã",say:"Mở thẻ **Mã VHDL** và xem 2 dòng `row <=` / `col <=`.",target:"[data-l2=tab-vhdl]",wait:(S,e)=>e.type==="tab"&&e.data.t==="vhdl",help:(S,sim)=>sim.set({tab:"vhdl"}),after:"Trong VHDL, giải mã chỉ là **cắt bit** rồi đổi sang số nguyên; công cụ tổng hợp tự tạo bộ giải mã/mux."}]},
+  res:{title:"Tài nguyên & thời gian",outro:"Dung lượng quyết định số bit/BRAM; đường đọc quyết định tần số tối đa.",steps:[
+   {t:"Mở bảng tài nguyên",say:"Bấm thẻ **Tài nguyên & thời gian**.",target:"[data-l2=tab-res]",wait:(S,e)=>e.type==="tab"&&e.data.t==="res",help:(S,sim)=>sim.set({tab:"res"}),after:"Bảng tính số bit = từ × W, kích thước bộ giải mã/mux và cách FPGA ánh xạ (block RAM)."},
+   {t:"Đi theo đường đọc",say:"Chọn **Đọc** và bấm **Xung clock** để chạy một chu kỳ đọc.",target:"[data-l2=clk]",wait:(S,e)=>e.type==="clk"&&e.data.we===0,help:(S,sim)=>{sim.set({we:0});sim.clk()},after:"Tín hiệu đi: giải mã hàng → word line → bit line → mux cột → thanh ghi dout. Tổng trễ đường này giới hạn **f_max**."}]},
+  hdl:{title:"Ánh xạ mô phỏng ↔ mã VHDL",outro:"Mỗi thao tác trên mô phỏng tương ứng một dòng VHDL.",steps:[
+   {t:"Mở mã",say:"Bấm thẻ **Mã VHDL**.",target:"[data-l2=tab-vhdl]",wait:(S,e)=>e.type==="tab"&&e.data.t==="vhdl",help:(S,sim)=>sim.set({tab:"vhdl"})},
+   {t:"Ghi một ô",say:"Chọn **Ghi** rồi bấm **Xung clock**. Nhìn dòng được tô sáng.",target:"[data-l2=clk]",wait:(S,e)=>e.type==="clk"&&e.data.we===1,help:(S,sim)=>{sim.set({we:1,tab:"vhdl"});sim.clk()},after:"Sáng: `rising_edge(clk)` → `if we = '1' then ram(row, col) <= din` và `dout <= ram(row, col)` — đọc-trước-ghi nên dout ra **giá trị cũ**."},
+   {t:"Đọc một ô",say:"Chọn **Đọc** rồi bấm clock.",target:"[data-l2=we]",wait:(S,e)=>e.type==="clk"&&e.data.we===0,help:(S,sim)=>{sim.set({we:0,tab:"vhdl"});sim.clk()},after:"Chỉ dòng `dout <= ram(row, col)` chạy; nhánh ghi bị bỏ qua vì we = '0'."}]},
+  tb:{title:"Testbench: ghi – đọc – so sánh",outro:"Testbench tốt tự so sánh kết quả, không chỉ nhìn dạng sóng.",steps:[
+   {t:"Ghi giá trị mẫu",say:"Ghi **0x5A** vào ô bất kỳ (din, chế độ Ghi, clock).",target:"[data-l2=din]",wait:(S,e)=>e.type==="clk"&&e.data.we===1&&e.data.d===0x5A,help:(S,sim)=>{sim.set({din:0x5A,we:1});sim.clk()}},
+   {t:"Đọc lại và so",say:"Đọc lại **đúng ô đó**. dout phải bằng 0x5A.",target:"[data-l2=we]",wait:(S,e)=>e.type==="clk"&&e.data.we===0&&e.data.q===0x5A,help:(S,sim)=>{sim.set({we:0});sim.clk()},after:"Đây chính là một câu `assert dout = x\"5A\"` trong testbench."},
+   {t:"Chạy March C−",say:"Bấm **March C−** để testbench tự ghi/đọc mọi ô theo 6 lượt.",target:"[data-l2=march]",wait:(S,e)=>e.type==="march"&&e.data.err===0,help:(S,sim)=>sim.run("march"),after:"0 lỗi: mọi ô ghi được cả 0 và 1, không ô nào ảnh hưởng ô khác (lỗi ghép)."},
+   {t:"Gây lỗi và bắt lỗi",say:"Bật **Lỗi kẹt-0** rồi chạy **March C−** lần nữa.",target:"[data-l2=fault]",wait:(S,e)=>e.type==="march"&&e.data.err>0,help:(S,sim)=>{if(!S.fault)sim.set({fault:{cell:37,bit:3}});sim.run("march")},after:"Testbench **phát hiện** ô bị lỗi (xem Nhật ký) — chứng minh bộ kiểm thử đủ mạnh."}]},
+  hw:{title:"Kiểm thử trên phần cứng",outro:"Trên FPGA dùng mẫu bàn cờ/March để kiểm tra RAM thật, hiển thị kết quả qua LED/UART.",steps:[
+   {t:"Mẫu bàn cờ",say:"Bấm **Bàn cờ**: ghi 0x55/0xAA xen kẽ rồi đọc kiểm.",target:"[data-l2=checker]",wait:(S,e)=>e.type==="checker",help:(S,sim)=>sim.run("checker"),after:"Bàn cờ làm mọi bit cạnh nhau khác giá trị → lộ lỗi chập giữa các ô/bit lân cận."},
+   {t:"Mô phỏng chip lỗi",say:"Bật **Lỗi kẹt-0** và chạy **Bàn cờ** lần nữa.",target:"[data-l2=fault]",wait:(S,e)=>e.type==="checker"&&e.data.err>0,help:(S,sim)=>{if(!S.fault)sim.set({fault:{cell:91,bit:0}});sim.run("checker")},after:"Phần cứng lỗi sẽ cho kết quả như thế này — đèn LED “FAIL” trên bo sẽ sáng."},
+   {t:"Gỡ lỗi & chạy lại",say:"Tắt lỗi (bấm lại nút Lỗi) rồi chạy **March C−**.",target:"[data-l2=fault]",wait:(S,e)=>e.type==="march"&&e.data.err===0&&!S.fault,help:(S,sim)=>{sim.set({fault:null});sim.run("march")},after:"Đạt 0 lỗi → RAM hoạt động đúng trên phần cứng."}]},
+  rep:{title:"Tổng kết để viết báo cáo",outro:"Lưu nhật ký vào Tệp dự án để dán vào báo cáo.",steps:[
+   {t:"Số liệu tài nguyên",say:"Mở **Tài nguyên & thời gian** để lấy số liệu cho báo cáo.",target:"[data-l2=tab-res]",wait:(S,e)=>e.type==="tab"&&e.data.t==="res",help:(S,sim)=>sim.set({tab:"res"})},
+   {t:"Bằng chứng kiểm thử",say:"Chạy **March C−** để có kết quả kiểm thử.",target:"[data-l2=march]",wait:(S,e)=>e.type==="march",help:(S,sim)=>sim.run("march"),after:"Nhật ký có số thao tác và số lỗi — bấm **Lưu vào Tệp** ở trên để cất vào dự án."}]}}};
+
+/* =====================================================================
+   v40 — các mô phỏng 2D còn lại: NE555 · bộ đếm 4 bit · FSM đèn giao thông · lọc thông thấp · RLC · NTC · robot dò line
+   ===================================================================== */
+function l2Css(n,d){try{return getComputedStyle(document.documentElement).getPropertyValue(n).trim()||d}catch(e){return d}}
+function l2Plot(cv,o){const dpr=devicePixelRatio||1;const W=cv.clientWidth||420,H=cv.clientHeight||200;cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);const g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);
+  const L=46,B=24,Tp=10,R=10,pw=W-L-R,ph=H-Tp-B;const lx=o.logx;const X=x=>L+(lx?(Math.log10(x)-Math.log10(o.x0))/(Math.log10(o.x1)-Math.log10(o.x0)):(x-o.x0)/(o.x1-o.x0))*pw;const Y=y=>Tp+(1-(y-o.y0)/(o.y1-o.y0))*ph;
+  const ink=l2Css("--ink","#222"),mut=l2Css("--muted","#888"),line=l2Css("--line","#ccc");g.font="11px system-ui";g.strokeStyle=line;g.fillStyle=mut;g.lineWidth=1;
+  const xt=lx?(()=>{const a=[];for(let e=Math.ceil(Math.log10(o.x0));e<=Math.floor(Math.log10(o.x1));e++)a.push(10**e);return a})():Array.from({length:6},(_,k)=>o.x0+(o.x1-o.x0)*k/5);
+  xt.forEach(x=>{g.beginPath();g.moveTo(X(x),Tp);g.lineTo(X(x),Tp+ph);g.stroke();g.fillText(o.xf?o.xf(x):+x.toPrecision(3),X(x)-10,H-6)});
+  for(let k=0;k<=4;k++){const y=o.y0+(o.y1-o.y0)*k/4;g.beginPath();g.moveTo(L,Y(y));g.lineTo(L+pw,Y(y));g.stroke();g.fillText(+y.toPrecision(3),4,Y(y)+4)}
+  if(o.yl){g.fillStyle=mut;g.fillText(o.yl,L+4,Tp+11)}if(o.xl){g.fillText(o.xl,L+pw-g.measureText(o.xl).width,H-6)}
+  (o.hl||[]).forEach(([y,t,c])=>{g.setLineDash([5,4]);g.strokeStyle=c||mut;g.beginPath();g.moveTo(L,Y(y));g.lineTo(L+pw,Y(y));g.stroke();g.setLineDash([]);g.fillStyle=c||mut;g.fillText(t,L+pw-g.measureText(t).width-2,Y(y)-3)});
+  (o.vl||[]).forEach(([x,t,c])=>{if(x<o.x0||x>o.x1)return;g.setLineDash([5,4]);g.strokeStyle=c||mut;g.beginPath();g.moveTo(X(x),Tp);g.lineTo(X(x),Tp+ph);g.stroke();g.setLineDash([]);g.fillStyle=c||mut;g.fillText(t,X(x)+3,Tp+12)});
+  g.save();g.beginPath();g.rect(L,Tp,pw,ph);g.clip();(o.series||[]).forEach(s=>{g.strokeStyle=s.c||ink;g.lineWidth=s.w||2;g.beginPath();let st=false;const pts=s.pts||Array.from({length:s.n||300},(_,k)=>{const x=lx?10**(Math.log10(o.x0)+(Math.log10(o.x1)-Math.log10(o.x0))*k/((s.n||300)-1)):o.x0+(o.x1-o.x0)*k/((s.n||300)-1);return [x,s.f(x)]});
+    pts.forEach(([x,y])=>{if(!isFinite(y))return;const px=X(x),py=Y(y);if(!st){g.moveTo(px,py);st=true}else g.lineTo(px,py)});g.stroke()});
+  (o.dots||[]).forEach(([x,y,c])=>{g.fillStyle=c||ink;g.beginPath();g.arc(X(x),Y(y),5,0,6.283);g.fill()});g.restore();
+  g.strokeStyle=mut;g.strokeRect(L+.5,Tp+.5,pw,ph)}
+const l2Sl=(k,l,min,max,step,v,unit,fmt)=>`<div class="l2s" data-l2="${k}"><label><span>${l}</span><b data-sv="${k}">${fmt?fmt(v):v+" "+unit}</b></label><input type="range" min="${min}" max="${max}" step="${step}" value="${v}" data-sl="${k}" aria-label="${l}"></div>`;
+const kfmt=v=>v>=1e6?(v/1e6).toLocaleString("vi-VN",{maximumFractionDigits:2})+" M":v>=1e3?(v/1e3).toLocaleString("vi-VN",{maximumFractionDigits:2})+" k":(+v).toLocaleString("vi-VN",{maximumFractionDigits:2})+" ";
+function l2Bind(host,S,keys,emit,onCh){$$("[data-sl]",host).forEach(r=>r.oninput=()=>{const k=r.dataset.sl;S[k]=+r.value;const b=$(`[data-sv="${k}"]`,host);if(b&&keys[k])b.textContent=keys[k](S[k]);onCh&&onCh(k);emit(k,{v:S[k]})})}
+const l2Loop=fn=>{let raf=0,last=performance.now(),dead=false;const f=t=>{if(dead)return;const dt=Math.min(.1,(t-last)/1000);last=t;fn(dt);raf=requestAnimationFrame(f)};raf=requestAnimationFrame(f);return ()=>{dead=true;cancelAnimationFrame(raf)}};
+
+/* ===================== NE555 astable ===================== */
+L2.ne555={title:"NE555 dao động – đèn nháy",match:/\b555\b|đèn nháy|astable/,
+ init(host,cfg,emit){const S={R1:10,R2:10,C:10,R3:470,vc:3,out:1,t:0,run:false,cyc:0,hist:[],V:9,pin:0,sel:""};
+  const f_=()=>1.44/((S.R1+2*S.R2)*1e3*S.C*1e-6),tH=()=>.693*(S.R1+S.R2)*1e3*S.C*1e-6,tL=()=>.693*S.R2*1e3*S.C*1e-6,iL=()=>Math.max(0,(S.V-1.7-2)/S.R3*1000);
+  const P=[[1,"GND","Nối GND (−)."],[2,"TRIG","So với 1/3 VCC: tụ xuống tới 3 V → ngõ ra lên cao."],[3,"OUT","Ngõ ra xung vuông → R3 → LED."],[4,"RESET","Tích cực mức thấp → nối VCC."],[5,"CTRL","Chân điều khiển ngưỡng → tụ 10 nF xuống GND."],[6,"THR","So với 2/3 VCC: tụ lên tới 6 V → ngõ ra xuống thấp."],[7,"DIS","Xả tụ qua R2 khi ngõ ra thấp."],[8,"VCC","Nguồn +9 V."]];
+  host.innerHTML=`<div class="l2g"><aside class="l2g-c">${l2Sl("R1","R1",.1,100,.1,S.R1,"kΩ",v=>kfmt(v*1e3)+"Ω")}${l2Sl("R2","R2",1,200,1,S.R2,"kΩ",v=>kfmt(v*1e3)+"Ω")}
+     <div class="l2s" data-l2="C"><label><span>C (tụ định thời)</span><b data-sv="C">${S.C} µF</b></label><div class="seg">${[1,4.7,10,22,47,100].map(v=>`<button data-cv="${v}" aria-pressed="${v===S.C}">${v}</button>`).join("")}</div></div>
+     ${l2Sl("R3","R3 (hạn dòng LED)",100,1500,10,S.R3,"Ω",v=>v+" Ω")}
+     <div class="l2g-row"><button class="pill-btn primary" data-l2="run">▶ Chạy</button><button class="btn" data-l2="rst">Đặt lại</button></div><div class="l2g-k" data-l2="read"></div></aside>
+   <div class="l2g-m"><svg class="l2-555" viewBox="0 0 520 230" data-l2="sch"></svg><canvas class="l2-cv" data-l2="plot"></canvas><div class="l2g-note" data-note></div></div></div>`;
+  const svg=$(".l2-555",host),cv=$(".l2-cv",host),rd=$("[data-l2=read]",host),note=$("[data-note]",host);
+  const sch=()=>{const pin=(n,x,y,side)=>{const p=P[n-1];return `<g class="pin ${S.pin===n?"on":""}" data-pin="${n}"><line x1="${x}" y1="${y}" x2="${x+side*26}" y2="${y}"/><circle cx="${x+side*26}" cy="${y}" r="7"/><text x="${x+side*40}" y="${y+4}" class="t" text-anchor="${side>0?"start":"end"}">${n} ${p[1]}</text></g>`};
+    svg.innerHTML=`<rect x="200" y="30" width="120" height="170" rx="10" class="ic"/><text x="260" y="118" class="t c big">NE555</text>
+      ${[1,2,3,4].map((n,k)=>pin(n,200,60+k*38,-1)).join("")}${[8,7,6,5].map((n,k)=>pin(n,320,60+k*38,1)).join("")}
+      <g class="led ${S.out&&S.run?"on":""}" data-comp="led"><circle cx="70" cy="214" r="10"/><text x="88" y="218" class="t">LED</text></g>
+      <g data-comp="c1" class="comp"><rect x="420" y="150" width="70" height="26" rx="6"/><text x="455" y="167" class="t c">C1 ${S.C}µF</text></g><g data-comp="c2" class="comp"><rect x="420" y="190" width="70" height="26" rx="6"/><text x="455" y="207" class="t c">C2 10nF</text></g>
+      <text x="420" y="22" class="t">v_C = ${S.vc.toFixed(2)} V</text>`};
+  const read=()=>{rd.innerHTML=`f = <b>${f_().toLocaleString("vi-VN",{maximumFractionDigits:3})} Hz</b><br>t_H = ${tH().toFixed(3)} s · t_L = ${tL().toFixed(3)} s<br>Duty = ${((tH()/(tH()+tL()))*100).toFixed(1)} %<br>I_LED ≈ ${iL().toFixed(1)} mA ${iL()>20?"<b class=bad>> 20 mA</b>":""}`};
+  const plot=()=>{const h=S.hist;const t1=Math.max(4,S.t),t0=t1-4;l2Plot(cv,{x0:t0,x1:t1,y0:0,y1:10,xl:"t (s)",yl:"U (V)",hl:[[6,"2/3 VCC = 6 V","#e0607e"],[3,"1/3 VCC = 3 V","#5b8def"]],series:[{pts:h.map(q=>[q[0],q[1]]),c:l2Css("--accent","#e8a")},{pts:h.map(q=>[q[0],q[2]?8.5:.4]),c:l2Css("--sig","#5bd"),w:1.5}]})};
+  const all=()=>{sch();read();plot()};
+  const stop=l2Loop(dt=>{if(!S.run)return;const k=Math.max(1,Math.ceil(dt/.002));for(let q=0;q<k;q++){const h=dt/k;S.t+=h;if(S.out){S.vc+=(S.V-S.vc)*h/((S.R1+S.R2)*1e3*S.C*1e-6);if(S.vc>=S.V*2/3){S.out=0}}else{S.vc-=S.vc*h/(S.R2*1e3*S.C*1e-6);if(S.vc<=S.V/3){S.out=1;S.cyc++;emit("cycle",{n:S.cyc,f:f_()})}}}
+    S.hist.push([S.t,S.vc,S.out]);if(S.hist.length>2400)S.hist.splice(0,S.hist.length-2400);sch();plot()});
+  l2Bind(host,S,{R1:v=>kfmt(v*1e3)+"Ω",R2:v=>kfmt(v*1e3)+"Ω",R3:v=>v+" Ω"},emit,()=>{read()});
+  host.addEventListener("click",e=>{const c=e.target.closest("[data-cv]");if(c){S.C=+c.dataset.cv;$$("[data-cv]",host).forEach(b=>b.setAttribute("aria-pressed",b===c));$("[data-sv=C]",host).textContent=S.C+" µF";read();emit("C",{v:S.C});return}
+    const pn=e.target.closest("[data-pin]");if(pn){S.pin=+pn.dataset.pin;const p=P[S.pin-1];note.innerHTML=`<b>Chân ${p[0]} – ${p[1]}:</b> ${p[2]}`;sch();emit("pin",{n:S.pin});return}
+    const cp=e.target.closest("[data-comp]");if(cp){S.sel=cp.dataset.comp;note.innerHTML={led:"<b>LED:</b> sáng khi chân 3 ở mức cao.",c1:"<b>C1:</b> tụ định thời — đặt gần chân 2/6, cực + về chân 2/6.",c2:"<b>C2 10 nF:</b> đặt sát chân 5, chân kia về GND."}[S.sel];emit("comp",{c:S.sel});return}
+    if(e.target.closest("[data-l2=run]")){S.run=!S.run;e.target.closest("[data-l2=run]").textContent=S.run?"⏸ Dừng":"▶ Chạy";emit("run",{on:S.run});return}
+    if(e.target.closest("[data-l2=rst]")){Object.assign(S,{vc:0,out:1,t:0,cyc:0,hist:[]});all();emit("rst",{})}});
+  all();return {S,destroy:stop,set:o=>{Object.assign(S,o);host.querySelectorAll("[data-sl]").forEach(r=>{if(S[r.dataset.sl]!=null)r.value=S[r.dataset.sl]});$$("[data-cv]",host).forEach(b=>b.setAttribute("aria-pressed",+b.dataset.cv===S.C));["R1","R2","R3","C"].forEach(k=>{const b=$(`[data-sv=${k}]`,host);if(b)b.textContent=k==="C"?S.C+" µF":k==="R3"?S.R3+" Ω":kfmt(S[k]*1e3)+"Ω"});all()},f:f_,iL,
+   export:()=>`R1 = ${S.R1} kΩ, R2 = ${S.R2} kΩ, C = ${S.C} µF, R3 = ${S.R3} Ω\nf = ${f_().toFixed(3)} Hz, duty = ${((tH()/(tH()+tL()))*100).toFixed(1)} %, I_LED ≈ ${iL().toFixed(1)} mA\nSố chu kỳ đã chạy: ${S.cyc}`}},
+ byIdx:{0:"req",1:"sch",2:"val",3:"sim",4:"pcb",5:"pcb",6:"test"},fallback:"sim",
+ tuts:{req:{title:"Từ yêu cầu tới thông số",steps:[
+   {t:"Chọn tụ 10 µF",say:"Ở mục **C**, chọn **10** µF — giá trị dễ mua, dùng để tính R.",target:"[data-l2=C]",wait:(S,e)=>e.type==="C"&&S.C===10,help:(S,sim)=>sim.set({C:10})},
+   {t:"Đạt 1 Hz ± 10 %",say:"Kéo **R2** tới khi **f** (khung bên trái) nằm trong 0,9 – 1,1 Hz.",target:"[data-l2=R2]",wait:(S,e,sim)=>e.type==="R2"&&sim.f()>=.9&&sim.f()<=1.1,help:(S,sim)=>sim.set({R2:68,R1:1}),after:"f = 1,44 / ((R1 + 2R2)·C). Với C = 10 µF cần R1 + 2R2 ≈ 144 kΩ."},
+   {t:"Giới hạn dòng LED",say:"Chỉnh **R3** để **I_LED ≤ 20 mA**.",target:"[data-l2=R3]",wait:(S,e,sim)=>e.type==="R3"&&sim.iL()<=20,help:(S,sim)=>sim.set({R3:470}),after:"I ≈ (9 − 1,7 − 2) / R3: ngõ ra 555 sụt ~1,7 V, LED đỏ ~2 V."}]},
+  sch:{title:"Đi dây theo sơ đồ nguyên lý",outro:"Bạn vừa đi qua đủ 8 chân của NE555 chế độ astable.",steps:[
+   {t:"Chân nguồn",say:"Bấm vào chân nối **nguồn +9 V**.",target:"[data-l2=sch]",wait:(S,e)=>e.type==="pin"&&e.data.n===8,help:()=>$(".l2 [data-pin=\"8\"]").dispatchEvent(new MouseEvent("click",{bubbles:true})),hint:"Chân số 8.",after:"Chân 8 VCC. Chân 4 RESET cũng phải nối lên VCC."},
+   {t:"Chân RESET",say:"Bấm chân **RESET** (tích cực mức thấp).",target:"[data-l2=sch]",wait:(S,e)=>e.type==="pin"&&e.data.n===4,help:()=>$('.l2 [data-pin="4"]').dispatchEvent(new MouseEvent("click",{bubbles:true})),after:"Nối 4 lên VCC để IC không bị reset."},
+   {t:"Chân xả tụ",say:"Bấm chân nối giữa **R1 và R2** (xả tụ).",target:"[data-l2=sch]",wait:(S,e)=>e.type==="pin"&&e.data.n===7,help:()=>$('.l2 [data-pin="7"]').dispatchEvent(new MouseEvent("click",{bubbles:true})),after:"Chân 7 DIS: khi ngõ ra thấp, transistor trong IC nối chân 7 xuống GND → tụ xả qua R2."},
+   {t:"Hai chân đo tụ",say:"Bấm chân **THR** (so với 2/3 VCC).",target:"[data-l2=sch]",wait:(S,e)=>e.type==="pin"&&e.data.n===6,help:()=>$('.l2 [data-pin="6"]').dispatchEvent(new MouseEvent("click",{bubbles:true})),after:"Chân 6 nối chung chân 2 và cực + của C1: cả hai bộ so sánh cùng nhìn điện áp tụ."},
+   {t:"Ngõ ra",say:"Bấm chân **ngõ ra** điều khiển LED.",target:"[data-l2=sch]",wait:(S,e)=>e.type==="pin"&&e.data.n===3,help:()=>$('.l2 [data-pin="3"]').dispatchEvent(new MouseEvent("click",{bubbles:true})),after:"Chân 3 → R3 → LED → GND."},
+   {t:"Chạy thử",say:"Bấm **▶ Chạy** và xem LED nháy.",target:"[data-l2=run]",wait:(S,e)=>e.type==="cycle"&&e.data.n>=2,help:(S,sim)=>{S.run=true;$(".l2 [data-l2=run]").textContent="⏸ Dừng"},after:"Mạch đúng thì v_C (đồ thị) dao động giữa 3 V và 6 V và LED nháy theo."}]},
+  val:{title:"Tính và đặt giá trị linh kiện",steps:[
+   {t:"C = 10 µF",say:"Chọn **C = 10 µF**.",target:"[data-l2=C]",wait:(S,e)=>e.type==="C"&&S.C===10,help:(S,sim)=>sim.set({C:10})},
+   {t:"R1 = 1 kΩ",say:"Kéo **R1** về khoảng **1 kΩ**.",target:"[data-l2=R1]",wait:(S,e)=>e.type==="R1"&&Math.abs(S.R1-1)<=.15,help:(S,sim)=>sim.set({R1:1}),after:"R1 nhỏ để duty gần 50 %, nhưng ≥ 1 kΩ để dòng xả vào chân 7 không quá lớn."},
+   {t:"R2 ≈ 68 kΩ",say:"Kéo **R2** tới khoảng **68 kΩ**.",target:"[data-l2=R2]",wait:(S,e)=>e.type==="R2"&&Math.abs(S.R2-68)<=3,help:(S,sim)=>sim.set({R2:68}),after:"R1 + 2R2 = 137 kΩ → f = 1,44 / (137 kΩ · 10 µF) ≈ **1,05 Hz**, duty ≈ 51 %."},
+   {t:"R3 = 470 Ω",say:"Đặt **R3 ≈ 470 Ω** và đọc I_LED.",target:"[data-l2=R3]",wait:(S,e)=>e.type==="R3"&&Math.abs(S.R3-470)<=20,help:(S,sim)=>sim.set({R3:470}),after:"I_LED ≈ 11 mA ≤ 20 mA: đạt yêu cầu."}]},
+  sim:{title:"Quan sát mạch chạy",steps:[
+   {t:"Đặt giá trị chuẩn",say:"Bấm **Làm giúp** để nạp R1 = 1 kΩ, R2 = 68 kΩ, C = 10 µF (hoặc tự chỉnh).",target:"[data-l2=R2]",wait:(S,e,sim)=>(e.type==="R2"||e.type==="R1")&&Math.abs(sim.f()-1.05)<.08,help:(S,sim)=>sim.set({R1:1,R2:68,C:10})},
+   {t:"Chạy mô phỏng",say:"Bấm **▶ Chạy**, quan sát **v_C** trên đồ thị qua vài chu kỳ.",target:"[data-l2=run]",wait:(S,e)=>e.type==="cycle"&&e.data.n>=3,help:(S,sim)=>{S.run=true;$(".l2 [data-l2=run]").textContent="⏸ Dừng"},after:"v_C nạp lên tới **6 V** (2/3 VCC) → ngõ ra xuống thấp, tụ xả về **3 V** (1/3 VCC) → ngõ ra lên cao. Ngõ ra (đường thứ hai) là xung vuông."},
+   {t:"Đổi R2 khi đang chạy",say:"Kéo **R2** nhỏ lại khi mạch đang chạy.",target:"[data-l2=R2]",wait:(S,e)=>e.type==="R2"&&S.run&&S.R2<60,after:"Thời gian nạp/xả ngắn lại → LED nháy **nhanh hơn**; tần số tỉ lệ nghịch với (R1 + 2R2)·C."}]},
+  pcb:{title:"Bố trí linh kiện khi làm mạch in",steps:[
+   {t:"Tụ chân 5",say:"Bấm vào **C2 10 nF** trên sơ đồ.",target:"[data-l2=sch]",wait:(S,e)=>e.type==="comp"&&e.data.c==="c2",help:()=>$('.l2 [data-comp="c2"]').dispatchEvent(new MouseEvent("click",{bubbles:true})),after:"C2 đặt **sát chân 5**, đường về GND ngắn để chống nhiễu ngưỡng."},
+   {t:"Tụ định thời",say:"Bấm vào **C1**.",target:"[data-l2=sch]",wait:(S,e)=>e.type==="comp"&&e.data.c==="c1",help:()=>$('.l2 [data-comp="c1"]').dispatchEvent(new MouseEvent("click",{bubbles:true})),after:"Giữ vòng chân 2–6–C1 ngắn; tụ điện phân đặt đúng cực."},
+   {t:"Đường nguồn",say:"Bấm **chân 8 VCC**.",target:"[data-l2=sch]",wait:(S,e)=>e.type==="pin"&&e.data.n===8,help:()=>$('.l2 [data-pin="8"]').dispatchEvent(new MouseEvent("click",{bubbles:true})),after:"Đường nguồn VCC/GND vẽ rộng ≥ 0,5 mm; tín hiệu ≥ 0,25 mm."}]},
+  test:{title:"Đo kiểm sau khi hàn",steps:[
+   {t:"Cấp nguồn & đếm nháy",say:"Bấm **▶ Chạy** và để LED nháy **5 lần**.",target:"[data-l2=run]",wait:(S,e)=>e.type==="cycle"&&e.data.n>=5,help:(S,sim)=>{sim.set({R1:1,R2:68,C:10});S.run=true;$(".l2 [data-l2=run]").textContent="⏸ Dừng"},after:"Đếm số lần nháy trong 10 s hoặc đo bằng oscilloscope để so với 1 Hz ± 10 %."},
+   {t:"Kiểm tra dòng",say:"Đọc **I_LED** trong khung bên trái — nếu > 20 mA, tăng R3.",target:"[data-l2=read]",wait:null}]}}};
+
+/* ===================== Bộ đếm 4 bit ===================== */
+L2.counter={title:"Bộ đếm 4 bit (clk, rst_n, en, tc)",match:/bộ đếm|counter|đếm \d+ bit/,
+ init(host,cfg,emit){const S={q:0,en:1,rst:1,hist:[],bounce:false,deb:false,f:100,dly:3.2,pins:[],gate:false};const tc=()=>S.q===15&&S.en?1:0;
+  const code=[["a","always @(posedge clk or negedge rst_n)"],["r","  if (!rst_n)      q <= 4'd0;"],["e","  else if (en)     q <= q + 4'd1;"],["k","  // en = 0: giữ nguyên q"],["t","assign tc = en & (q == 4'd15);"]];let hl="";
+  host.innerHTML=`<div class="l2g"><aside class="l2g-c"><button class="l2r-clk" data-l2="clk">⏵ Xung clock</button><div class="l2g-row"><button class="btn" data-l2="en">en = 1</button><button class="btn" data-l2="rst">rst_n = 0 (reset)</button></div>
+      <div class="l2g-row"><button class="btn" data-l2="tb">▶ Chạy testbench</button><button class="btn" data-l2="bounce">Nút bị dội: tắt</button></div><div class="l2g-row"><button class="btn" data-l2="deb">Chống dội: tắt</button></div>
+      ${l2Sl("f","Tần số clock mục tiêu",50,400,10,S.f,"MHz",v=>v+" MHz")}<div class="l2g-k" data-l2="sta"></div></aside>
+    <div class="l2g-m"><svg viewBox="0 0 520 150" class="l2-cnt" data-l2="arch"></svg><canvas class="l2-cv" data-l2="wave"></canvas><pre class="l2r-code" data-l2="code"></pre></div></div>`;
+  const svg=$(".l2-cnt",host),cv=$(".l2-cv",host),cd=$("[data-l2=code]",host),sta=$("[data-l2=sta]",host);
+  const draw=()=>{svg.innerHTML=`<g data-blk="add" class="blk"><rect x="20" y="40" width="90" height="60" rx="10"/><text x="65" y="76" class="t c">+1</text></g><line x1="110" y1="70" x2="150" y2="70" class="w"/>
+      ${[3,2,1,0].map((b,k)=>`<g data-blk="ff" class="blk ff"><rect x="${150+k*62}" y="30" width="54" height="80" rx="8"/><text x="${177+k*62}" y="58" class="t c">FF${b}</text><text x="${177+k*62}" y="90" class="t c big ${(S.q>>b)&1?"one":""}">${(S.q>>b)&1}</text></g>`).join("")}
+      ${[3,2,1,0].map((b,k)=>`<g data-led="${b}" class="led ${(S.q>>b)&1?"on":""} ${S.pins.includes(b)?"map":""}"><circle cx="${177+k*62}" cy="132" r="9"/><text x="${190+k*62}" y="136" class="t">q${b}</text></g>`).join("")}
+      <g class="led ${tc()?"on":""}"><circle cx="440" cy="70" r="11"/><text x="456" y="74" class="t">tc</text></g><text x="410" y="30" class="t">q = ${S.q} (${l2Bin(S.q,4)})</text>`;
+    cd.innerHTML=code.map(([k,l])=>`<span class="${hl.includes(k)?"hl":""}">${esc(l)}</span>`).join("\n");
+    const h=S.hist.slice(-24);const n=Math.max(8,h.length);const rows=[["clk"],["rst_n"],["en"],["q0"],["q1"],["q2"],["q3"],["tc"]];
+    const W=cv.clientWidth||420,H=cv.clientHeight||180;const dpr=devicePixelRatio||1;cv.width=W*dpr;cv.height=H*dpr;const g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);g.font="11px monospace";const rh=(H-6)/rows.length,x0=44,cw=(W-x0-8)/n;
+    rows.forEach(([nm],r)=>{g.fillStyle=l2Css("--muted","#888");g.fillText(nm,4,r*rh+rh*.7);g.strokeStyle=r===0?l2Css("--muted","#888"):l2Css("--accent","#e8a");g.lineWidth=1.6;g.beginPath();
+      h.forEach((s,k)=>{const vals=r===0?[1,0]:[[s.rst,s.en,s.q&1,(s.q>>1)&1,(s.q>>2)&1,(s.q>>3)&1,s.tc][r-1]];vals.forEach((v,j)=>{const x=x0+k*cw+j*cw/vals.length,y=r*rh+(v?rh*.2:rh*.85);if(k===0&&j===0)g.moveTo(x,y);else g.lineTo(x,y);g.lineTo(x+cw/vals.length,y)})});g.stroke()});
+    const T=1000/S.f,slack=T-S.dly-.3;sta.innerHTML=`Chu kỳ T = ${T.toFixed(2)} ns · đường dài nhất ≈ ${S.dly} ns + setup 0,3 ns<br>Setup slack = <b class="${slack<0?"bad":"ok"}">${slack.toFixed(2)} ns</b>`;
+    $("[data-l2=en]",host).textContent="en = "+S.en;$("[data-l2=bounce]",host).textContent="Nút bị dội: "+(S.bounce?"bật":"tắt");$("[data-l2=deb]",host).textContent="Chống dội: "+(S.deb?"bật":"tắt")};
+  const tick=(src)=>{if(!S.rst){S.q=0;hl="ar"}else if(S.en){S.q=(S.q+1)&15;hl="aet"}else hl="ak";S.hist.push({q:S.q,en:S.en,rst:S.rst,tc:tc()});draw();emit("clk",{q:S.q,tc:tc(),src})};
+  host.addEventListener("click",e=>{const a=e.target.closest("[data-l2]");const bl=e.target.closest("[data-blk]");const ld=e.target.closest("[data-led]");
+    if(ld){const b=+ld.dataset.led;if(!S.pins.includes(b))S.pins.push(b);draw();emit("pin",{b,n:S.pins.length});return}
+    if(bl){emit("blk",{b:bl.dataset.blk});return}
+    if(!a)return;const k=a.dataset.l2;
+    if(k==="clk"){const n=S.bounce&&!S.deb?2+Math.floor(Math.random()*3):1;for(let i=0;i<n;i++)tick(n>1?"bounce":"btn");if(n>1)emit("bounced",{n})}
+    if(k==="en"){S.en^=1;draw();emit("en",{en:S.en})}
+    if(k==="rst"){S.rst=0;tick("rst");S.rst=1;emit("rst",{})}
+    if(k==="bounce"){S.bounce=!S.bounce;draw();emit("bounce",{on:S.bounce})}if(k==="deb"){S.deb=!S.deb;draw();emit("deb",{on:S.deb})}
+    if(k==="tb"){let ok=true,m=0;S.rst=0;tick("tb");S.rst=1;for(let i=0;i<20;i++){tick("tb");m=(m+1)&15;if(S.q!==m)ok=false}emit("tb",{ok});toast(ok?"Testbench: 20/20 chu kỳ khớp mô hình tham chiếu ✓":"Testbench lỗi",2200)}});
+  l2Bind(host,S,{f:v=>v+" MHz"},emit,()=>draw());draw();
+  return {S,set:o=>{Object.assign(S,o);draw()},tick,export:()=>`q = ${S.q}, en = ${S.en}\nLịch sử: ${S.hist.slice(-20).map(x=>x.q).join(", ")}\nSTA ở ${S.f} MHz: slack = ${(1000/S.f-S.dly-.3).toFixed(2)} ns`}},
+ byIdx:{0:"spec",1:"arch",2:"rtl",3:"tb",4:"syn",5:"sta",6:"pr",7:"hw"},fallback:"spec",
+ tuts:{spec:{title:"Đếm tới 15 và tràn",steps:[
+   {t:"Phát xung",say:"Bấm **Xung clock** 3 lần, nhìn 4 flip-flop và dạng sóng.",target:"[data-l2=clk]",wait:(S,e)=>e.type==="clk"&&S.q===3,help:(S,sim)=>{sim.set({q:2});sim.tick()},after:"Mỗi cạnh lên q tăng 1: 0001 → 0010 → 0011. q0 lật mỗi xung, q1 lật mỗi 2 xung…"},
+   {t:"Tới 15",say:"Tiếp tục bấm tới khi **q = 15** — đèn **tc** sẽ sáng.",target:"[data-l2=clk]",wait:(S,e)=>e.type==="clk"&&e.data.tc===1,help:(S,sim)=>{sim.set({q:14});sim.tick()},after:"tc (terminal count) = 1 khi q = 1111 và en = 1 — dùng để nối tầng bộ đếm."},
+   {t:"Tràn",say:"Bấm thêm **một** xung.",target:"[data-l2=clk]",wait:(S,e)=>e.type==="clk"&&S.q===0,after:"15 + 1 = 16 = 1 0000 nhưng chỉ giữ 4 bit → về **0** (tràn modulo 16)."}]},
+  arch:{title:"Thanh ghi + bộ cộng 1",steps:[
+   {t:"Bộ cộng",say:"Bấm khối **+1** trên sơ đồ.",target:"[data-l2=arch]",wait:(S,e)=>e.type==="blk"&&e.data.b==="add",help:()=>$('.l2 [data-blk="add"]').dispatchEvent(new MouseEvent("click",{bubbles:true})),after:"Khối tổ hợp tính q + 1 liên tục; kết quả chỉ được **chốt** vào thanh ghi ở cạnh clock."},
+   {t:"Tắt en",say:"Bấm **en** để chuyển về 0, rồi bấm **Xung clock**.",target:"[data-l2=en]",wait:(S,e)=>e.type==="clk"&&S.en===0,help:(S,sim)=>{sim.set({en:0});sim.tick()},after:"en = 0 → bộ chọn giữ nguyên q: đếm dừng dù có clock."},
+   {t:"Reset",say:"Bật lại **en**, rồi bấm **rst_n = 0**.",target:"[data-l2=rst]",wait:(S,e)=>e.type==="rst",after:"Reset đưa q về 0 bất kể clock — ưu tiên cao nhất trong thiết kế."}]},
+  rtl:{title:"Mỗi dòng Verilog làm gì",steps:[
+   {t:"Dòng đếm",say:"Với **en = 1**, bấm **Xung clock** và xem dòng sáng.",target:"[data-l2=clk]",wait:(S,e)=>e.type==="clk"&&S.en===1&&e.data.src!=="rst",help:(S,sim)=>{sim.set({en:1});sim.tick()},after:"`q <= q + 4'd1;` chạy ở mỗi `posedge clk` — phép gán **non-blocking**."},
+   {t:"Dòng reset",say:"Bấm **rst_n = 0**.",target:"[data-l2=rst]",wait:(S,e)=>e.type==="rst",after:"`if (!rst_n) q <= 4'd0;` — reset bất đồng bộ vì có `negedge rst_n` trong danh sách nhạy."}]},
+  tb:{title:"Testbench tự kiểm tra",steps:[{t:"Chạy testbench",say:"Bấm **▶ Chạy testbench**: reset rồi 20 xung, so với mô hình tham chiếu.",target:"[data-l2=tb]",wait:(S,e)=>e.type==="tb"&&e.data.ok,after:"20/20 khớp, kể cả lúc tràn 15 → 0. Dạng sóng hiện bên dưới."}]},
+  syn:{title:"Sau tổng hợp",steps:[{t:"Đếm flip-flop",say:"Bấm vào một **flip-flop** trên sơ đồ.",target:"[data-l2=arch]",wait:(S,e)=>e.type==="blk"&&e.data.b==="ff",help:()=>$('.l2 [data-blk="ff"]').dispatchEvent(new MouseEvent("click",{bubbles:true})),after:"Tổng hợp đúng phải ra **4 FF** + logic cộng; nếu có latch là do thiếu nhánh else."}]},
+  sta:{title:"Ràng buộc thời gian",steps:[
+   {t:"Đẩy tần số lên",say:"Kéo **Tần số clock** lên **trên 300 MHz** và xem slack.",target:"[data-l2=f]",wait:(S,e)=>e.type==="f"&&S.f>300,after:"T = 1/f nhỏ hơn đường trễ dài nhất → **slack âm**: vi phạm setup."},
+   {t:"Về vùng an toàn",say:"Giảm tần số tới khi **slack ≥ 0**.",target:"[data-l2=f]",wait:(S,e)=>e.type==="f"&&1000/S.f-S.dly-.3>=0,after:"Slack ≥ 0 → thiết kế chạy đúng ở tần số này."}]},
+  pr:{title:"Gán chân LED",steps:[{t:"Gán q0…q3",say:"Bấm lần lượt **4 LED q0, q1, q2, q3** để gán chân ngõ ra.",target:"[data-l2=arch]",wait:(S,e)=>e.type==="pin"&&e.data.n>=4,help:(S,sim)=>sim.set({pins:[0,1,2,3]}),after:"Mỗi ngõ ra đã có chân vật lý (trong file .xdc/.qsf)."}]},
+  hw:{title:"Kiểm thử trên bo",steps:[
+   {t:"Nút thật bị dội",say:"Bật **Nút bị dội**, rồi bấm **Xung clock** một lần.",target:"[data-l2=bounce]",wait:(S,e)=>e.type==="bounced",help:(S,sim)=>{sim.set({bounce:true,deb:false});},after:"Một lần nhấn nhưng q nhảy **nhiều đơn vị**: tiếp điểm cơ khí rung tạo nhiều cạnh xung."},
+   {t:"Chống dội",say:"Bật **Chống dội**, bấm clock lại.",target:"[data-l2=deb]",wait:(S,e)=>e.type==="clk"&&S.deb&&e.data.src==="btn",after:"Mạch chống dội (lọc ~10–20 ms) cho đúng **một** xung mỗi lần nhấn."}]}}};
+
+/* ===================== FSM đèn giao thông ===================== */
+L2.fsm={title:"FSM Moore – đèn giao thông",match:/fsm|máy trạng thái|đèn giao thông/,
+ init(host,cfg,emit){const S={s:0,t:0,G:20,Y:3,run:false,enc:"bin",speed:4,both:false};const ST=[["S0","BN xanh · ĐT đỏ"],["S1","BN vàng · ĐT đỏ"],["S2","BN đỏ · ĐT xanh"],["S3","BN đỏ · ĐT vàng"]];const dur=s=>s%2?S.Y:S.G;
+  host.innerHTML=`<div class="l2g"><aside class="l2g-c"><div class="l2g-row"><button class="pill-btn primary" data-l2="run">▶ Chạy</button><button class="btn" data-l2="tick">+1 giây</button></div>
+      ${l2Sl("speed","Tốc độ mô phỏng",1,20,1,S.speed,"×",v=>v+"×")}<div class="seg" data-l2="enc"><button data-enc="bin">Mã nhị phân</button><button data-enc="oh">One-hot</button></div><div class="l2g-k" data-l2="ffs"></div>
+      <button class="btn" data-l2="bug">Thử lỗi: bỏ trạng thái vàng</button></aside>
+    <div class="l2g-m"><svg viewBox="0 0 520 260" class="l2-fsm" data-l2="diag"></svg></div></div>`;
+  const svg=$(".l2-fsm",host),ffs=$("[data-l2=ffs]",host);const pos=[[110,70],[310,70],[310,190],[110,190]];
+  const light=(x,y,c)=>`<g transform="translate(${x},${y})"><rect width="30" height="78" rx="8" class="tl"/>${["r","y","g"].map((k,j)=>`<circle cx="15" cy="${14+j*25}" r="9" class="ll ${k} ${c===k?"on":""}"/>`).join("")}</g>`;
+  const col=(s,dir)=>dir==="bn"?(s===0?"g":s===1?"y":"r"):(s===2?"g":s===3?"y":"r");
+  const draw=()=>{const d=dur(S.s);svg.innerHTML=`${pos.map(([x,y],k)=>`<g class="st ${k===S.s?"on":""}" data-st="${k}"><circle cx="${x}" cy="${y}" r="38"/><text x="${x}" y="${y-4}" class="t c big">${ST[k][0]}</text><text x="${x}" y="${y+14}" class="t c">${k%2?"vàng "+S.Y+" s":"xanh "+S.G+" s"}</text></g>`).join("")}
+      ${[[0,1],[1,2],[2,3],[3,0]].map(([a,b])=>{const [x1,y1]=pos[a],[x2,y2]=pos[b];const mx=(x1+x2)/2,my=(y1+y2)/2;return `<line x1="${x1+(x2-x1)*.3}" y1="${y1+(y2-y1)*.3}" x2="${x1+(x2-x1)*.7}" y2="${y1+(y2-y1)*.7}" class="ar ${a===S.s&&S.t>=d-1?"on":""}" marker-end="url(#ah)"/><text x="${mx+(a===1?14:a===3?-60:-20)}" y="${my+(a===0?-10:a===2?20:0)}" class="t">hết giờ</text>`}).join("")}
+      <defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="ah"/></marker></defs>
+      ${light(420,30,col(S.s,"bn"))}<text x="458" y="50" class="t">Bắc–Nam</text>${light(420,140,col(S.s,"dt"))}<text x="458" y="160" class="t">Đông–Tây</text>
+      <rect x="20" y="236" width="380" height="10" rx="5" class="tb"/><rect x="20" y="236" width="${380*S.t/d}" height="10" rx="5" class="tf"/><text x="20" y="230" class="t">${ST[S.s][1]} · bộ đếm thời gian ${S.t}/${d} s</text>`;
+    const code=S.enc==="bin"?l2Bin(S.s,2):["0001","0010","0100","1000"][S.s];ffs.innerHTML=`Trạng thái <b>${ST[S.s][0]}</b> = <code>${code}</code> (${S.enc==="bin"?"2 FF":"4 FF"})<br>${col(S.s,"bn")==="g"&&col(S.s,"dt")==="g"?'<b class="bad">LỖI: hai hướng cùng xanh!</b>':"An toàn: không bao giờ hai hướng cùng xanh."}`;
+    $$("[data-enc]",host).forEach(b=>b.setAttribute("aria-pressed",b.dataset.enc===S.enc))};
+  const step=()=>{S.t++;if(S.t>=dur(S.s)){const o=S.s;S.s=S.skip&&S.s%2===0?(S.s+2)%4:(S.s+1)%4;S.t=0;emit("state",{s:S.s,from:o})}draw();emit("tick",{t:S.t,s:S.s})};
+  let acc=0;const stop=l2Loop(dt=>{if(!S.run)return;acc+=dt*S.speed;while(acc>=1){acc-=1;step()}});
+  host.addEventListener("click",e=>{const a=e.target.closest("[data-l2],[data-enc],[data-st]");if(!a)return;if(a.dataset.enc){S.enc=a.dataset.enc;draw();emit("enc",{e:S.enc});return}if(a.dataset.st){emit("pick",{s:+a.dataset.st});return}
+    const k=a.dataset.l2;if(k==="run"){S.run=!S.run;a.textContent=S.run?"⏸ Dừng":"▶ Chạy";emit("run",{on:S.run})}if(k==="tick")step();if(k==="bug"){S.skip=!S.skip;a.textContent=S.skip?"Sửa lỗi: thêm lại trạng thái vàng":"Thử lỗi: bỏ trạng thái vàng";emit("bug",{on:S.skip})}});
+  l2Bind(host,S,{speed:v=>v+"×"},emit);draw();return {S,destroy:stop,set:o=>{Object.assign(S,o);draw()},step,export:()=>`Trạng thái hiện tại ${ST[S.s][0]}; mã ${S.enc}; xanh ${S.G} s, vàng ${S.Y} s`}},
+ byIdx:{0:"diag",1:"enc",2:"rtl",3:"sim",4:"fpga"},fallback:"diag",
+ tuts:{diag:{title:"Đọc sơ đồ trạng thái",steps:[
+   {t:"Chạy máy trạng thái",say:"Bấm **▶ Chạy** và chờ FSM sang **S1**.",target:"[data-l2=run]",wait:(S,e)=>e.type==="state"&&e.data.s===1,help:(S,sim)=>sim.set({t:S.G-1,run:false})||sim.step(),after:"Hết 20 s xanh, bộ đếm thời gian báo “hết giờ” → S0 chuyển S1 (BN vàng). Moore: đèn chỉ phụ thuộc trạng thái."},
+   {t:"Đủ một vòng",say:"Để chạy tới khi quay lại **S0** (tăng tốc nếu muốn).",target:"[data-l2=speed]",wait:(S,e)=>e.type==="state"&&e.data.s===0,after:"S0 → S1 → S2 → S3 → S0: mỗi hướng có xanh rồi vàng trước khi đổi."},
+   {t:"An toàn",say:"Bấm vào trạng thái **S2** trên sơ đồ.",target:"[data-l2=diag]",wait:(S,e)=>e.type==="pick"&&e.data.s===2,help:()=>$('.l2 [data-st="2"]').dispatchEvent(new MouseEvent("click",{bubbles:true})),after:"Ở S2 BN đỏ, ĐT xanh. Không trạng thái nào có hai hướng cùng xanh — yêu cầu an toàn."}]},
+  enc:{title:"Mã hóa trạng thái",steps:[
+   {t:"Nhị phân",say:"Chọn **Mã nhị phân** và xem số flip-flop.",target:"[data-l2=enc]",wait:(S,e)=>e.type==="enc"&&e.data.e==="bin",after:"4 trạng thái → 2 bit (00, 01, 10, 11): ít FF nhưng logic kế phức tạp hơn."},
+   {t:"One-hot",say:"Chọn **One-hot**.",target:"[data-l2=enc]",wait:(S,e)=>e.type==="enc"&&e.data.e==="oh",after:"Mỗi trạng thái một FF (0001, 0010…): nhiều FF hơn nhưng logic đơn giản, hợp FPGA."}]},
+  rtl:{title:"Từ sơ đồ ra RTL",steps:[{t:"Bước từng giây",say:"Bấm **+1 giây** vài lần, xem thanh bộ đếm thời gian.",target:"[data-l2=tick]",wait:(S,e)=>e.type==="tick"&&e.data.t>=3,after:"RTL có **bộ đếm thời gian riêng**, nạp lại khi đổi trạng thái; `case(state)` chọn trạng thái kế khi đếm xong."}]},
+  sim:{title:"Mô phỏng & bắt lỗi",steps:[
+   {t:"Gây lỗi",say:"Bấm **Thử lỗi: bỏ trạng thái vàng**, rồi chạy.",target:"[data-l2=bug]",wait:(S,e)=>e.type==="state"&&S.skip,help:(S,sim)=>{sim.set({skip:true,t:S.G-1});sim.step()},after:"FSM nhảy thẳng từ xanh sang đỏ không qua vàng — testbench phải có assert phát hiện chuỗi trạng thái sai."},
+   {t:"Sửa lỗi",say:"Bấm nút lần nữa để thêm lại trạng thái vàng.",target:"[data-l2=bug]",wait:(S,e)=>e.type==="bug"&&!e.data.on}]},
+  fpga:{title:"Chạy trên FPGA",steps:[{t:"Thời gian thật",say:"Kéo **Tốc độ** về **1×** và chạy.",target:"[data-l2=speed]",wait:(S,e)=>e.type==="speed"&&S.speed===1,after:"Trên FPGA clock 50 MHz → cần bộ chia tạo xung 1 Hz cho bộ đếm thời gian."}]}}};
+
+/* ===================== Bộ lọc thông thấp ===================== */
+L2.filter={title:"Bộ lọc thông thấp – đáp ứng tần số",match:/bộ lọc|lọc thông|filter|sallen/,
+ init(host,cfg,emit){const S={R:1000,C:100,ord:1,f:300,t:0};const fc=()=>S.ord===1?1/(2*Math.PI*S.R*S.C*1e-9):1/(2*Math.PI*S.R*Math.sqrt(2*S.C*1e-9*S.C*1e-9));
+  const H=f=>{const w=f/fc();return S.ord===1?1/Math.sqrt(1+w*w):1/Math.sqrt(1+w**4)},ph=f=>{const w=f/fc();return S.ord===1?-Math.atan(w):-Math.atan2(Math.SQRT2*w,1-w*w)};const dB=f=>20*Math.log10(H(f));
+  host.innerHTML=`<div class="l2g"><aside class="l2g-c"><div class="seg" data-l2="ord"><button data-ord="1">Bậc 1 (RC)</button><button data-ord="2">Bậc 2 (Sallen-Key)</button></div>
+      ${l2Sl("R","R",100,20000,100,S.R,"Ω",v=>kfmt(v)+"Ω")}${l2Sl("C",S.ord===1?"C":"C₂ (C₁ = 2C₂)",1,220,1,S.C,"nF",v=>v+" nF")}${l2Sl("f","Tần số tín hiệu vào",10,100000,10,S.f,"Hz",v=>kfmt(v)+"Hz")}<div class="l2g-k" data-l2="read"></div></aside>
+    <div class="l2g-m"><canvas class="l2-cv" data-l2="bode"></canvas><canvas class="l2-cv sm" data-l2="time"></canvas></div></div>`;
+  const cb=$("[data-l2=bode]",host),ct=$("[data-l2=time]",host),rd=$("[data-l2=read]",host);
+  const draw=()=>{const c=fc();l2Plot(cb,{x0:10,x1:100000,y0:-60,y1:5,logx:true,xl:"f (Hz)",yl:"|H| (dB)",xf:x=>kfmt(x).trim(),hl:[[-3,"−3 dB"],[-30,"−30 dB","#e0607e"]],vl:[[c,"f_c"],[10000,"10 kHz","#e0607e"]],series:[{f:dB,c:l2Css("--accent","#e8a")}],dots:[[S.f,dB(S.f),l2Css("--sig","#5bd")]]});
+    rd.innerHTML=`f_c = <b>${kfmt(c)}Hz</b><br>Tại ${kfmt(S.f)}Hz: ${dB(S.f).toFixed(1)} dB, pha ${(ph(S.f)*180/Math.PI).toFixed(0)}°<br>Tại 10 kHz: <b>${dB(1e4).toFixed(1)} dB</b> ${dB(1e4)<=-30?'<b class="ok">đạt ≥ 30 dB</b>':'<b class="bad">chưa đủ 30 dB</b>'}`;
+    $$("[data-ord]",host).forEach(b=>b.setAttribute("aria-pressed",+b.dataset.ord===S.ord))};
+  const stop=l2Loop(dt=>{S.t+=dt;const per=3/S.f;const A=H(S.f),p=ph(S.f);l2Plot(ct,{x0:0,x1:per,y0:-1.2,y1:1.2,xl:"t",yl:"V",xf:x=>(x*1000).toFixed(2)+"ms",series:[{f:x=>Math.sin(2*Math.PI*S.f*x+S.t*2),c:l2Css("--muted","#888"),w:1.5},{f:x=>A*Math.sin(2*Math.PI*S.f*x+S.t*2+p),c:l2Css("--accent","#e8a")}]})});
+  host.addEventListener("click",e=>{const o=e.target.closest("[data-ord]");if(o){S.ord=+o.dataset.ord;draw();emit("ord",{o:S.ord})}});
+  l2Bind(host,S,{R:v=>kfmt(v)+"Ω",C:v=>v+" nF",f:v=>kfmt(v)+"Hz"},emit,()=>draw());draw();
+  return {S,destroy:stop,fc,dB,set:o=>{Object.assign(S,o);$$("[data-sl]",host).forEach(r=>{r.value=S[r.dataset.sl]});["R","C","f"].forEach(k=>{const b=$(`[data-sv=${k}]`,host);if(b)b.textContent=k==="R"?kfmt(S.R)+"Ω":k==="C"?S.C+" nF":kfmt(S.f)+"Hz"});draw()},export:()=>`Bậc ${S.ord}, R = ${S.R} Ω, C = ${S.C} nF → f_c = ${fc().toFixed(0)} Hz; suy giảm tại 10 kHz = ${dB(1e4).toFixed(1)} dB`}},
+ byIdx:{0:"req",1:"rc",2:"sk",3:"sweep",4:"sweep",5:"err"},fallback:"rc",
+ tuts:{req:{title:"Yêu cầu bộ lọc",steps:[{t:"Bậc 1 có đủ?",say:"Ở **Bậc 1**, chỉnh R, C cho f_c ≈ 1 kHz, rồi đọc suy giảm ở 10 kHz.",target:"[data-l2=R]",wait:(S,e,sim)=>(e.type==="R"||e.type==="C")&&Math.abs(sim.fc()-1000)<120&&S.ord===1,help:(S,sim)=>sim.set({ord:1,R:1600,C:100}),after:"Bậc 1 chỉ giảm ~20 dB/decade → tại 10 kHz mới −20 dB, **chưa đạt** −30 dB. Cần bậc 2."}]},
+  rc:{title:"Mạch RC bậc 1",steps:[
+   {t:"Đặt C = 100 nF",say:"Kéo **C** về **100 nF**.",target:"[data-l2=C]",wait:(S,e)=>e.type==="C"&&S.C===100,help:(S,sim)=>sim.set({C:100,ord:1})},
+   {t:"Tìm R cho 1 kHz",say:"Kéo **R** tới khi **f_c ≈ 1 kHz** (±10 %).",target:"[data-l2=R]",wait:(S,e,sim)=>e.type==="R"&&Math.abs(sim.fc()-1000)<=100,help:(S,sim)=>sim.set({R:1600}),after:"f_c = 1/(2πRC) → R = 1/(2π·1 kHz·100 nF) ≈ 1,6 kΩ."},
+   {t:"Tín hiệu tại f_c",say:"Kéo **tần số tín hiệu** tới khoảng **1 kHz** và so hai sóng.",target:"[data-l2=f]",wait:(S,e,sim)=>e.type==="f"&&Math.abs(S.f-sim.fc())<sim.fc()*.15,after:"Tại f_c biên độ ra còn **0,707** (−3 dB) và trễ pha **−45°**."},
+   {t:"Tần số cao",say:"Kéo tần số lên **10 kHz**.",target:"[data-l2=f]",wait:(S,e)=>e.type==="f"&&S.f>=9000,after:"Sóng ra nhỏ đi ~10 lần (−20 dB): tụ “nối tắt” tín hiệu cao tần xuống đất."}]},
+  sk:{title:"Sallen-Key bậc 2",steps:[
+   {t:"Chuyển bậc 2",say:"Chọn **Bậc 2 (Sallen-Key)**.",target:"[data-l2=ord]",wait:(S,e)=>e.type==="ord"&&S.ord===2,after:"Đường cong dốc gấp đôi: −40 dB/decade."},
+   {t:"Đặt R = 10 kΩ, C₂ = 10 nF",say:"Chỉnh **R ≈ 10 kΩ** và **C₂ ≈ 10 nF** (C₁ = 22 nF ≈ 2C₂).",target:"[data-l2=R]",wait:(S,e,sim)=>(e.type==="R"||e.type==="C")&&Math.abs(sim.fc()-1100)<250,help:(S,sim)=>sim.set({R:10000,C:10}),after:"f_c = 1/(2πR√(C₁C₂)) ≈ 1,1 kHz, Q = 0,707 (Butterworth: phẳng nhất trong dải thông)."},
+   {t:"Kiểm yêu cầu",say:"Kéo tần số tới **10 kHz** và đọc suy giảm.",target:"[data-l2=f]",wait:(S,e,sim)=>e.type==="f"&&S.f>=9000&&sim.dB(1e4)<=-30,after:"≈ −40 dB tại 10 kHz: **đạt** yêu cầu ≥ 30 dB."}]},
+  sweep:{title:"Quét tần số như đo Bode",steps:[{t:"Quét",say:"Kéo tần số lần lượt **100 Hz → 1 kHz → 10 kHz**, ghi V_out/V_in.",target:"[data-l2=f]",wait:(S,e)=>e.type==="f"&&S.f>=9000,after:"Ba điểm đo khớp đường Bode: ~0 dB, −3 dB, −40 dB (bậc 2)."}]},
+  err:{title:"Ảnh hưởng dung sai",steps:[{t:"C lệch 10 %",say:"Tăng **C** thêm khoảng 10 % và xem f_c đổi.",target:"[data-l2=C]",wait:(S,e)=>e.type==="C",after:"f_c ∝ 1/C: C tăng 10 % → f_c giảm ~9 %. Dung sai tụ là nguồn sai số lớn nhất."}]}}};
+
+/* ===================== RLC ===================== */
+L2.rlc={title:"RLC nối tiếp – đáp ứng bậc thang",match:/\brlc\b|dao động tắt dần|laplace/,
+ init(host,cfg,emit){const S={R:20,L:10,C:10,V:9};const p=()=>{const L=S.L*1e-3,C=S.C*1e-6,a=S.R/(2*L),w0=1/Math.sqrt(L*C);return {a,w0,z:a/w0}};
+  const vc=t=>{const {a,w0}=p();if(a<w0){const wd=Math.sqrt(w0*w0-a*a);return S.V*(1-Math.exp(-a*t)*(Math.cos(wd*t)+a/wd*Math.sin(wd*t)))}if(Math.abs(a-w0)<1e-6)return S.V*(1-Math.exp(-a*t)*(1+a*t));const s1=-a+Math.sqrt(a*a-w0*w0),s2=-a-Math.sqrt(a*a-w0*w0);return S.V*(1+(s2*Math.exp(s1*t)-s1*Math.exp(s2*t))/(s1-s2))};
+  host.innerHTML=`<div class="l2g"><aside class="l2g-c">${l2Sl("R","R",1,500,1,S.R,"Ω",v=>v+" Ω")}${l2Sl("L","L",1,100,1,S.L,"mH",v=>v+" mH")}${l2Sl("C","C",1,100,1,S.C,"µF",v=>v+" µF")}<div class="l2g-k" data-l2="read"></div></aside><div class="l2g-m"><canvas class="l2-cv" data-l2="plot"></canvas></div></div>`;
+  const cv=$("[data-l2=plot]",host),rd=$("[data-l2=read]",host);const draw=()=>{const {a,w0,z}=p();const T=Math.min(.05,Math.max(.004,8/Math.min(a||1,w0)));l2Plot(cv,{x0:0,x1:T,y0:0,y1:S.V*2,xl:"t (ms)",yl:"v_C (V)",xf:x=>(x*1000).toFixed(1),hl:[[S.V,"V = "+S.V+" V"]],series:[{f:vc,c:l2Css("--accent","#e8a")}]});
+    rd.innerHTML=`α = R/2L = <b>${a.toFixed(0)} s⁻¹</b><br>ω₀ = 1/√(LC) = <b>${w0.toFixed(0)} rad/s</b><br>ζ = α/ω₀ = ${z.toFixed(3)} → <b>${z<1?"dao động tắt dần":z===1?"tới hạn":"quá tắt dần"}</b>`};
+  l2Bind(host,S,{R:v=>v+" Ω",L:v=>v+" mH",C:v=>v+" µF"},emit,()=>{draw();emit("regime",{z:p().z})});draw();
+  return {S,p,set:o=>{Object.assign(S,o);$$("[data-sl]",host).forEach(r=>{r.value=S[r.dataset.sl]});draw()},export:()=>{const {a,w0,z}=p();return `R = ${S.R} Ω, L = ${S.L} mH, C = ${S.C} µF → α = ${a.toFixed(0)}, ω₀ = ${w0.toFixed(0)}, ζ = ${z.toFixed(3)}`}}},
+ byIdx:{0:"ode",1:"char",2:"char",3:"char",4:"cmp"},fallback:"char",
+ tuts:{ode:{title:"Từ mạch tới phương trình",steps:[{t:"Nhìn đáp ứng",say:"Kéo **R** về **20 Ω** (L = 10 mH, C = 10 µF).",target:"[data-l2=R]",wait:(S,e)=>e.type==="R"&&S.R<=25,help:(S,sim)=>sim.set({R:20,L:10,C:10}),after:"v_C vọt lố trên 9 V rồi dao động tắt dần: nghiệm của LC·v'' + RC·v' + v = V."}]},
+  char:{title:"Ba chế độ của phương trình đặc trưng",steps:[
+   {t:"Dao động tắt dần",say:"Giữ **R nhỏ** (ζ < 1).",target:"[data-l2=R]",wait:(S,e,sim)=>e.type==="regime"&&e.data.z<1,help:(S,sim)=>sim.set({R:20}),after:"α < ω₀ → hai nghiệm phức s = −α ± jω_d: e^{−αt}·cos(ω_d t)."},
+   {t:"Tới hạn",say:"Tăng **R** tới khi **ζ ≈ 1** (khoảng 63 Ω).",target:"[data-l2=R]",wait:(S,e,sim)=>e.type==="regime"&&Math.abs(e.data.z-1)<.06,help:(S,sim)=>sim.set({R:63}),after:"α = ω₀: nghiệm kép, lên nhanh nhất mà không vọt lố."},
+   {t:"Quá tắt dần",say:"Tăng **R** lên **200 Ω**.",target:"[data-l2=R]",wait:(S,e,sim)=>e.type==="regime"&&e.data.z>1.5,help:(S,sim)=>sim.set({R:200}),after:"α > ω₀: hai nghiệm thực âm, v_C tiến chậm tới 9 V."}]},
+  cmp:{title:"So sánh với lời giải",steps:[{t:"R = 20 Ω",say:"Đặt **R = 20 Ω** để so với nghiệm Laplace.",target:"[data-l2=R]",wait:(S,e)=>e.type==="R"&&S.R===20,help:(S,sim)=>sim.set({R:20}),after:"α = 1000, ω_d ≈ 3000 rad/s → chu kỳ dao động ≈ 2,1 ms: khớp đồ thị."}]}}};
+
+/* ===================== NTC ===================== */
+L2.ntc={title:"Đo nhiệt độ bằng NTC",match:/\bntc\b|nhiệt điện trở|đo nhiệt/,
+ init(host,cfg,emit){const S={T:25,Rf:10000,cal:[]};const Rn=T=>10000*Math.exp(3950*(1/(T+273.15)-1/298.15));const V=T=>3.3*S.Rf/(S.Rf+Rn(T));const code=T=>Math.round(V(T)/3.3*4095);
+  host.innerHTML=`<div class="l2g"><aside class="l2g-c">${l2Sl("T","Nhiệt độ thật",0,100,1,S.T,"°C",v=>v+" °C")}${l2Sl("Rf","R cố định",1000,47000,100,S.Rf,"Ω",v=>kfmt(v)+"Ω")}<button class="btn" data-l2="cal">📌 Ghi điểm hiệu chuẩn</button><div class="l2g-k" data-l2="read"></div></aside><div class="l2g-m"><canvas class="l2-cv" data-l2="plot"></canvas></div></div>`;
+  const cv=$("[data-l2=plot]",host),rd=$("[data-l2=read]",host);const draw=()=>{l2Plot(cv,{x0:0,x1:100,y0:0,y1:3.3,xl:"T (°C)",yl:"V_out (V)",series:[{f:V,c:l2Css("--accent","#e8a")}],dots:[[S.T,V(S.T),l2Css("--sig","#5bd")],...S.cal.map(c=>[c.T,c.v,"#e0607e"])]});
+    const sl=(V(S.T+.5)-V(S.T-.5))*1000;rd.innerHTML=`R_NTC = <b>${kfmt(Rn(S.T))}Ω</b><br>V_out = <b>${V(S.T).toFixed(3)} V</b><br>ADC 12 bit = <b>${code(S.T)}</b><br>Độ dốc ≈ ${sl.toFixed(1)} mV/°C → độ phân giải ≈ ${(0.806/sl).toFixed(2)} °C/LSB${S.cal.length?`<br>Điểm hiệu chuẩn: ${S.cal.map(c=>c.T+" °C").join(", ")}`:""}`};
+  l2Bind(host,S,{T:v=>v+" °C",Rf:v=>kfmt(v)+"Ω"},emit,()=>draw());host.addEventListener("click",e=>{if(e.target.closest("[data-l2=cal]")){S.cal.push({T:S.T,v:V(S.T)});draw();emit("cal",{n:S.cal.length,T:S.T})}});draw();
+  return {S,set:o=>{Object.assign(S,o);$$("[data-sl]",host).forEach(r=>{r.value=S[r.dataset.sl]});draw()},export:()=>`R cố định ${S.Rf} Ω; điểm hiệu chuẩn: ${S.cal.map(c=>`${c.T} °C → ${c.v.toFixed(3)} V`).join("; ")}`}},
+ byIdx:{0:"sensor",1:"div",2:"div",3:"adc",4:"cal",5:"cal"},fallback:"div",
+ tuts:{sensor:{title:"Đặc tính NTC",steps:[{t:"Làm nóng",say:"Kéo **nhiệt độ** từ 25 °C lên **80 °C**, nhìn R_NTC.",target:"[data-l2=T]",wait:(S,e)=>e.type==="T"&&S.T>=80,after:"R_NTC giảm từ 10 kΩ xuống ~1,2 kΩ: hệ số nhiệt **âm**, phi tuyến theo hàm mũ β."}]},
+  div:{title:"Mạch chia áp",steps:[{t:"Chọn R cố định",say:"Đặt **R cố định ≈ 10 kΩ** (= R_NTC ở 25 °C).",target:"[data-l2=Rf]",wait:(S,e)=>e.type==="Rf"&&Math.abs(S.Rf-10000)<=500,help:(S,sim)=>sim.set({Rf:10000}),after:"Khi R = R_NTC(25 °C), đường cong dốc nhất quanh 25 °C → nhạy nhất ở vùng đo chính."},{t:"Quét nhiệt độ",say:"Kéo **nhiệt độ** từ 0 lên 100 °C.",target:"[data-l2=T]",wait:(S,e)=>e.type==="T"&&S.T>=95,after:"V_out tăng theo T nhưng **không thẳng** — cần hiệu chuẩn hoặc Steinhart–Hart."}]},
+  adc:{title:"ADC & độ phân giải",steps:[{t:"Đọc mã ADC",say:"Đặt **T = 25 °C** và đọc mã ADC 12 bit.",target:"[data-l2=T]",wait:(S,e)=>e.type==="T"&&S.T===25,help:(S,sim)=>sim.set({T:25}),after:"LSB = 3,3 V / 4096 ≈ 0,8 mV; chia cho độ dốc mV/°C ra độ phân giải nhiệt."}]},
+  cal:{title:"Hiệu chuẩn 2 điểm",steps:[{t:"Điểm 0 °C",say:"Kéo về **0 °C** (nước đá) rồi bấm **Ghi điểm hiệu chuẩn**.",target:"[data-l2=cal]",wait:(S,e)=>e.type==="cal"&&e.data.T<=2,help:(S,sim)=>{sim.set({T:0});$(".l2 [data-l2=cal]").click()}},{t:"Điểm 100 °C",say:"Kéo lên **100 °C** (nước sôi) và ghi điểm.",target:"[data-l2=cal]",wait:(S,e)=>e.type==="cal"&&e.data.T>=98,help:(S,sim)=>{sim.set({T:100});$(".l2 [data-l2=cal]").click()},after:"Hai điểm đỏ trên đồ thị cho phép chỉnh hệ số; với NTC nên dùng thêm điểm thứ 3 (Steinhart–Hart)."}]}}};
+
+/* ===================== Robot dò line ===================== */
+L2.robot={title:"Robot dò line – cảm biến & PID",match:/robot|dò line|line follower/,
+ init(host,cfg,emit){const S={Kp:.8,Kd:.2,run:false,x:0,y:0,th:0,v:60,e:0,pe:0,off:0,lap:0,ang:0,sens:[0,0,0]};
+  host.innerHTML=`<div class="l2g"><aside class="l2g-c"><div class="l2g-row"><button class="pill-btn primary" data-l2="run">▶ Chạy</button><button class="btn" data-l2="rst">Đặt lại</button></div>${l2Sl("Kp","Kp",0,3,.05,S.Kp,"",v=>(+v).toFixed(2))}${l2Sl("Kd","Kd",0,2,.05,S.Kd,"",v=>(+v).toFixed(2))}${l2Sl("v","Tốc độ v₀",20,140,5,S.v,"px/s",v=>v)}<div class="l2g-k" data-l2="read"></div></aside><div class="l2g-m"><canvas class="l2-cv big" data-l2="track"></canvas></div></div>`;
+  const cv=$("[data-l2=track]",host),rd=$("[data-l2=read]",host);const cx=()=>(cv.clientWidth||500)/2,cy=()=>(cv.clientHeight||300)/2;const RX=()=>Math.min(cx()-30,200),RY=()=>Math.min(cy()-30,110);
+  const path=a=>[cx()+RX()*Math.cos(a)*(1+.18*Math.sin(3*a)),cy()+RY()*Math.sin(a)];
+  const reset=()=>{const [x,y]=path(0);Object.assign(S,{x,y,th:Math.PI/2,e:0,pe:0,off:0,lap:0,ang:0})};
+  const dist=(x,y)=>{let best=1e9,ba=0;for(let k=0;k<180;k++){const a=k/180*6.283;const [px,py]=path(a);const d=Math.hypot(px-x,py-y);if(d<best){best=d;ba=a}}const [px,py]=path(ba);const [qx,qy]=path(ba+.01);const s=Math.sign((qx-px)*(y-py)-(qy-py)*(x-px));return {d:best*s,a:ba}};
+  const draw=()=>{const W=cv.clientWidth||500,H=cv.clientHeight||300,dpr=devicePixelRatio||1;cv.width=W*dpr;cv.height=H*dpr;const g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.fillStyle="#f4f1ea";g.fillRect(0,0,W,H);g.strokeStyle="#1d1a24";g.lineWidth=14;g.beginPath();for(let k=0;k<=200;k++){const [x,y]=path(k/200*6.283);k?g.lineTo(x,y):g.moveTo(x,y)}g.stroke();
+    g.save();g.translate(S.x,S.y);g.rotate(S.th);g.fillStyle=l2Css("--accent","#e8a");g.fillRect(-14,-11,28,22);g.fillStyle="#333";g.fillRect(-10,-14,12,4);g.fillRect(-10,10,12,4);S.sens.forEach((v,k)=>{g.fillStyle=v>.5?"#ff4a6a":"#7fd8f0";g.beginPath();g.arc(16,(k-1)*8,3.4,0,6.283);g.fill()});g.restore()};
+  const stop=l2Loop(dt=>{if(!S.run){draw();return}const fx=Math.cos(S.th),fy=Math.sin(S.th);const sensAt=k=>{const sx=S.x+fx*16-fy*(k-1)*8,sy=S.y+fy*16+fx*(k-1)*8;const d=Math.abs(dist(sx,sy).d);return d<7?1:d<11?.5:0};S.sens=[0,1,2].map(sensAt);
+    const dd=dist(S.x+fx*16,S.y+fy*16);S.e=dd.d/10;const de=(S.e-S.pe)/dt;S.pe=S.e;const u=Math.max(-3,Math.min(3,S.Kp*S.e+S.Kd*de*.05));S.th+=u*dt*1.6;S.x+=fx*S.v*dt;S.y+=fy*S.v*dt;
+    if(Math.abs(dd.d)>34){S.off++;S.run=false;$("[data-l2=run]",host).textContent="▶ Chạy";emit("off",{});toast("Robot chệch khỏi vạch!",1600);reset()}
+    const na=dd.a;if(S.ang>5.6&&na<.6){S.lap++;emit("lap",{n:S.lap})}S.ang=na;rd.innerHTML=`Sai số e = ${S.e.toFixed(2)}<br>Cảm biến: ${S.sens.map(v=>v>.5?"■":"□").join(" ")}<br>Vòng: <b>${S.lap}</b> · Chệch vạch: ${S.off}`;draw()});
+  l2Bind(host,S,{Kp:v=>(+v).toFixed(2),Kd:v=>(+v).toFixed(2),v:v=>v},emit);
+  host.addEventListener("click",e=>{const a=e.target.closest("[data-l2=run],[data-l2=rst]");if(!a)return;if(a.dataset.l2==="run"){S.run=!S.run;a.textContent=S.run?"⏸ Dừng":"▶ Chạy";emit("run",{on:S.run})}else{reset();draw();emit("rst",{})}});
+  setTimeout(()=>{reset();draw()},30);return {S,destroy:stop,set:o=>{Object.assign(S,o);$$("[data-sl]",host).forEach(r=>{r.value=S[r.dataset.sl]})},export:()=>`Kp = ${S.Kp}, Kd = ${S.Kd}, v₀ = ${S.v}; số vòng ${S.lap}, số lần chệch ${S.off}`}},
+ byIdx:{0:"run",1:"sensor",2:"run",3:"run",4:"pid",5:"tune"},fallback:"pid",
+ tuts:{run:{title:"Chạy thử robot",steps:[{t:"Chạy",say:"Bấm **▶ Chạy** và quan sát robot bám vạch đen.",target:"[data-l2=run]",wait:(S,e)=>e.type==="lap"&&e.data.n>=1,help:(S,sim)=>{sim.set({Kp:.8,Kd:.2});S.run=true},after:"Ba cảm biến (đỏ = thấy vạch) cho biết robot lệch trái hay phải; bộ điều khiển chỉnh chênh lệch tốc độ hai bánh."}]},
+  sensor:{title:"Cảm biến hồng ngoại",steps:[{t:"Đọc cảm biến",say:"Bấm **▶ Chạy**, nhìn ô **Cảm biến** khi robot vào khúc cua.",target:"[data-l2=run]",wait:(S,e)=>e.type==="run"&&e.data.on,after:"Vạch đen hấp thụ hồng ngoại → cảm biến trên vạch báo ■. Đọc analog cho sai số liên tục thay vì chỉ 0/1."}]},
+  pid:{title:"Điều khiển P và D",steps:[
+   {t:"Chỉ có P",say:"Kéo **Kd = 0**, **Kp ≈ 1,5** rồi chạy.",target:"[data-l2=Kd]",wait:(S,e)=>e.type==="run"&&e.data.on&&S.Kd<=.05&&S.Kp>=1.2,help:(S,sim)=>{sim.set({Kd:0,Kp:1.5});S.run=true},after:"Chỉ P: robot **lắc qua lại** quanh vạch — phản ứng theo sai số hiện tại nên luôn vọt lố."},
+   {t:"Thêm D",say:"Tăng **Kd** lên khoảng **0,4**.",target:"[data-l2=Kd]",wait:(S,e)=>e.type==="Kd"&&S.Kd>=.35,after:"D phản ứng theo **tốc độ thay đổi** sai số → hãm dao động, robot chạy êm hơn."}]},
+  tune:{title:"Hiệu chỉnh",steps:[{t:"Tăng tốc",say:"Tăng **v₀** lên **100** và chỉnh Kp/Kd để chạy được 1 vòng.",target:"[data-l2=v]",wait:(S,e)=>e.type==="lap"&&S.v>=95,after:"Tốc độ cao cần Kp, Kd lớn hơn; khi robot lắc đều, giảm Kp còn ~60 % rồi tăng Kd."}]}}};
+
+/* v40 — thẻ Thực hành: ưu tiên mô phỏng kiểu “hướng dẫn chơi game”; lắp mạch 3D để ở phần phụ */
+{const _pp48=pjPrac;pjPrac=function(el,p,st,i){const k=l2Pick(p);if(!k)return _pp48.apply(this,arguments);const D=L2[k];const T=l2Tut(D,p,i);const pr=st.l2&&st.l2.k===T.key?st.l2:{d:[]};const dn=(pr.d||[]).length,n=T.steps.length;
+  el.innerHTML=`<div class="pj46"><div class="pj46-hero"><div class="pj46-ic">🎮</div><div class="pj46-b"><span class="pj46-k">${D.d3?"Mô phỏng 3D":"Mô phỏng 2D"} · ${esc(D.title)}</span><b>${esc(T.title)}</b><span class="muted">Như phần hướng dẫn khi mới chơi game: mỗi nhiệm vụ cho biết phải làm gì, chỗ cần bấm được rọi sáng; làm xong app giải thích <b>điều gì vừa xảy ra</b> trên mô phỏng rồi mới sang nhiệm vụ tiếp.</span>
+      <div class="pj43-row"><button class="pill-btn primary" data-l2go>${ic("play")} ${dn&&dn<n?`Tiếp tục (${dn}/${n})`:dn>=n&&n?"Chơi lại":"Bắt đầu"}</button><button class="pill-btn" data-l2free>${ic("view")} Chơi tự do</button></div></div></div>
+    <ol class="pj46-l">${T.steps.map((s,j)=>`<li class="${(pr.d||[]).includes(j)?"ok":""}"><span class="pj46-n">${(pr.d||[]).includes(j)?"✓":j+1}</span><span><b>${esc(s.t)}</b><small>${mdInline(s.say,[])}</small></span></li>`).join("")}</ol>
+    ${labFor(p)?`<details class="pj46-3d"><summary>${ic("cube")} Lắp mạch trên mô hình 3D (tùy chọn)</summary><div class="pj46-3dc"></div></details>`:""}</div>`;
+  $("[data-l2go]",el).onclick=()=>{if(dn>=n){st.l2={k:T.key,d:[]};pjSave(p,{steps:p.steps})}l2Open(p,i,k)};$("[data-l2free]",el).onclick=()=>l2Open(p,i,k,{free:true});
+  const c3=$(".pj46-3dc",el);if(c3)_pp48.call(this,c3,p,st,i)}}
+/* “Làm giúp” cho các nhiệm vụ chỉ cần kéo/bấm một chỗ */
+{const H={ne555:{"Đổi R2 khi đang chạy":(S,m)=>{S.run=true;m.set({R2:40})}},
+  counter:{"Tràn":(S,m)=>{m.set({q:15,en:1});m.tick()},"Reset":(S,m)=>m.set({en:1,q:0}),"Dòng reset":(S,m)=>m.set({q:0}),"Chạy testbench":()=>$(".l2 [data-l2=tb]").click(),"Đẩy tần số lên":(S,m)=>m.set({f:350}),"Về vùng an toàn":(S,m)=>m.set({f:250}),"Chống dội":(S,m)=>{m.set({deb:true});m.tick("btn")}},
+  fsm:{"Đủ một vòng":(S,m)=>m.set({s:0,t:0}),"Nhị phân":(S,m)=>m.set({enc:"bin"}),"One-hot":(S,m)=>m.set({enc:"oh"}),"Bước từng giây":(S,m)=>{m.step();m.step();m.step()},"Sửa lỗi":(S,m)=>m.set({skip:false}),"Thời gian thật":(S,m)=>m.set({speed:1,run:true})},
+  filter:{"Tín hiệu tại f_c":(S,m)=>m.set({f:Math.round(m.fc())}),"Tần số cao":(S,m)=>m.set({f:10000}),"Chuyển bậc 2":(S,m)=>m.set({ord:2}),"Kiểm yêu cầu":(S,m)=>m.set({ord:2,R:10000,C:10,f:10000}),"Quét":(S,m)=>m.set({f:10000}),"C lệch 10 %":(S,m)=>m.set({C:Math.round(S.C*1.1)})},
+  ntc:{"Làm nóng":(S,m)=>m.set({T:80}),"Quét nhiệt độ":(S,m)=>m.set({T:100})},
+  robot:{"Đọc cảm biến":S=>{S.run=true},"Thêm D":(S,m)=>m.set({Kd:.4}),"Tăng tốc":(S,m)=>m.set({v:100,Kp:1.4,Kd:.5})}};
+ Object.entries(H).forEach(([k,map])=>{const D=L2[k];if(!D)return;Object.values(D.tuts).forEach(T=>T.steps.forEach(s=>{if(!s.help&&map[s.t])s.help=map[s.t]}))})}
+
+/* =====================================================================
+   v41 — HƯỚNG DẪN CHI TIẾT TỪNG THAO TÁC cho các nhiệm vụ mô phỏng
+   - mỗi nhiệm vụ có danh sách thao tác: Ở đâu · Cách làm; tự tick ✓ khi trạng thái đúng
+   - làm sai → nói rõ sai gì + cách đúng, vẫn ở lại nhiệm vụ để làm tiếp
+   ===================================================================== */
+const l2BitsList=(v,W,P="D")=>{const on=[];for(let b=W-1;b>=0;b--)if((v>>b)&1)on.push(P+b);return on};
+const l2BinG=(v,n)=>l2Bin(v,n).replace(/(.{4})(?=.)/g,"$1 ");
+function l2BitDiff(cur,want,W,P="D"){const on=[],off=[];for(let b=W-1;b>=0;b--){const c=(cur>>b)&1,w=(want>>b)&1;if(c!==w)(w?on:off).push(P+b)}return {on,off,n:on.length+off.length}}
+const l2DiffTxt=(d)=>[d.on.length?`bật ${d.on.join(", ")}`:"",d.off.length?`tắt ${d.off.join(", ")}`:""].filter(Boolean).join("; ");
+
+/* ---------- RAM: sinh các thao tác cụ thể cho một chu kỳ ghi/đọc ---------- */
+function ramOps(o){
+  const A=(S,m)=>typeof o.addr==="function"?o.addr(S,m):o.addr;
+  const cb=m=>Math.round(Math.log2(m.cfg.C)),AB=m=>Math.round(Math.log2(m.cfg.R))+cb(m),W=m=>m.cfg.W;
+  const rc=(a,m)=>[a>>cb(m),a&(m.cfg.C-1)];
+  const step={};
+  step.do=(S,m)=>{const d=[];const a=o.addr!=null?A(S,m):null;
+    if(a!=null){const [r,c]=rc(a,m);const df=l2BitDiff(S.addr,a,AB(m),"A");
+      d.push({t:`Chọn ô **hàng ${r}, cột ${c}**`,at:"[data-l2=array]",ok:S=>S.addr===a,where:`Mảng ô nhớ ở giữa — ô có khung nét đứt ghi “đích (${r},${c})”. Số hàng ghi ở mép trái, số cột ghi ở mép trên lưới.`,
+        how:`Bấm thẳng vào ô đó. Hoặc ở mục **Địa chỉ** (cột trái) đặt ${l2Hex(a)} = ${l2BinG(a,AB(m))}${df.n?` — cần ${l2DiffTxt(df)}`:""}. Các nút gạch cam = bit **hàng**, gạch xanh = bit **cột**.`})}
+    if(o.din!=null){const v=o.din,df=l2BitDiff(S.din,v,W(m));const on=l2BitsList(v,W(m));
+      d.push({t:`Đặt **din = ${l2Hex(v)}** (${l2BinG(v,W(m))})`,at:"[data-l2=din]",ok:S=>S.din===v,where:"Mục **Dữ liệu vào din** — cột trái, dưới mục Địa chỉ. Nút trái nhất là D7, phải nhất là D0.",
+        how:`Mỗi nút là một bit; bấm để đổi 0 ↔ 1 (nút sáng màu = 1). ${l2Hex(v)} cần các bit **${on.join(", ")||"đều = 0"}** bằng 1, còn lại 0.${df.n?` Từ giá trị hiện tại: ${l2DiffTxt(df)}.`:""}`})}
+    if(o.we!=null)d.push({t:o.we?"Chọn chế độ **Ghi (we = 1)**":"Chọn chế độ **Đọc (we = 0)**",at:"[data-l2=we]",ok:S=>S.we===o.we,where:"Mục **Chế độ** — cột trái, ngay trên nút Xung clock.",how:`Bấm nút “${o.we?"Ghi (we = 1)":"Đọc (we = 0)"}”; nút đang chọn sẽ sáng màu.`});
+    if(o.clk)d.push({t:"Bấm **Xung clock** một lần",at:"[data-l2=clk]",where:"Nút hồng lớn **⏵ Xung clock** ở cột trái.",how:o.we?"Bấm 1 lần = 1 cạnh lên: RAM chép din vào ô đang chọn (ô nháy sáng, đổi màu).":"Bấm 1 lần = 1 cạnh lên: RAM đưa nội dung ô đang chọn ra **dout** (đèn vàng phía dưới)."});
+    return d};
+  step.prog=(S,m)=>{const t=[];const a=o.addr!=null?A(S,m):null;const [r,c]=rc(S.addr,m);t.push(`Đang chọn ô (${r},${c})`+(a!=null&&S.addr!==a?` ✗ cần (${rc(a,m).join(",")})`:a!=null?" ✓":""));
+    if(o.din!=null)t.push(`din = ${l2Hex(S.din)}`+(S.din===o.din?" ✓":` ✗ cần ${l2Hex(o.din)}`));if(o.we!=null)t.push(`we = ${S.we}`+(S.we===o.we?" ✓":` ✗ cần ${o.we}`));if(o.q!=null)t.push(`dout = ${l2Hex(S.dout)}`);return t.join(" · ")};
+  if(o.clk)step.bad=(S,e,m)=>{if(e.type!=="clk")return null;const a=o.addr!=null?A(S,m):null;const d=e.data;const here=`ô (${d.r},${d.c})`;
+    if(o.we!=null&&d.we!==o.we)return o.we?{what:`Bạn vừa phát xung ở chế độ **Đọc** nên ${here} **chưa được ghi** gì.`,fix:"Bấm **Ghi (we = 1)** ở mục Chế độ, rồi bấm **Xung clock** lại."}:{what:`Bạn đang ở chế độ **Ghi** nên xung vừa rồi đã **ghi đè** ${here} bằng din = ${l2Hex(d.d)}.`,fix:"Bấm **Đọc (we = 0)** trước, rồi mới bấm **Xung clock**."};
+    if(a!=null&&d.a!==a){const [r,c]=rc(a,m);return {what:`Bạn vừa ${d.we?"ghi":"đọc"} ${here}, chưa phải ô **(${r},${c})**.`,fix:`Bấm ô hàng ${r}, cột ${c} (khung nét đứt “đích”) rồi bấm **Xung clock** lại.`}}
+    if(o.din!=null&&d.we&&d.d!==o.din){const df=l2BitDiff(d.d,o.din,W(m));return {what:`Bạn vừa ghi **${l2Hex(d.d)}** chứ chưa phải **${l2Hex(o.din)}**.`,fix:`Sửa din: ${l2DiffTxt(df)} → din = ${l2Hex(o.din)}, rồi bấm **Xung clock** lại (ghi lần nữa sẽ đè giá trị sai).`}}
+    if(o.q!=null&&!d.we&&d.q!==o.q)return {what:`dout = ${l2Hex(d.q)} ≠ ${l2Hex(o.q)}: ô (${d.r},${d.c}) không chứa ${l2Hex(o.q)}.`,fix:`Chọn đúng ô đã ghi ${l2Hex(o.q)} (khung “đích”) rồi đọc lại.`};
+    return null};
+  step.run=(S,m)=>m.set({goal:o.addr!=null?A(S,m):-1});
+  return step}
+
+/* ---------- RAM: gắn thao tác chi tiết vào từng nhiệm vụ ---------- */
+{const T=L2.ram&&L2.ram.tuts;if(T){
+  const P=(k,t,x)=>{const s=T[k].steps.find(z=>z.t===t);if(!s)return;const run0=x.run;Object.assign(s,x);s.run=(S,m)=>{m.set({goal:-1});if(run0)run0(S,m)}};
+  const MAX=m=>m.cfg.R*m.cfg.C-1,cbm=m=>Math.round(Math.log2(m.cfg.C)),ABm=m=>Math.round(Math.log2(m.cfg.R))+cbm(m);
+  const mk=(k,t,o,extra={})=>{const s=T[k].steps.find(z=>z.t===t);if(!s)return;const r=ramOps(o);Object.assign(s,r,extra)};
+  // đặc tả
+  P("spec","Đây là mảng ô nhớ",{do:[{t:"Bấm **một ô bất kỳ** trên lưới ô nhớ",at:"[data-l2=array]",where:"Lưới ô vuông ở giữa màn hình (mỗi ô vuông = 1 từ nhớ).",how:"Rê chuột vào lưới, bấm vào một ô vuông nào cũng được. Ô được chọn có viền sáng."}]});
+  P("spec","Địa chỉ lớn nhất",{do:(S,m)=>[{t:`Bật **cả ${ABm(m)} bit địa chỉ** lên 1`,at:"[data-l2=addr]",ok:S=>S.addr===MAX(m),where:"Mục **Địa chỉ** — trên cùng cột trái.",how:`Bấm từng nút đang hiện **0** để đổi thành **1** (nút sáng màu). Đủ ${ABm(m)} nút = 1 là xong.`}],
+    fin:(S,m)=>S.addr===MAX(m),prog:(S,m)=>{const z=l2BitDiff(S.addr,MAX(m),ABm(m),"A");return z.n?`Địa chỉ = ${l2Hex(S.addr)} — còn ${z.n} bit = 0: ${z.on.join(", ")}`:"Địa chỉ = toàn bit 1 ✓"}});
+  mk("spec","Dữ liệu vào",{din:0xA5},{fin:S=>S.din===0xA5});
+  mk("spec","Chọn chế độ Ghi",{we:1},{fin:S=>S.we===1});
+  mk("spec","Phát một xung clock",{we:1,clk:1});
+  mk("spec","Đọc lại",{addr:(S,m)=>S.lastW>=0?S.lastW:S.addr,we:0,clk:1});
+  // ô nhớ
+  mk("cell","Chọn một ô",{addr:(S,m)=>5*m.cfg.C+3},{fin:(S,m)=>S.addr===5*m.cfg.C+3});
+  mk("cell","Nạp dữ liệu",{din:0x3C},{fin:S=>S.din===0x3C});
+  mk("cell","Ghi vào ô",{addr:(S,m)=>5*m.cfg.C+3,din:0x3C,we:1,clk:1});
+  mk("cell","Ghi ô thứ hai cùng hàng",{addr:(S,m)=>5*m.cfg.C+4,din:0x0F,we:1,clk:1},{say:"Sang ô **(5,4)** — cùng hàng 5, chỉ khác cột — rồi ghi **0x0F**."});
+  mk("cell","Đọc ô đầu tiên",{addr:(S,m)=>5*m.cfg.C+3,we:0,clk:1,q:0x3C});
+  // giải mã
+  P("dec","Đổi một bit HÀNG",{do:(S,m)=>[{t:"Bấm một **bit hàng** (gạch **cam** dưới nút)",at:"[data-l2=addr] [data-kind=row]",where:`Mục **Địa chỉ** (cột trái): ${ABm(m)-cbm(m)} nút bên trái A${ABm(m)-1}…A${cbm(m)} có gạch màu cam.`,how:"Bấm 1 trong các nút đó (đổi 0 ↔ 1), rồi nhìn đường cam (word line) trên mảng nhảy hàng."}],
+    bad:(S,e,m)=>e.type==="addr"&&e.data.bit!=null&&e.data.bit<cbm(m)?{what:"Bạn vừa đổi một bit **cột** (gạch xanh) — hàng không đổi.",fix:"Bấm một nút có gạch **cam** (các nút bên trái của mục Địa chỉ)."}:null});
+  P("dec","Đổi một bit CỘT",{do:(S,m)=>[{t:"Bấm một **bit cột** (gạch **xanh** dưới nút)",at:"[data-l2=addr] [data-kind=col]",where:`Mục **Địa chỉ**: ${cbm(m)} nút bên phải A${cbm(m)-1}…A0 có gạch màu xanh.`,how:"Bấm 1 trong các nút đó, rồi nhìn đường xanh (bit line) dưới mảng đổi cột — hàng giữ nguyên."}],
+    bad:(S,e,m)=>e.type==="addr"&&e.data.bit!=null&&e.data.bit>=cbm(m)?{what:"Bạn vừa đổi một bit **hàng** (gạch cam) nên hàng bị đổi.",fix:"Bấm một nút có gạch **xanh** (các nút bên phải của mục Địa chỉ)."}:null});
+  mk("dec","Câu đố địa chỉ",{addr:0x7C},{fin:S=>S.addr===0x7C,prog:(S,m)=>{const z=l2BitDiff(S.addr,0x7C,ABm(m),"A");return `Địa chỉ = ${l2Hex(S.addr)} = ${l2BinG(S.addr,ABm(m))}`+(z.n?` — cần ${l2DiffTxt(z)}`:" ✓")}});
+  // tài nguyên, VHDL
+  mk("res","Đi theo đường đọc",{we:0,clk:1});
+  mk("hdl","Ghi một ô",{we:1,clk:1});mk("hdl","Đọc một ô",{we:0,clk:1});
+  // testbench
+  mk("tb","Ghi giá trị mẫu",{din:0x5A,we:1,clk:1},{say:"Ghi giá trị **0x5A** vào một ô (ô nào cũng được) — đây là bước “kích thích” của testbench."});
+  {const s=T.tb.steps.find(z=>z.t==="Đọc lại và so");if(s){const r=ramOps({addr:(S,m)=>{const k=S.lastW>=0&&S.mem[S.lastW]===0x5A?S.lastW:S.mem.indexOf(0x5A);return k<0?S.addr:k},we:0,clk:1,q:0x5A});
+    Object.assign(s,r,{say:"Đọc lại **đúng ô vừa ghi**; testbench so **dout** với 0x5A.",run:(S,m)=>{if(S.mem.indexOf(0x5A)<0){const k=S.addr;S.mem[k]=0x5A;S.lastW=k;toast("Đã ghi sẵn 0x5A vào ô đang chọn (vì nhiệm vụ trước được bỏ qua)",2600)}r.run(S,m)}})}}
+  const MB=(t,how)=>({t,at:"[data-l2=march]",where:"Mục **Kiểm thử** — cuối cột trái, nút **March C−**.",how:how||"Bấm 1 lần rồi chờ ~3 giây: mảng nháy theo 6 lượt ghi/đọc; xong sẽ tự mở thẻ **Nhật ký** với kết quả."});
+  const CB=t=>({t,at:"[data-l2=checker]",where:"Mục **Kiểm thử** — nút **Bàn cờ** cạnh March C−.",how:"Bấm 1 lần rồi chờ ~2 giây: ô xen kẽ 0x55/0xAA, sau đó đọc kiểm từng ô."});
+  const FON=on=>({t:on?"Bật **Lỗi kẹt-0**":"Tắt **Lỗi kẹt-0**",at:"[data-l2=fault]",ok:S=>on?!!S.fault:!S.fault,where:"Mục **Kiểm thử** — nút “Lỗi kẹt-0” ở hàng dưới.",how:on?"Bấm 1 lần: nút đổi thành “Lỗi kẹt-0: ô … bit …” (một bit của một ô luôn đọc ra 0).":"Bấm lại nút đó cho tới khi ghi “Lỗi kẹt-0: tắt”."});
+  const busyP=S=>S.busy?"Đang chạy kiểm thử… chờ kết thúc":"";
+  P("tb","Chạy March C−",{do:[FON(false),MB("Bấm **March C−**")],prog:busyP,bad:(S,e)=>e.type==="march"&&e.data.err>0?{what:"March C− báo lỗi vì **Lỗi kẹt-0 đang bật**.",fix:"Tắt Lỗi kẹt-0 rồi bấm March C− lại."}:null});
+  P("tb","Gây lỗi và bắt lỗi",{do:[FON(true),MB("Bấm **March C−** lần nữa")],prog:busyP,bad:(S,e)=>e.type==="march"&&!e.data.err?{what:"March C− vẫn 0 lỗi vì **chưa bật** Lỗi kẹt-0.",fix:"Bấm nút “Lỗi kẹt-0: tắt” để bật lỗi, rồi chạy March C− lại."}:null});
+  P("hw","Mẫu bàn cờ",{do:[CB("Bấm **Bàn cờ**")],prog:busyP});
+  P("hw","Mô phỏng chip lỗi",{do:[FON(true),CB("Bấm **Bàn cờ** lần nữa")],prog:busyP,bad:(S,e)=>e.type==="checker"&&!e.data.err?{what:"Bàn cờ vẫn 0 lỗi vì **chưa bật** Lỗi kẹt-0.",fix:"Bật Lỗi kẹt-0 trước rồi chạy Bàn cờ lại."}:null});
+  P("hw","Gỡ lỗi & chạy lại",{do:[FON(false),MB("Bấm **March C−**")],prog:busyP,bad:(S,e)=>e.type==="march"&&(e.data.err||S.fault)?{what:"Lỗi kẹt-0 **vẫn đang bật** nên vẫn có lỗi.",fix:"Bấm nút Lỗi kẹt-0 cho tới khi ghi “tắt”, rồi chạy March C− lại."}:null});
+  P("rep","Bằng chứng kiểm thử",{do:[MB("Bấm **March C−**")],prog:busyP});
+  const TAB=(k,l)=>({t:`Mở thẻ **${l}**`,at:`[data-l2=tab-${k}]`,where:"Hàng thẻ ngay dưới mảng ô nhớ.",how:`Bấm vào chữ “${l}”; nội dung hiện ở khung bên dưới.`});
+  P("dec","Xem mã giải mã",{do:[TAB("vhdl","Mã VHDL")]});P("res","Mở bảng tài nguyên",{do:[TAB("res","Tài nguyên & thời gian")]});P("hdl","Mở mã",{do:[TAB("vhdl","Mã VHDL")]});P("rep","Số liệu tài nguyên",{do:[TAB("res","Tài nguyên & thời gian")]});
+}}
+
+/* ---------- các mô phỏng mẫu: thao tác nhiều bước + số đo trực tiếp ---------- */
+{const SL=(k,t,how)=>({t,at:`[data-l2=${k}]`,how:how||"Nhấn giữ nút tròn trên thanh trượt rồi kéo; giá trị hiện ngay bên phải tên."});
+ const BT=(k,t,where,how,ok)=>({t,at:`[data-l2=${k}]`,where,how:how||"Bấm nút này một lần.",ok});
+ const X={
+  ne555:{
+   "Đạt 1 Hz ± 10 %":{prog:(S,m)=>`f = ${m.f().toFixed(2)} Hz ${m.f()>=.9&&m.f()<=1.1?"✓":m.f()>1.1?"→ còn cao: kéo R2 sang PHẢI (tăng)":"→ còn thấp: kéo R2 sang TRÁI (giảm)"}`,fin:(S,m)=>m.f()>=.9&&m.f()<=1.1},
+   "Giới hạn dòng LED":{prog:(S,m)=>`I_LED = ${m.iL().toFixed(1)} mA ${m.iL()<=20?"✓":"→ quá lớn: tăng R3"}`,fin:(S,m)=>m.iL()<=20},
+   "Đặt giá trị chuẩn":{prog:(S,m)=>`f = ${m.f().toFixed(2)} Hz (cần ≈ 1,05 Hz) · R1 = ${S.R1} kΩ · R2 = ${S.R2} kΩ`,fin:(S,m)=>Math.abs(m.f()-1.05)<.08&&S.C===10},
+   "R1 = 1 kΩ":{prog:S=>`R1 = ${S.R1} kΩ ${Math.abs(S.R1-1)<=.15?"✓":S.R1>1?"→ kéo sang trái":"→ kéo sang phải"}`,fin:S=>Math.abs(S.R1-1)<=.15},
+   "R2 ≈ 68 kΩ":{prog:S=>`R2 = ${S.R2} kΩ ${Math.abs(S.R2-68)<=3?"✓":S.R2>68?"→ kéo sang trái":"→ kéo sang phải"}`,fin:S=>Math.abs(S.R2-68)<=3},
+   "R3 = 470 Ω":{prog:S=>`R3 = ${S.R3} Ω ${Math.abs(S.R3-470)<=20?"✓":S.R3>470?"→ kéo sang trái":"→ kéo sang phải"}`,fin:S=>Math.abs(S.R3-470)<=20},
+   "Chạy thử":{do:[BT("run","Bấm **▶ Chạy**","Nút **▶ Chạy** dưới các thanh trượt (cột trái).","",S=>S.run),{t:"Chờ LED nháy **2 lần**",at:"[data-l2=sch]",where:"Đèn LED dưới sơ đồ chân.",how:"Không cần bấm gì — nhìn LED sáng/tắt và đồ thị v_C."}],prog:S=>`Đã nháy ${S.cyc} lần`},
+   "Chạy mô phỏng":{do:[BT("run","Bấm **▶ Chạy**","Nút **▶ Chạy** (cột trái).","",S=>S.run),{t:"Quan sát **3 chu kỳ** trên đồ thị",at:"[data-l2=plot]",where:"Đồ thị v_C phía dưới.",how:"v_C lên tới đường đỏ 2/3 VCC thì xả xuống đường xanh 1/3 VCC — lặp lại."}],prog:S=>`Chu kỳ: ${S.cyc}/3`},
+   "Đổi R2 khi đang chạy":{do:[BT("run","Đảm bảo mạch **đang chạy** (▶ Chạy)","Nút **▶ Chạy** (cột trái).","",S=>S.run),SL("R2","Kéo **R2** xuống dưới 60 kΩ")],prog:S=>`R2 = ${S.R2} kΩ · ${S.run?"đang chạy":"đang dừng"}`},
+   "Cấp nguồn & đếm nháy":{do:[BT("run","Bấm **▶ Chạy**","Nút **▶ Chạy** (cột trái).","",S=>S.run),{t:"Đếm đủ **5 lần** LED nháy",at:"[data-l2=sch]",how:"Chỉ cần chờ và đếm."}],prog:S=>`Đã nháy ${S.cyc}/5`}},
+  counter:{
+   "Phát xung":{prog:S=>`q = ${S.q} (cần 3)`,bad:(S,e)=>e.type==="clk"&&S.q>3?{what:`Bạn đã bấm quá: q = ${S.q}.`,fix:"Bấm tiếp tới khi tràn về 0 rồi bấm 3 lần, hoặc bấm Làm giúp."}:null},
+   "Tới 15":{prog:S=>`q = ${S.q} / 15`},
+   "Tắt en":{do:[BT("en","Bấm **en** để chuyển về **0**","Nút **en** (cột trái).","",S=>S.en===0),BT("clk","Bấm **Xung clock**","Nút Xung clock (cột trái).")],prog:S=>`en = ${S.en} · q = ${S.q}`,bad:(S,e)=>e.type==="clk"&&S.en===1?{what:"en vẫn = 1 nên bộ đếm vẫn tăng.",fix:"Bấm nút **en** để về 0 rồi bấm clock lại."}:null},
+   "Reset":{do:[BT("en","Bật lại **en = 1**","Nút **en** (cột trái).","",S=>S.en===1),BT("rst","Bấm **rst_n = 0**","Nút **rst_n** (cột trái).")]},
+   "Nút thật bị dội":{do:[BT("bounce","Bật **Nút bị dội**","Nút **Nút bị dội** ở cột trái.","",S=>S.bounce),BT("clk","Bấm **Xung clock** một lần","Nút Xung clock (cột trái).")]},
+   "Chống dội":{do:[BT("deb","Bật **Chống dội**","Nút **Chống dội** cạnh Nút bị dội.","",S=>S.deb),BT("clk","Bấm **Xung clock** lại","Nút Xung clock (cột trái).")]},
+   "Đẩy tần số lên":{prog:S=>`f = ${S.f} MHz · slack = ${(1000/S.f-S.dly-.3).toFixed(2)} ns`},
+   "Về vùng an toàn":{prog:S=>{const sl=1000/S.f-S.dly-.3;return `f = ${S.f} MHz · slack = ${sl.toFixed(2)} ns ${sl>=0?"✓":"→ còn âm: kéo f sang trái"}`},fin:S=>1000/S.f-S.dly-.3>=0},
+   "Gán q0…q3":{prog:S=>`Đã gán ${(S.pins||[]).length}/4 LED`}},
+  fsm:{
+   "Gây lỗi":{do:[BT("bug","Bấm **Thử lỗi: bỏ trạng thái vàng**","Nút ở cuối cột trái.","",S=>S.skip),BT("run","Bấm **▶ Chạy**","Nút **▶ Chạy** ở góc trên cột trái.","",S=>S.run)]},
+   "Bước từng giây":{prog:S=>`Bộ đếm thời gian t = ${S.t} s (cần ≥ 3)`},
+   "Thời gian thật":{prog:S=>`Tốc độ = ${S.speed}× ${S.speed===1?"✓":"→ kéo về 1×"}`}},
+  filter:{
+   "Bậc 1 có đủ?":{do:[BT("ord","Chọn **Bậc 1**","Nhóm nút **Bậc** (cột trái).","Bấm “Bậc 1”.",S=>S.ord===1),SL("R","Kéo **R** tới khi f_c ≈ 1 kHz")],prog:(S,m)=>`f_c = ${kfmt(m.fc())}Hz (cần 0,88 – 1,12 kHz)`,fin:(S,m)=>S.ord===1&&Math.abs(m.fc()-1000)<120},
+   "Tìm R cho 1 kHz":{prog:(S,m)=>`f_c = ${kfmt(m.fc())}Hz ${Math.abs(m.fc()-1000)<=100?"✓":m.fc()>1000?"→ còn cao: tăng R":"→ còn thấp: giảm R"}`,fin:(S,m)=>Math.abs(m.fc()-1000)<=100},
+   "Đặt C = 100 nF":{prog:S=>`C = ${S.C} nF`,fin:S=>S.C===100},
+   "Đặt R = 10 kΩ, C₂ = 10 nF":{do:[SL("R","Kéo **R ≈ 10 kΩ**"),SL("C","Kéo **C₂ ≈ 10 nF**")],prog:(S,m)=>`R = ${kfmt(S.R)}Ω · C₂ = ${S.C} nF · f_c = ${kfmt(m.fc())}Hz`,fin:(S,m)=>Math.abs(m.fc()-1100)<250&&S.ord===2},
+   "Tín hiệu tại f_c":{prog:(S,m)=>`f = ${kfmt(S.f)}Hz · f_c = ${kfmt(m.fc())}Hz`},
+   "Kiểm yêu cầu":{prog:(S,m)=>`f = ${kfmt(S.f)}Hz · suy giảm tại 10 kHz = ${m.dB(1e4).toFixed(1)} dB (cần ≤ −30 dB)`}},
+  rlc:{"Tới hạn":{prog:(S,m)=>m.z?`ζ = ${m.z().toFixed(2)} (cần ≈ 1)`:""}},
+  ntc:{
+   "Điểm 0 °C":{do:[SL("T","Kéo **nhiệt độ về 0 °C**"),BT("cal","Bấm **Ghi điểm hiệu chuẩn**","Nút dưới thanh nhiệt độ.")],prog:S=>`T = ${S.T} °C ${S.T<=2?"✓":"→ kéo sang trái"}`,bad:(S,e)=>e.type==="cal"&&e.data.T>2?{what:`Bạn vừa ghi điểm ở ${e.data.T} °C.`,fix:"Kéo nhiệt độ về 0 °C trước rồi mới ghi điểm."}:null},
+   "Điểm 100 °C":{do:[SL("T","Kéo **nhiệt độ lên 100 °C**"),BT("cal","Bấm **Ghi điểm hiệu chuẩn**","Nút dưới thanh nhiệt độ.")],prog:S=>`T = ${S.T} °C ${S.T>=98?"✓":"→ kéo sang phải"}`,bad:(S,e)=>e.type==="cal"&&e.data.T<98?{what:`Bạn vừa ghi điểm ở ${e.data.T} °C.`,fix:"Kéo nhiệt độ lên 100 °C trước rồi mới ghi điểm."}:null},
+   "Đọc mã ADC":{fin:S=>S.T===25,prog:S=>`T = ${S.T} °C (cần đúng 25 °C)`}},
+  robot:{
+   "Chạy":{do:[BT("run","Bấm **▶ Chạy**","Nút **▶ Chạy** (cột trái).","",S=>S.run),{t:"Chờ robot chạy hết **1 vòng**",at:"[data-l2=track]",how:"Nhìn robot bám vạch đen trên đường đua."}],prog:S=>`Số vòng: ${S.lap}`},
+   "Chỉ có P":{do:[SL("Kd","Kéo **Kd về 0**"),SL("Kp","Kéo **Kp ≈ 1,5**"),BT("run","Bấm **▶ Chạy**","Nút **▶ Chạy**.")],prog:S=>`Kp = ${(+S.Kp).toFixed(2)} · Kd = ${(+S.Kd).toFixed(2)}`},
+   "Tăng tốc":{do:[SL("v","Kéo **v₀ lên 100**"),BT("run","Bấm **▶ Chạy**","Nút **▶ Chạy**.","",S=>S.run),{t:"Chạy được **1 vòng** (chỉnh Kp/Kd nếu văng)",at:"[data-l2=track]",how:"Nếu robot văng khỏi vạch: tăng Kp và Kd rồi chạy lại."}],prog:S=>`v₀ = ${S.v} · vòng: ${S.lap} · văng: ${S.off||0}`}}};
+ Object.entries(X).forEach(([k,map])=>{const D=L2[k];if(!D)return;Object.values(D.tuts).forEach(T=>T.steps.forEach(s=>{const x=map[s.t];if(x){const d=x.do;Object.assign(s,x);if(d)s.do=d.map(z=>({...z,at:z.at}))}}))})}
+
+/* ---------- mô tả vị trí các vùng chính của từng mô phỏng (dùng cho “📍 Ở đâu”) ---------- */
+{const W={
+  ne555:{"[data-l2=sch]":"Sơ đồ chân IC NE555 ở giữa: chân 1–4 bên trái, chân 5–8 bên phải; tụ C1, C2 ở góc phải, LED ở góc dưới trái. Bấm vào vòng tròn hoặc tên chân/linh kiện.","[data-l2=plot]":"Đồ thị điện áp tụ v_C phía dưới sơ đồ (đường đỏ = 2/3 VCC, xanh = 1/3 VCC).","[data-l2=run]":"Nút **▶ Chạy** dưới các thanh trượt ở cột trái.","[data-l2=C]":"Mục **C (tụ định thời)** ở cột trái — một hàng nút giá trị 1 … 100 µF."},
+  counter:{"[data-l2=arch]":"Sơ đồ khối ở giữa: 4 flip-flop, khối **+1** (bộ cộng) và các LED q0…q3.","[data-l2=clk]":"Nút **Xung clock** ở cột trái.","[data-l2=en]":"Nút **en** ở cột trái (đổi 1 ↔ 0).","[data-l2=rst]":"Nút **rst_n** ở cột trái.","[data-l2=tb]":"Nút **▶ Chạy testbench** ở cột trái (dưới en, rst_n).","[data-l2=bounce]":"Nút **Nút bị dội** ở cột trái, cạnh nút Chạy testbench.","[data-l2=deb]":"Nút **Chống dội** ở cột trái, ngay dưới nút Nút bị dội.","[data-l2=f]":"Thanh trượt **Tần số clock mục tiêu** ở cột trái."},
+  fsm:{"[data-l2=diag]":"Sơ đồ trạng thái ở giữa: 4 vòng tròn S0 … S3 nối bằng mũi tên.","[data-l2=run]":"Nút **▶ Chạy** ở góc trên cột trái.","[data-l2=enc]":"Nhóm nút **Mã nhị phân / One-hot** ở cột trái, dưới thanh Tốc độ.","[data-l2=tick]":"Nút **+1 giây** ở góc trên cột trái, cạnh nút Chạy.","[data-l2=bug]":"Nút **Thử lỗi: bỏ trạng thái vàng** ở cuối cột trái.","[data-l2=speed]":"Thanh trượt **Tốc độ** ở cột trái."},
+  filter:{"[data-l2=ord]":"Nhóm nút **Bậc 1 / Bậc 2** ở cột trái.","[data-l2=bode]":"Đồ thị Bode (biên độ theo tần số) ở giữa.","[data-l2=time]":"Đồ thị sóng vào/ra phía dưới."},
+  ntc:{"[data-l2=cal]":"Nút **Ghi điểm hiệu chuẩn** ở cột trái, dưới thanh nhiệt độ.","[data-l2=plot]":"Đồ thị V_out theo nhiệt độ ở giữa."},
+  robot:{"[data-l2=track]":"Đường đua hình oval ở giữa (vạch đen).","[data-l2=run]":"Nút **▶ Chạy** ở cột trái."},
+  rlc:{"[data-l2=plot]":"Đồ thị đáp ứng bước ở giữa."},
+  ram:{"[data-l2=array]":"Lưới ô nhớ ở giữa màn hình — số hàng ở mép trái, số cột ở mép trên.","[data-l2=march]":"Mục **Kiểm thử** cuối cột trái — nút **March C−**.","[data-l2=checker]":"Mục **Kiểm thử** — nút **Bàn cờ**.","[data-l2=fault]":"Mục **Kiểm thử** — nút **Lỗi kẹt-0**."}};
+ Object.entries(W).forEach(([k,w])=>{if(L2[k])L2[k].where=Object.assign(L2[k].where||{},w)})}
+/* NE555: “cách đúng” chỉ rõ vị trí chân cần bấm */
+{const N=["","GND","TRIG","OUT","RESET","CTRL","THR","DIS","VCC"];const D=L2.ne555;if(D)Object.values(D.tuts).forEach(T=>T.steps.forEach(s=>{const m=String(s.wait||"").match(/e\.type===["']pin["']&&e\.data\.n===(\d)/);if(!m)return;const n=+m[1];
+  const side=n<=4?`cột chân bên **trái**, thứ ${n} từ trên xuống`:`cột chân bên **phải**, thứ ${9-n} từ trên xuống`;s.fix=`Bấm **chân ${n} ${N[n]}** — ${side}.`;
+  s.bad=(S,e)=>e.type==="pin"&&e.data.n!==n?{what:`Bạn vừa bấm **chân ${e.data.n} ${N[e.data.n]}** — chưa phải chân cần tìm.`,fix:s.fix}:null}))}
+
+Object.assign(IC,{img:'<rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 8"/>',tune:'<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',loop:'<path d="M4 12a8 8 0 0 1 13.7-5.7L20 8"/><path d="M20 4v4h-4"/><path d="M20 12a8 8 0 0 1-13.7 5.7L4 16"/><path d="M4 20v-4h4"/>'});
+/* =====================================================================
+   v42 — sửa bài tập tại chỗ · nền khối rõ ràng · thanh kéo trang dự án ·
+   ảnh bìa môn học / thẻ trò chuyện (đồng bộ cảnh nền hoặc ảnh riêng, pixel tùy chọn) ·
+   thêm môn ở nhiều chỗ · nút ✕ khi chọn linh kiện 3D · thu nhỏ cột Trò chuyện ·
+   nút loa: bật/tắt nhanh + nút tùy chỉnh riêng · ✕ để ẩn công cụ ở thanh trái
+   ===================================================================== */
+
+/* ---------- 1. Bài tập: sửa nội dung, hạn, môn ngay trong danh sách ---------- */
+function taskEdit50(t){
+  openModal({title:"Sửa bài tập",small:true,body:`<div class="form"><div class="field"><label for="te50T">Nội dung</label><input class="input" id="te50T" value="${esc(t.title||"")}"></div>
+    <div class="row3"><div class="field"><label for="te50S">Môn</label><select id="te50S"><option value="">Không gắn môn</option>${UI.subjs.map(s=>`<option value="${esc(s.id)}" ${s.id===t.subj?"selected":""}>${esc(s.title)}</option>`).join("")}</select></div>
+    <div class="field"><label for="te50D">Hạn</label><input type="date" class="input" id="te50D" value="${esc(t.due||"")}"></div>
+    <div class="field"><label for="te50St">Trạng thái</label><select id="te50St"><option value="todo" ${t.status!=="done"?"selected":""}>Cần làm</option><option value="done" ${t.status==="done"?"selected":""}>Đã xong</option></select></div></div>
+    <div class="field"><label for="te50N">Ghi chú (tùy chọn)</label><textarea class="input" id="te50N" placeholder="Yêu cầu, link nộp bài, phần cần ôn…">${esc(t.note||"")}</textarea></div></div>`,
+    foot:`<button class="pill-btn" id="te50Del" style="color:var(--bad)">${ic("trash")} Xóa</button><div class="grow"></div><button class="pill-btn" data-close>Hủy</button><button class="pill-btn primary" id="te50Ok">${ic("check")} Lưu</button>`});
+  const ti=$("#te50T");ti.focus();ti.select();
+  const ok=async()=>{const v=ti.value.trim();if(!v){toast("Nhập nội dung");return}await Store.patch(t.id,{title:v,subj:$("#te50S").value||null,due:$("#te50D").value||null,status:$("#te50St").value,note:$("#te50N").value.trim()});closeDialog();toast("Đã lưu bài tập",1200)};
+  $("#te50Ok").onclick=ok;ti.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();ok()}};
+  $("#te50Del").onclick=()=>{closeDialog();Store.del(t.id);toast("Đã xóa bài tập",1200)}}
+{const _rt50=renderTasks;renderTasks=function(el){const r=_rt50.apply(this,arguments);if(!el)return r;
+  $$(".trow",el).forEach(row=>{const cb=$("[data-tk2]",row);if(!cb||row._e50)return;row._e50=1;const id=cb.dataset.tk2;const T=()=>UI.tasks.find(x=>x.id===id);
+    const ti=$(".tt-title",row),du=$(".due",row),del=$("[data-tdel]",row);
+    if(ti){ti.classList.add("ed50");ti.tabIndex=0;ti.title="Bấm để sửa nội dung";const t0=T();if(t0&&t0.note)ti.insertAdjacentHTML("beforeend",`<small class="tnote50">${esc(t0.note)}</small>`);
+      const go=()=>{const t=T();if(!t||row.querySelector(".tin50"))return;const inp=document.createElement("input");inp.className="input tin50";inp.value=t.title||"";inp.setAttribute("aria-label","Nội dung bài tập");ti.replaceWith(inp);inp.focus();inp.select();
+        let done=false;const fin=save=>{if(done)return;done=true;const v=inp.value.trim();if(save&&v&&v!==t.title)Store.patch(id,{title:v});else{inp.replaceWith(ti)}};
+        inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();fin(true)}if(e.key==="Escape"){e.preventDefault();fin(false)}};inp.onblur=()=>fin(true)};
+      ti.onclick=go;ti.onkeydown=e=>{if(e.key==="Enter"||e.key==="F2"){e.preventDefault();go()}}}
+    if(du){du.classList.add("ed50");du.tabIndex=0;du.title="Bấm để đổi hạn";const go=()=>{const t=T();if(!t||row.querySelector(".din50"))return;const inp=document.createElement("input");inp.type="date";inp.className="input din50";inp.value=t.due||"";inp.setAttribute("aria-label","Hạn nộp");du.replaceWith(inp);inp.focus();try{inp.showPicker&&inp.showPicker()}catch(e){}
+        let done=false;const fin=save=>{if(done)return;done=true;if(save&&(inp.value||null)!==(t.due||null))Store.patch(id,{due:inp.value||null});else inp.replaceWith(du)};
+        inp.onchange=()=>fin(true);inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();fin(true)}if(e.key==="Escape"){e.preventDefault();fin(false)}};inp.onblur=()=>setTimeout(()=>fin(true),120)};
+      du.onclick=go;du.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();go()}}}
+    if(del){const eb=document.createElement("button");eb.className="ghost ic te50";eb.innerHTML=ic("edit");eb.setAttribute("aria-label","Sửa bài tập");eb.title="Sửa nội dung, hạn, môn, ghi chú";eb.onclick=e=>{e.stopPropagation();const t=T();if(t)taskEdit50(t)};del.before(eb)}});
+  return r}}
+
+/* ---------- 2. Trang dự án: thanh kéo đổi độ rộng cột Các bước / Trợ lý AI ---------- */
+function pjSplit50(){const m=$("#pjOv .pj-main");if(!m||m._sp50)return;m._sp50=1;
+  const ap=()=>{m.style.setProperty("--pjL",local.get("pjL",240)+"px");m.style.setProperty("--pjR",local.get("pjR",340)+"px")};ap();
+  const mk=side=>{const h=document.createElement("div");h.className="pj-rs50 "+side;h.setAttribute("role","separator");h.setAttribute("aria-orientation","vertical");h.setAttribute("aria-label",side==="l"?"Đổi độ rộng cột Các bước":"Đổi độ rộng cột Trợ lý AI");h.title="Kéo để đổi độ rộng · bấm đúp để về mặc định";h.tabIndex=0;m.appendChild(h);
+    h.addEventListener("pointerdown",e=>{if(e.button!==0)return;e.preventDefault();h.setPointerCapture(e.pointerId);h.classList.add("drag");document.body.classList.add("rs50-drag");
+      const mv=ev=>{const r=m.getBoundingClientRect();if(side==="l"){local.set("pjL",Math.round(Math.max(150,Math.min(r.width*.4,ev.clientX-r.left))))}else{local.set("pjR",Math.round(Math.max(240,Math.min(r.width*.55,r.right-ev.clientX))))}ap();place()};
+      const up=()=>{h.classList.remove("drag");document.body.classList.remove("rs50-drag");h.removeEventListener("pointermove",mv);h.removeEventListener("pointerup",up);h.removeEventListener("pointercancel",up)};
+      h.addEventListener("pointermove",mv);h.addEventListener("pointerup",up);h.addEventListener("pointercancel",up)});
+    h.addEventListener("dblclick",()=>{local.set(side==="l"?"pjL":"pjR",side==="l"?240:340);ap();place()});
+    h.addEventListener("keydown",e=>{const d={ArrowLeft:-16,ArrowRight:16}[e.key];if(!d)return;e.preventDefault();const k=side==="l"?"pjL":"pjR";local.set(k,Math.max(150,local.get(k,side==="l"?240:340)+(side==="l"?d:-d)));ap();place()});return h};
+  const L=mk("l"),R=mk("r");
+  const place=()=>{const st=$(".pj-steps",m),ai=$(".pj-ai",m);const wide=innerWidth>1100;L.hidden=!wide||!st;R.hidden=!wide||!ai||getComputedStyle(ai).display==="none";if(!wide)return;
+    const r=m.getBoundingClientRect();if(st){L.style.left=(st.getBoundingClientRect().right-r.left-4)+"px"}if(ai){R.style.left=(ai.getBoundingClientRect().left-r.left-4)+"px"}};
+  place();try{const ro=new ResizeObserver(place);ro.observe(m);}catch(e){}addEventListener("resize",place)}
+{const _pr50=pjRender;pjRender=function(){const r=_pr50.apply(this,arguments);try{pjSplit50()}catch(e){console.warn(e)}return r}}
+
+/* ---------- 3. Ảnh bìa: môn học & thẻ trò chuyện — mặc định / theo cảnh nền / ảnh của bạn (pixel hóa tùy chọn) ---------- */
+const COV50_DEF={m:"def"};
+const cov50Of=o=>(o&&o.cover&&o.cover.m)?o.cover:local.get("covDef",COV50_DEF);
+async function cov50Img(src,W,H,px){const im=await loadImg(src);const iw=im.naturalWidth||im.width,ih=im.naturalHeight||im.height;
+  const k=Math.max(W/iw,H/ih);const sw=W/k,sh=H/k,sx=(iw-sw)/2,sy=(ih-sh)/2;
+  if(px){/* ảnh pixel: thu nhỏ về lưới thô rồi giảm màu */const pw=Math.max(48,Math.min(220,Math.round(W/4)));const ph=Math.max(16,Math.round(pw*H/W));const c=document.createElement("canvas");c.width=pw;c.height=ph;const g=c.getContext("2d");g.imageSmoothingEnabled=true;g.drawImage(im,sx,sy,sw,sh,0,0,pw,ph);try{if(typeof pxQuant==="function"&&window.GIFENC)pxQuant(c)}catch(e){}return c}
+  const c=document.createElement("canvas");c.width=W;c.height=H;const g=c.getContext("2d");g.imageSmoothingQuality="high";g.drawImage(im,sx,sy,sw,sh,0,0,W,H);return c}
+/* trả về canvas cho cấu hình ảnh bìa, hoặc null nếu dùng kiểu mặc định */
+async function cov50Canvas(cfg,W,H,seed){
+  if(cfg.m==="theme"){const src=bgSrc();if(src.img)return cov50Img(src.img,W*2,H*2,!!UI.bg.pix||!!cfg.px);const sc=sceneCanvas(src.scene,Math.round(W/2),Math.round(H/2),seed||local.get("bnrSeed","so-hoc"));return sc}
+  if(cfg.m==="img"&&cfg.url){const u=typeof img40URL==="function"?await img40URL(cfg.url):cfg.url;return cov50Img(u,W*2,H*2,!!cfg.px)}
+  return null}
+async function cov50Draw(cv,cfg,W,H,seed){const c=await cov50Canvas(cfg,W,H,seed).catch(e=>{console.warn(e);return null});if(!c||!cv.isConnected)return false;cv.width=c.width;cv.height=c.height;const g=cv.getContext("2d");g.imageSmoothingEnabled=!(cfg.px||cfg.m==="theme"&&!bgSrc().img);g.drawImage(c,0,0);cv.classList.toggle("cov50-smooth",!(cfg.px||(cfg.m==="theme"&&(!bgSrc().img||UI.bg.pix))));return true}
+const _cov50URL=new Map();
+async function cov50URL(cfg,W,H,seed){const k=JSON.stringify([cfg,W,H,seed,UI.bg.sel,UI.bg.pix,isNightSkin()]);if(_cov50URL.has(k))return _cov50URL.get(k);const c=await cov50Canvas(cfg,W,H,seed);const u=c?c.toDataURL("image/png"):null;_cov50URL.set(k,u);if(_cov50URL.size>30)_cov50URL.delete(_cov50URL.keys().next().value);return u}
+/* bảng chọn ảnh bìa dùng chung */
+function cov50Menu(anchor,{title,get,set,allBtn}){const c=Object.assign({m:"def"},get()||{});
+  const m=popMenu(anchor,`<div class="who">${esc(title)}</div><div class="cov50p">
+    <div class="cov50-seg" role="radiogroup" aria-label="Kiểu ảnh bìa">${[["def","Mặc định","Cảnh pixel theo màu môn"],["theme","Theo cảnh nền","Đồng bộ với giao diện đang dùng"],["img","Ảnh của bạn","Tải ảnh từ máy"]].map(([k,l,s])=>`<button type="button" role="radio" data-cm="${k}" aria-checked="${c.m===k}"><b>${l}</b><small>${s}</small></button>`).join("")}</div>
+    <label class="btn cov50-up">${ic("img")} ${c.url?"Đổi ảnh khác…":"Chọn ảnh…"}<input type="file" accept="image/*" hidden data-cf></label>
+    <label class="chk-row"><input type="checkbox" class="chk" data-cpx ${c.px?"checked":""}> Chuyển sang ảnh pixel</label>
+    ${allBtn?`<button class="btn" data-call type="button">${ic("check")} Dùng kiểu này cho mọi môn</button>`:""}
+    <p class="muted" style="font-size:12px;margin:0">“Theo cảnh nền” tự đổi khi bạn đổi giao diện. Ảnh của bạn được lưu cùng dữ liệu Sổ Học.</p></div>`);
+  m.classList.add("wide");m.addEventListener("click",e=>e.stopPropagation());
+  const re=()=>{closePop();cov50Menu(anchor,{title,get,set,allBtn})};
+  $$("[data-cm]",m).forEach(b=>b.onclick=async()=>{const k=b.dataset.cm;if(k==="img"&&!c.url){$("[data-cf]",m).click();return}await set({...c,m:k});re()});
+  $("[data-cf]",m).onchange=async e=>{const f=e.target.files[0];if(!f)return;toast("Đang thêm ảnh…",1000);try{const r=await img40Store(f);await set({...c,m:"img",url:r.url,asset:r.asset||null});toast("Đã đặt ảnh bìa",1200);re()}catch(err){toast("Không đọc được ảnh")}};
+  $("[data-cpx]",m).onchange=async e=>{await set({...c,px:e.target.checked})};
+  const al=$("[data-call]",m);if(al)al.onclick=async()=>{local.set("covDef",{...c});for(const s of UI.subjs)if(s.cover)await Store.patch(s.id,{cover:null});toast("Mọi môn chưa tùy chỉnh riêng sẽ dùng kiểu này",1800);closePop();renderCourses&&renderCourses()};
+  return m}
+function cov50Subj(anchor,s){cov50Menu(anchor,{title:`Ảnh bìa môn “${s.title}”`,allBtn:true,get:()=>cov50Of(subjOf(s.id)||s),set:async v=>{await Store.patch(s.id,{cover:v});setTimeout(()=>{if(UI.view==="subj")renderSubject();if($("#courseBox"))renderCourses()},60)}})}
+/* thẻ môn ở Trang chủ + ô “Thêm môn học” ở chỗ trống bên cạnh */
+{const _rc50=renderCourses;renderCourses=function(){const r=_rc50.apply(this,arguments);const box=$("#courseBox");if(!box||UI.courseTab==="all")return r;
+  $$(".course[data-id]",box).forEach(card=>{const s=subjOf(card.dataset.id);if(!s)return;const tools=$(".crs-tools",card);
+    if(tools&&!$("[data-cov50]",tools)){const b=document.createElement("button");b.className="crs-g";b.dataset.cov50=s.id;b.title="Ảnh bìa: mặc định, theo cảnh nền hoặc ảnh của bạn";b.setAttribute("aria-label","Đổi ảnh bìa môn "+s.title);b.innerHTML=ic("img");b.onclick=e=>{e.stopPropagation();cov50Subj(b,s)};tools.prepend(b)}
+    const cv=$("canvas[data-cov]",card);const cfg=cov50Of(s);if(cv&&cfg.m!=="def")cov50Draw(cv,cfg,160,90,s.id)});
+  const g=$("#crsGrid",box)||$(".courses",box);if(g&&!$(".crs-add50",g)){const b=document.createElement("button");b.className="course crs-add50";b.type="button";b.setAttribute("aria-label","Thêm môn học");b.innerHTML=`<span class="crs-add50-i">${ic("plus")}</span><b>Thêm môn học</b><small>Bấm để tạo môn mới</small>`;b.onclick=e=>{e.stopPropagation();subjectDialog()};g.appendChild(b)}
+  return r}}
+/* trang môn học: ảnh bìa + nút đổi */
+{const _rs50=renderSubject;renderSubject=function(treeOnly){const r=_rs50.apply(this,arguments);if(treeOnly||UI.view!=="subj")return r;const sid=UI.curSubj;const s=subjOf(sid);const cov=$(".subj-cover");if(!cov||!s)return r;
+  const cfg=cov50Of(s);const cv=$("#sjCov",cov);if(cv&&cfg.m!=="def")cov50Draw(cv,cfg,640,160,s.id);
+  if(!$("[data-sjcov50]",cov)){const b=document.createElement("button");b.className="pill-btn sjcov50";b.dataset.sjcov50="1";b.innerHTML=`${ic("img")} Ảnh bìa`;b.title="Đổi ảnh bìa: mặc định, theo cảnh nền hoặc ảnh của bạn";b.onclick=e=>{e.stopPropagation();cov50Subj(b,s)};cov.appendChild(b)}
+  return r}}
+/* thẻ đầu cột Trò chuyện */
+function hero50Apply(){const box=$("#chatIn");const nb=UI.cur;if(!box||!nb)return;const h=$(".hero",box);if(!h)return;
+  if(!$("[data-hero50]",h)){const b=document.createElement("button");b.className="ghost ic hero50-b";b.dataset.hero50="1";b.title="Tùy chỉnh thẻ: mặc định, theo cảnh nền hoặc ảnh của bạn";b.setAttribute("aria-label","Tùy chỉnh ảnh thẻ bài học");b.innerHTML=ic("img");
+    b.onclick=e=>{e.stopPropagation();cov50Menu(b,{title:"Ảnh thẻ bài học",get:()=>(UI.nbs.find(n=>n.id===nb.id)||nb).hero||local.get("heroDef",COV50_DEF),set:async v=>{local.set("heroDef",{m:v.m,px:!!v.px});await Store.patch(nb.id,{hero:v});setTimeout(hero50Apply,80)}})};h.appendChild(b)}
+  const cfg=(UI.nbs.find(n=>n.id===nb.id)||nb).hero||local.get("heroDef",COV50_DEF);
+  if(!cfg||cfg.m==="def"||(cfg.m==="img"&&!cfg.url)){h.classList.remove("hero50");h.style.removeProperty("--h50");return}
+  cov50URL(cfg,520,200,nb.id).then(u=>{if(!u||!h.isConnected)return;h.classList.add("hero50");h.classList.toggle("px",!!cfg.px||(cfg.m==="theme"&&(!bgSrc().img||UI.bg.pix)));h.style.setProperty("--h50",`url("${u}")`)}).catch(()=>{})}
+{const _rch50=renderChat;renderChat=function(){const r=_rch50.apply(this,arguments);try{hero50Apply()}catch(e){console.warn(e)}return r}}
+/* đổi cảnh nền → vẽ lại các ảnh bìa “theo cảnh nền” */
+{const _ab50=applyBg;applyBg=function(){const r=_ab50.apply(this,arguments);clearTimeout(window._cov50T);window._cov50T=setTimeout(()=>{try{_cov50URL.clear();if($("#courseBox"))renderCourses();if(UI.view==="subj")renderSubject();hero50Apply()}catch(e){}},120);return r}}
+
+/* ---------- 4. Nguồn → Bài học: tạo môn mới ngay tại chỗ ---------- */
+function quickSubj50(done){const col0=SUBJ_COLORS[UI.subjs.length%SUBJ_COLORS.length];let col=col0;
+  openModal({title:"Môn học mới",small:true,body:`<div class="form"><div class="field"><label for="qs50T">Tên môn</label><input class="input" id="qs50T" placeholder="Ví dụ: Vi xử lý"></div><div class="field"><label for="qs50C">Mã/nhãn ngắn</label><input class="input" id="qs50C" placeholder="MPU"></div>
+    <div class="field"><span>Màu nhãn</span><div class="model-pick">${SUBJ_COLORS.map(c=>`<button class="chip" data-qc="${c}" aria-pressed="${c===col0}" style="background:${c};width:36px;height:30px" type="button"></button>`).join("")}</div></div>
+    <label class="chk-row"><input type="checkbox" class="chk" id="qs50F" checked> Tạo sẵn thư mục “Chương 1”</label></div>`,foot:`<div class="grow"></div><button class="pill-btn" data-close>Hủy</button><button class="pill-btn primary" id="qs50Ok">${ic("plus")} Tạo môn</button>`});
+  $("#qs50T").focus();$$("[data-qc]").forEach(b=>b.onclick=()=>{col=b.dataset.qc;$$("[data-qc]").forEach(x=>x.setAttribute("aria-pressed",x===b))});
+  const ok=async()=>{const t=$("#qs50T").value.trim();if(!t){toast("Nhập tên môn");return}const id=mkid("sj");const fold=$("#qs50F").checked;
+    await Store.put(id,{type:"subj",title:t,code:$("#qs50C").value.trim(),color:col,created:Date.now(),order:UI.subjs.length});
+    if(fold)await Store.put(mkid("fd"),{type:"fold",subj:id,parent:null,title:"Chương 1",order:0,created:Date.now()});closeDialog();toast("Đã tạo môn “"+t+"”",1400);if(done)done(id)};
+  $("#qs50Ok").onclick=ok;$("#qs50T").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();ok()}}}
+function moveLessonMenu50(anchor,nb){const m=popMenu(anchor,`<div class="who">Chuyển bài “${esc(nb.title)}”</div>${UI.subjs.filter(s=>s.id!==nb.subj).map(s=>`<button data-mv="${esc(s.id)}"><i class="dot" style="background:${s.color}"></i>${esc(s.title)}</button>`).join("")}<button data-mv="__new">${ic("plus")}Tạo môn mới và chuyển vào…</button>${nb.subj?`<button data-mv="__none">Bỏ khỏi môn (Chưa xếp môn)</button>`:""}`);
+  $$("[data-mv]",m).forEach(b=>b.onclick=()=>{const v=b.dataset.mv;if(v==="__new")return quickSubj50(id=>Store.patch(nb.id,{subj:id,parent:null}));Store.patch(nb.id,{subj:v==="__none"?null:v,parent:null});toast("Đã chuyển bài học",1200)})}
+{const _rsrc50=renderSources;renderSources=function(){const r=_rsrc50.apply(this,arguments);if(UI.srcTab!=="tree"||!UI.cur)return r;const nb=UI.cur;
+  const as=$("#lsAssign");if(as&&!as._q50){as._q50=1;as.insertAdjacentHTML("beforeend",`<option value="__new">＋ Tạo môn học mới…</option>`);
+    const f=as.closest(".field");if(f&&!$(".lsnew50",f)){const b=document.createElement("button");b.type="button";b.className="btn lsnew50";b.innerHTML=`${ic("plus")} Môn mới`;b.onclick=()=>quickSubj50(id=>Store.patch(nb.id,{subj:id,parent:null}));const lab=$("label",f);if(lab){const w=document.createElement("div");w.className="lsrow50";lab.replaceWith(w);w.append(lab,b)}}
+    as.addEventListener("change",e=>{if(as.value==="__new"){e.stopImmediatePropagation();as.value="";quickSubj50(id=>Store.patch(nb.id,{subj:id,parent:null}))}},true)}
+  const chip=$(".lesson-side .subj-chip");if(chip&&!$(".lsmv50",chip)){const b=document.createElement("button");b.type="button";b.className="ghost ic lsmv50";b.innerHTML=ic("more");b.title="Chuyển sang môn khác hoặc tạo môn mới";b.setAttribute("aria-label","Chuyển bài sang môn khác");b.onclick=e=>{e.stopPropagation();moveLessonMenu50(b,nb)};chip.appendChild(b)}
+  return r}}
+
+/* ---------- 5a. Xưởng mô hình 3D: chọn linh kiện → thẻ nổi có ✕ (bỏ chọn) và 🗑 (xóa) ---------- */
+window.M3_PLUG=window.M3_PLUG||[];
+M3_PLUG.push(function(st){const {T,V,stage,select,del,P_}=st.api;if(!T||!V||!stage)return;
+  const chip=document.createElement("div");chip.className="m3sel50";chip.hidden=true;stage.appendChild(chip);let shown=null;
+  const fill=p=>{chip.innerHTML=`<span class="nm">${esc(p.name||p.type)}</span><button type="button" data-a="del" title="Xóa linh kiện (Delete)" aria-label="Xóa linh kiện">${ic("trash")}</button><button type="button" data-a="x" title="Bỏ chọn (Esc)" aria-label="Bỏ chọn linh kiện">${ic("close")}</button>`;
+    chip.querySelector("[data-a=x]").onclick=e=>{e.stopPropagation();select(null)};chip.querySelector("[data-a=del]").onclick=e=>{e.stopPropagation();const id=st.sel;if(id&&del){del(id);select(null)}}};
+  ["pointerdown","mousedown","click"].forEach(t=>chip.addEventListener(t,e=>e.stopPropagation()));
+  const box=new T.Box3(),v=new T.Vector3();
+  const loop=()=>{if(!document.body.contains(stage))return;requestAnimationFrame(loop);const id=st.sel;const p=id&&P_(id);const o=id&&st.objs.get(id);
+    if(!p||!o){if(!chip.hidden){chip.hidden=true;shown=null}return}
+    if(shown!==id+"|"+p.name){fill(p);shown=id+"|"+p.name}chip.hidden=false;
+    box.setFromObject(o);v.set((box.min.x+box.max.x)/2,box.max.y,(box.min.z+box.max.z)/2).project(V.cam);
+    const c=V.renderer.domElement.getBoundingClientRect(),sr=stage.getBoundingClientRect();
+    const x=c.left-sr.left+(v.x+1)/2*c.width,y=c.top-sr.top+(1-v.y)/2*c.height;chip.style.left=Math.max(8,Math.min(sr.width-chip.offsetWidth-8,x-chip.offsetWidth/2))+"px";chip.style.top=Math.max(8,y-chip.offsetHeight-12)+"px";chip.style.opacity=v.z>1?0:1};
+  requestAnimationFrame(loop);
+  /* ô Thuộc tính: thêm nút ✕ bỏ chọn cạnh tên linh kiện */
+  const pane=$("#m3P");if(pane){const mo=new MutationObserver(()=>{const row=$(".m3-prop .row2",pane);if(row&&!$(".m3x50",row)){const b=document.createElement("button");b.type="button";b.className="ghost ic m3x50";b.title="Bỏ chọn linh kiện";b.setAttribute("aria-label","Bỏ chọn linh kiện");b.innerHTML=ic("close");b.onclick=()=>select(null);row.appendChild(b)}});mo.observe(pane,{childList:true,subtree:true})}
+  stage.addEventListener("keydown",e=>{if(e.key==="Escape"&&st.sel){e.stopPropagation();select(null)}})});
+
+/* ---------- 5b. Cột Trò chuyện: có nút “–” thu nhỏ hết cỡ như Nguồn, Studio ---------- */
+{const _ph50=paneHead;paneHead=function(id,title,coll,extra){return _ph50.call(this,id,title,id==="paneChat"?true:coll,extra)}}
+{const _al50=applyLayout;applyLayout=function(){const r=_al50.apply(this,arguments);const g=$("#nbGrid"),pc=$("#paneChat");if(!g||!pc)return r;const L=UI.lay;
+  const want=!!(L&&L.coll&&L.coll.paneChat)&&innerWidth>1100&&!L.max;pc.classList.toggle("coll",want);if(!want)return r;
+  const ids=["paneSrc","gSrc","paneChat","gSplit","paneSplit","gStudio","paneStudio"];const els=ids.map(i=>$("#"+i)).filter(e=>e&&e.style.display!=="none");
+  const cols=g.style.gridTemplateColumns.trim().split(/\s+(?![^(]*\))/);if(cols.length!==els.length)return r;
+  const ci=els.indexOf(pc);if(ci<0)return r;cols[ci]="52px";
+  /* cột khác giãn ra lấp chỗ trống */
+  const flex=["paneStudio","paneSplit","paneSrc"].map(i=>$("#"+i)).find(e=>e&&els.includes(e)&&!e.classList.contains("coll"));
+  if(!flex){L.coll.paneChat=false;pc.classList.remove("coll");saveLay();return _al50.apply(this,arguments)}
+  const k=els.indexOf(flex);const base=flex.id==="paneSrc"?L.src:flex.id==="paneStudio"?L.studio:L.split;cols[k]=`minmax(${base}px,1fr)`;
+  g.style.gridTemplateColumns=cols.join(" ");return r}}
+
+/* ---------- 6. Nút loa trên thanh trên cùng: bấm → Bật / Tắt tiếng; nút ⋯ bên cạnh → tùy chỉnh âm thanh ---------- */
+function sndQuick50(anchor){const s=UI.snd;const m=popMenu(anchor,`<div class="who">Âm thanh</div><div class="sq50">
+    <button type="button" data-sq="on" aria-pressed="${!!s.on}">${ic("vol")} Bật tiếng</button><button type="button" data-sq="off" aria-pressed="${!s.on}">${ic("mute")} Tắt tiếng</button>
+    <label class="sq50-v">${ic("vol")}<input type="range" min="0" max="1" step=".05" value="${s.vol}" aria-label="Âm lượng"></label>
+    <button type="button" data-sq="more" class="sq50-more">${ic("tune")} Tùy chỉnh âm thanh…</button></div>`);
+  m.addEventListener("click",e=>e.stopPropagation());
+  const set=on=>{s.on=on;local.set("bgSnd",s);SND.apply();updSndBtn();$$("[data-sq=on],[data-sq=off]",m).forEach(b=>b.setAttribute("aria-pressed",(b.dataset.sq==="on")===on))};
+  $("[data-sq=on]",m).onclick=()=>set(true);$("[data-sq=off]",m).onclick=()=>set(false);
+  $("input",m).oninput=e=>{s.vol=+e.target.value;if(SND.ctx&&s.on)SND.master.gain.setTargetAtTime(s.vol*.9,SND.ctx.currentTime,.1);if(SND.audio)SND.audio.volume=s.vol;try{window.SOHOC_EMB&&SOHOC_EMB.vol()}catch(err){}clearTimeout(m._t);m._t=setTimeout(saveSnd,300)};
+  $("[data-sq=more]",m).onclick=()=>{closePop();const mb=$("#tSndMore")||anchor;sndPopover(mb)};
+  setTimeout(()=>{const off=e=>{if(!m.isConnected||(!m.contains(e.target)&&!anchor.contains(e.target))){document.removeEventListener("pointerdown",off,true);if(m.isConnected)closePop()}};document.addEventListener("pointerdown",off,true)},0)}
+{const _rt50b=renderTop;renderTop=function(){const r=_rt50b.apply(this,arguments);const b=$("#tSnd");if(b){b.onclick=e=>{e.stopPropagation();if($(".sq50")){closePop();return}sndQuick50(b)};b.title=UI.snd.on?"Âm thanh đang bật — bấm để bật/tắt tiếng":"Đang tắt tiếng — bấm để bật/tắt tiếng";
+    if(!$("#tSndMore")){const mb=document.createElement("button");mb.className="ghost ic snd-more50";mb.id="tSndMore";mb.title="Tùy chỉnh âm thanh: âm thanh nền, nhạc của bạn, YouTube, Spotify";mb.setAttribute("aria-label","Tùy chỉnh âm thanh");mb.innerHTML=ic("tune");mb.onclick=e=>{e.stopPropagation();sndPopover(mb)};b.after(mb)}}
+  return r}}
+{const _us50=updSndBtn;updSndBtn=function(){const r=_us50.apply(this,arguments);const b=$("#tSnd");if(b)b.title=UI.snd.on?"Âm thanh đang bật — bấm để bật/tắt tiếng":"Đang tắt tiếng — bấm để bật/tắt tiếng";return r}}
+
+/* ---------- 7. Thanh công cụ trái: rê chuột vào → nút ✕ để ẩn công cụ ---------- */
+{const _rr50=renderRail;renderRail=function(){const r=_rr50.apply(this,arguments);const rail=$("#rail");if(!rail)return r;const d=UI.dash||DASH_DEF();
+  $$("[data-r]",rail).filter(b=>RAIL_ALL[b.dataset.r]&&!b.classList.contains("brand")&&b.dataset.r!=="home").forEach(b=>{if($(".rx50",b))return;const k=b.dataset.r;const x=document.createElement("span");x.className="rx50";x.setAttribute("role","button");x.tabIndex=-1;x.title="Ẩn khỏi thanh công cụ";x.setAttribute("aria-label","Ẩn "+RAIL_ALL[k][0]+" khỏi thanh công cụ");x.innerHTML=ic("close");
+    ["pointerdown","mousedown"].forEach(t=>x.addEventListener(t,e=>{e.stopPropagation();e.preventDefault()}));
+    x.addEventListener("click",e=>{e.stopPropagation();e.preventDefault();hideTip&&hideTip();d.rail.hidden=[...new Set([...(d.rail.hidden||[]),k])];saveDash();renderRail();toast(`Đã ẩn “${RAIL_ALL[k][0]}” — mở lại bằng nút ⋯ ở cuối thanh`,2600)});b.appendChild(x)});
+  return r}}
+
+/* =====================================================================
+   v43 — nút Quay lại đúng nơi đã mở · loa chỉ còn một nút · ✕ xóa trên khay “Đã thu nhỏ”, thanh trên cùng,
+   mỗi khối ở Trang chủ · menu Thêm khối có đủ widget + công cụ của thanh trái
+   ===================================================================== */
+
+/* ---------- 1. Quay lại: mở bài học từ trang môn → về trang môn; mở từ chỗ khác → về nơi đã mở ---------- */
+UI.nbFrom=null;
+{const _on51=window.openNotebook;window.openNotebook=openNotebook=function(){if(UI.view!=="nb")UI.nbFrom=UI.view==="subj"?{v:"subj",id:UI.curSubj}:{v:UI.view==="cal"?"cal":"home"};return _on51.apply(this,arguments)}}
+function back51(){const f=UI.nbFrom;if(f&&f.v==="subj"&&subjOf(f.id))return openSubject(f.id);if(f&&f.v==="cal"&&typeof goCal==="function")return goCal();goHome()}
+{const _rt51=renderTop;renderTop=function(){const r=_rt51.apply(this,arguments);const bk=$("#tBack");
+  if(bk&&UI.view==="nb"&&UI.cur){const f=UI.nbFrom;const s=f&&f.v==="subj"&&subjOf(f.id);const lab=s?`Về môn “${s.title}”`:f&&f.v==="cal"?"Về Lịch học":"Về Trang chủ";bk.onclick=back51;bk.title=lab;bk.setAttribute("aria-label",lab)}
+  /* loa: chỉ một nút — bấm vào đã có Bật/Tắt tiếng và “Tùy chỉnh âm thanh…” */
+  const more=$("#tSndMore");if(more)more.remove();
+  /* thanh trên cùng: rê chuột → ✕ nhỏ để ẩn nút */
+  const t=$("#top");if(t){const d=UI.dash||DASH_DEF();$$("[data-top]",t).forEach(b=>{if($(".tx51",b))return;const k=b.dataset.top;const x=document.createElement("span");x.className="tx51";x.setAttribute("role","button");x.title="Ẩn nút này khỏi thanh trên cùng";x.setAttribute("aria-label","Ẩn "+(TOP_ALL[k]?TOP_ALL[k][0]:k)+" khỏi thanh trên cùng");x.innerHTML=ic("close");
+    ["pointerdown","mousedown"].forEach(ev=>x.addEventListener(ev,e=>{e.stopPropagation();e.preventDefault()}));
+    x.addEventListener("click",e=>{e.stopPropagation();e.preventDefault();d.top.hidden=[...new Set([...(d.top.hidden||[]),k])];saveDash();renderTop();toast(`Đã ẩn “${TOP_ALL[k]?TOP_ALL[k][0]:k}” — mở lại trong ⋯ Tùy chỉnh thanh công cụ`,2600)});b.appendChild(x)})}
+  return r}}
+/* thanh trái: không hiện ✕ ở biểu tượng đầu tiên (logo / Trang chủ) */
+{const _rr51=renderRail;renderRail=function(){const r=_rr51.apply(this,arguments);const rail=$("#rail");if(rail){const first=$$("[data-r]",rail)[0];[first,...$$(".brand,[data-r=home]",rail)].forEach(b=>{if(!b)return;$$(".rx50",b).forEach(x=>x.remove())})}return r}}
+
+/* ---------- 2. Xóa khối khỏi Trang chủ (trên đầu khối và trên khay “Đã thu nhỏ”) ---------- */
+function blkName51(b){const d=blkDef(b.k);if(b.k==="tool"&&b.d&&RAIL_ALL[b.d.r])return RAIL_ALL[b.d.r][0];return d?d.l:"khối"}
+function hasData51(b){const d=b.d||{};return !!(d.t||d.title||d.url||(Array.isArray(d.items)&&d.items.length)||(Array.isArray(d.L)&&d.L.length))}
+function delBlock51(id){const L=UI.dash.blocks;const i=L.findIndex(x=>x.id===id);if(i<0)return;const b=L[i];
+  const go=()=>{L.splice(i,1);if(b.k.startsWith("w:")){const wk=b.k.slice(2);if(D.widgets&&D.widgets[wk])D.widgets[wk].on=false;try{renderWidgets();saveDecor()}catch(e){}}
+    if(b.d&&b.d.asset&&P.assets)P.assets.delete(b.d.asset).catch(()=>{});saveDash();renderHome();toast(`Đã xóa “${blkName51(b)}” — thêm lại bằng + Thêm khối`,2600)};
+  if(hasData51(b))confirmDialog(`Xóa khối “${blkName51(b)}”?`,"Nội dung đã ghi trong khối này sẽ bị xóa theo.","Xóa khối",go);else go()}
+{const _rh51=renderHome;renderHome=function(){const r=_rh51.apply(this,arguments);try{
+  $$("#dgrid .blk[data-bid] .blk-ctl").forEach(c=>{if($("[data-del51]",c))return;const id=c.closest(".blk").dataset.bid;const b=UI.dash.blocks.find(x=>x.id===id);if(!b)return;
+    const x=document.createElement("button");x.dataset.del51=id;x.className="del51";x.title="Xóa khối khỏi Trang chủ";x.setAttribute("aria-label","Xóa khối "+blkName51(b));x.innerHTML=ic("close");x.onclick=e=>{e.stopPropagation();delBlock51(id)};c.appendChild(x)});
+  $$(".min-tray .min-chip[data-restore]").forEach(ch=>{if($(".mx51",ch))return;const id=ch.dataset.restore;const b=UI.dash.blocks.find(x=>x.id===id);if(!b)return;
+    if(b.k==="tool"&&b.d&&RAIL_ALL[b.d.r])ch.lastChild.textContent=RAIL_ALL[b.d.r][0];
+    const x=document.createElement("span");x.className="mx51";x.setAttribute("role","button");x.title="Xóa khối này";x.setAttribute("aria-label","Xóa khối "+blkName51(b));x.innerHTML=ic("close");
+    ["pointerdown","mousedown"].forEach(ev=>x.addEventListener(ev,e=>e.stopPropagation()));x.addEventListener("click",e=>{e.stopPropagation();e.preventDefault();delBlock51(id)});ch.appendChild(x)})}catch(e){console.warn(e)}return r}}
+
+/* ---------- 3. Khối “Công cụ”: đưa mọi công cụ của thanh trái lên Trang chủ ---------- */
+const TOOL_DESC51={home:"Về Trang chủ",books:"Mở danh sách môn học & bài học",cal:"Lịch ngày · tuần · tháng",lab:"Phòng thí nghiệm mô hình 3D",prof:"Cá nhân hóa cách học, mục tiêu",skin:"Giao diện, màu & cảnh nền",stk:"Dán sticker trang trí",cut:"Cắt ảnh làm sticker",wdg:"Bật/tắt widget trang trí",lay:"Bố cục & toàn màn hình",music:"Nhạc & âm thanh nền",proj:"Dự án thực hành",mail:"Gmail"};
+BLK.tool={l:"Công cụ",i:"widget",small:1,w:1,multi:1,body(el){const b=blkOf40(el);if(!b)return;const d=bd40(b);const k=d.r;const R=RAIL_ALL[k];
+  if(!R){el.innerHTML=`<div class="tl51 muted">Công cụ này không còn.</div>`;return}
+  el.innerHTML=`<button class="tl51" type="button" data-tl51="${esc(k)}"><span class="tl51-i">${ic(R[1])}</span><b>${esc(R[0])}</b><small>${esc(TOOL_DESC51[k]||"Mở công cụ")}</small></button>`;
+  const bt=$("[data-tl51]",el);bt.onclick=e=>{e.stopPropagation();try{railAct(k,bt)}catch(err){console.warn(err)}}}};
+{const _rh51b=renderHome;renderHome=function(){const r=_rh51b.apply(this,arguments);$$("#dgrid .blk[data-bid]").forEach(s=>{const b=UI.dash.blocks.find(x=>x.id===s.dataset.bid);if(!b||b.k!=="tool"||!b.d||!RAIL_ALL[b.d.r])return;const bt=$(".blk-h .bt",s);if(bt)bt.textContent=RAIL_ALL[b.d.r][0];const ico=$(".blk-h .i",s);if(ico)ico.outerHTML=ic(RAIL_ALL[b.d.r][1])});return r}}
+{const _ib51=insertBlock40;insertBlock40=function(k,idx,w){if(!String(k).startsWith("tool:"))return _ib51.apply(this,arguments);const r=k.slice(5);
+  let ww=w||1;if(typeof W_LBL!=="undefined"&&W_LBL[1])ww=Math.max(1,Math.min(6,Math.round(ww*2)/2));else if(![2,3,4,6].includes(ww))ww=2;
+  const b={id:mkid("b"),k:"tool",w:ww,d:{r}};const i=Math.max(0,Math.min(UI.dash.blocks.length,idx==null?UI.dash.blocks.length:idx));UI.dash.blocks.splice(i,0,b);saveDash();renderHome();toast(`Đã thêm “${RAIL_ALL[r][0]}” vào Trang chủ`,1400)}}
+
+/* ---------- 4. Menu Thêm khối: đủ khối mới, mọi widget, công cụ thanh trái, khối của Trang chủ ---------- */
+addMenu40=function(anchor,onPick){
+  const neu=["note","memo","photo","music","remind"].filter(k=>BLK[k]).map(k=>({k,l:BLK[k].l,i:BLK[k].i}));
+  const wd=Object.keys(WIDGETS).map(k=>({k:"w:"+k,l:WIDGETS[k].title,i:"widget",has:hasBlock("w:"+k)}));
+  const tools=Object.keys(RAIL_ALL).filter(k=>k!=="home").map(k=>({k:"tool:"+k,l:RAIL_ALL[k][0],i:RAIL_ALL[k][1]}));
+  const old=Object.keys(BLK).filter(k=>!BLK[k].multi&&k!=="tool").map(k=>({k,l:BLK[k].l,i:BLK[k].i,has:hasBlock(k)}));
+  const sec=(t,a,sub)=>a.length?`<div class="who">${t}${sub?`<small>${sub}</small>`:""}</div><div class="add51-g">${a.map(x=>`<button data-add40="${esc(x.k)}" class="${x.has?"has":""}" title="${x.has?"Đã có trên Trang chủ — bấm để tới khối đó":esc(x.l)}">${ic(x.i)}<span>${esc(x.l)}</span>${x.has?`<em>✓ đã có</em>`:""}</button>`).join("")}</div>`:"";
+  const m=popMenu(anchor,`<div class="add40 add51"><input class="input add51-q" placeholder="Tìm khối, widget, công cụ…" aria-label="Tìm khối">${sec("Khối mới",neu,"thêm được nhiều lần")}${sec("Widget",wd)}${sec("Công cụ",tools,"như thanh công cụ bên trái")}${sec("Khối của Trang chủ",old)}</div>`);m.classList.add("add40-m","add51-m");
+  m.addEventListener("click",e=>e.stopPropagation());
+  {const r=anchor.getBoundingClientRect(),w=m.offsetWidth,h=m.offsetHeight;m.style.left=Math.max(8,Math.min(innerWidth-w-8,r.left))+"px";m.style.top=(r.bottom+6+h>innerHeight-8?Math.max(8,r.top-h-6):r.bottom+6)+"px"}
+  const q=$(".add51-q",m);q.focus();q.oninput=()=>{const s=q.value.trim().toLowerCase();$$("[data-add40]",m).forEach(b=>b.hidden=!!s&&!b.textContent.toLowerCase().includes(s));$$(".add51-g",m).forEach(g=>{const any=[...g.children].some(c=>!c.hidden);g.hidden=!any;const w=g.previousElementSibling;if(w)w.hidden=!any})};
+  $$("[data-add40]",m).forEach(b=>b.onclick=()=>{closePop();const k=b.dataset.add40;
+    if(b.classList.contains("has")){const bl=UI.dash.blocks.find(x=>x.k===k);if(bl){if(bl.m){bl.m=false;saveDash();renderHome()}const el=$(`#dgrid .blk[data-bid="${bl.id}"]`);if(el){el.scrollIntoView({behavior:"smooth",block:"center"});el.classList.add("flash51");setTimeout(()=>el.classList.remove("flash51"),1400)}}return}
+    onPick(k)});
+  setTimeout(()=>{const off=e=>{if(!m.isConnected||!m.contains(e.target)){document.removeEventListener("pointerdown",off,true);if(m.isConnected&&!anchor.contains(e.target))closePop()}};document.addEventListener("pointerdown",off,true)},0);
+  return m};
+
+/* =====================================================================
+   v44 — biểu tượng hình người ở thanh trái → Cài đặt (AI, tài khoản, quyền) ·
+   Cá nhân hóa thật sự: ngành / chuyên ngành / trình độ / ngôn ngữ giảng → AI giảng theo đó,
+   và gợi ý môn học của ngành hiện mờ ở khối Môn học (bấm để thêm, ✕ để bỏ)
+   ===================================================================== */
+
+/* ---------- 1. thanh trái: “Cá nhân hóa” → “Cài đặt”; Cài đặt luôn có ở thanh trên ---------- */
+if(!IC.gear)IC.gear='<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>';
+if(!RAIL_ALL.set)RAIL_ALL.set=["Cài đặt: AI, tài khoản, quyền & đăng nhập","gear"];if(!TOP_ALL.set)TOP_ALL.set=["Cài đặt","gear"];
+/* bản trong Claude không có trang Cài đặt AI riêng → mở trang Cài đặt tổng hợp */
+function settingsHub52(){const me=(typeof P!=="undefined"&&P.me)||{};const pf=UI.profile||{};
+  openModal({title:"Cài đặt",small:true,body:`<div class="form set52">
+    <section><h4>${ic("user")} Tài khoản</h4><p class="muted">${esc(me.name||"Bạn")} — trợ lý AI và Google Calendar/Gmail dùng tài khoản Claude của bạn, không cần API key.</p></section>
+    <section><h4>${ic("spark")} Cá nhân hóa việc học</h4><p class="muted">${pf.major?`Ngành: <b>${esc(pf.major)}</b>${pf.spec?" · "+esc(pf.spec):""}`:"Chưa chọn ngành — chọn để có gợi ý môn học và AI giảng đúng ngành."}</p><div><button class="btn" data-h52="prof">${ic("edit")} Mở Cá nhân hóa</button></div></section>
+    <section><h4>${ic("palette")} Giao diện & bố cục</h4><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" data-h52="skin">${ic("palette")} Giao diện & màu</button><button class="btn" data-h52="bars">${ic("more")} Thanh công cụ</button><button class="btn" data-h52="snd">${ic("vol")} Âm thanh</button></div></section></div>`,foot:`<div class="grow"></div><button class="pill-btn primary" data-close>Xong</button>`});
+  $$("[data-h52]").forEach(b=>b.onclick=()=>{const k=b.dataset.h52;closeDialog();if(k==="prof")profileDialog();if(k==="bars")barsDialog();if(k==="skin")railAct("skin",$("#rail [data-r=skin]")||b);if(k==="snd"){const t=$("#tSnd");if(t)sndPopover(t)}})}
+{const _ra52=railAct;railAct=function(k,btn){if(k==="set"){try{hideTip();closeFly()}catch(e){}return typeof settingsDialog==="function"?settingsDialog():settingsHub52()}return _ra52.apply(this,arguments)};
+ const _ta52=topAct;topAct=function(k){if(k==="set")return typeof settingsDialog==="function"?settingsDialog():settingsHub52();return _ta52.apply(this,arguments)}}
+{const fixBars=()=>{const d=UI.dash;if(!d||!RAIL_ALL.set)return;
+    if(!local.get("mig52b",false)){const o=d.rail.order;let j=o.indexOf("set");if(j>=0)o.splice(j,1);const i=o.indexOf("prof");o.splice(i>=0?i:o.length,0,"set");if(i>=0&&!d.rail.hidden.includes("prof"))d.rail.hidden.push("prof");local.set("mig52b",true);try{saveDash()}catch(e){}}
+    d.rail.hidden=d.rail.hidden.filter(k=>k!=="set");if(TOP_ALL.set){if(!d.top.order.includes("set"))d.top.order.push("set");d.top.hidden=d.top.hidden.filter(k=>k!=="set")}};
+  const _rr52=renderRail;renderRail=function(){try{fixBars()}catch(e){}const r=_rr52.apply(this,arguments);const rail=$("#rail");if(rail){const b=$("[data-r=set]",rail);if(b){$$(".rx50",b).forEach(x=>x.remove());b.innerHTML=ic("gear")}}return r};
+  const _rt52=renderTop;renderTop=function(){const r=_rt52.apply(this,arguments);$$('#top [data-top="set"] .tx51').forEach(x=>x.remove());return r}}
+
+/* ---------- 2. hồ sơ: thêm chuyên ngành, trình độ, ngôn ngữ giảng → đưa vào mọi yêu cầu AI ---------- */
+const LEVEL52={basic:"Mới bắt đầu — giải thích từ gốc, ít ký hiệu, nhiều ví dụ đời thường",mid:"Trung bình — nắm nền tảng, cần hiểu sâu và làm được bài tập",adv:"Nâng cao — đi thẳng vào trọng tâm, chứng minh, bài khó, liên hệ nghiên cứu"};
+const LANG52={vi:"Tiếng Việt",bi:"Tiếng Việt, giữ thuật ngữ tiếng Anh trong ngoặc",en:"English",de:"Deutsch (kèm giải thích tiếng Việt khi khó)"};
+{const _rf52=rulesFor;rulesFor=function(){let t=_rf52.apply(this,arguments);const pf=UI.profile;if(!pf)return t;
+  if(pf.spec)t+=`\nChuyên ngành: ${pf.spec}.`;if(pf.level&&LEVEL52[pf.level])t+=`\nTrình độ người học: ${LEVEL52[pf.level]}.`;if(pf.lang&&LANG52[pf.lang])t+=`\nNgôn ngữ trình bày: ${LANG52[pf.lang]}.`;
+  if(pf.major||pf.spec)t+=`\nLuôn chọn ví dụ, bài tập, ứng dụng thực tế thuộc ngành ${[pf.major,pf.spec].filter(Boolean).join(" – ")}; dùng đúng thuật ngữ chuyên môn của ngành này.`;return t}}
+
+/* ---------- 3. gợi ý môn học theo ngành ---------- */
+const MAJORS52=[
+ ["Kỹ thuật Điện tử – Máy tính",["Giải tích|GT","Đại số tuyến tính|ĐS","Vật lý đại cương|VL","Mạch điện|MĐ","Điện tử tương tự|ĐTTT","Thiết kế hệ thống số|DSD","Tín hiệu và hệ thống|TH","Vi xử lý – Vi điều khiển|MPU","Lập trình C/C++|C","Kiến trúc máy tính|KTMT","Xử lý tín hiệu số|DSP","Hệ thống nhúng|EMB","Truyền thông số|TTS","Thiết kế vi mạch VLSI|VLSI"]],
+ ["Công nghệ thông tin – Khoa học máy tính",["Nhập môn lập trình|NMLT","Cấu trúc dữ liệu và giải thuật|CTDL","Toán rời rạc|TRR","Cơ sở dữ liệu|CSDL","Mạng máy tính|MMT","Hệ điều hành|HĐH","Lập trình hướng đối tượng|OOP","Công nghệ phần mềm|CNPM","Trí tuệ nhân tạo|AI","Học máy|ML","Phát triển ứng dụng web|WEB","An toàn thông tin|ATTT"]],
+ ["Điện – Tự động hóa",["Mạch điện|MĐ","Máy điện|MĐI","Điện tử công suất|ĐTCS","Lý thuyết điều khiển tự động|ĐKTĐ","PLC và điều khiển logic|PLC","Cảm biến và đo lường|CB","Truyền động điện|TĐĐ","Hệ thống điện|HTĐ","Robot công nghiệp|ROB","SCADA và mạng công nghiệp|SCADA"]],
+ ["Cơ khí – Cơ điện tử",["Vẽ kỹ thuật|VKT","Cơ học lý thuyết|CHLT","Sức bền vật liệu|SBVL","Nguyên lý máy|NLM","Chi tiết máy|CTM","Vật liệu học|VLH","Nhiệt động lực học|NĐ","Công nghệ chế tạo máy|CTMÁY","CAD/CAM/CNC|CAD","Dung sai và đo lường|DS"]],
+ ["Xây dựng – Kiến trúc",["Vẽ kỹ thuật|VKT","Cơ học kết cấu|CHKC","Sức bền vật liệu|SBVL","Vật liệu xây dựng|VLXD","Cơ học đất|CHĐ","Nền móng|NM","Bê tông cốt thép|BTCT","Kết cấu thép|KCT","Kỹ thuật thi công|TC","Trắc địa|TĐ"]],
+ ["Kinh tế – Quản trị – Tài chính",["Kinh tế vi mô|VIMO","Kinh tế vĩ mô|VIMA","Nguyên lý kế toán|KT","Marketing căn bản|MKT","Quản trị học|QTH","Tài chính doanh nghiệp|TCDN","Thống kê kinh doanh|TK","Luật kinh tế|LKT","Quản trị nhân sự|NS","Thương mại điện tử|TMĐT"]],
+ ["Y – Dược",["Giải phẫu học|GP","Sinh lý học|SL","Hóa sinh|HS","Vi sinh – Ký sinh trùng|VS","Mô phôi|MP","Dược lý học|DL","Sinh lý bệnh|SLB","Dịch tễ học|DT","Bào chế|BC","Tiếng Anh y khoa|EMED"]],
+ ["Ngôn ngữ – Sư phạm ngoại ngữ",["Ngữ âm – Âm vị học|NA","Ngữ pháp|NP","Kỹ năng Nghe|NGHE","Kỹ năng Nói|NOI","Đọc hiểu|ĐỌC","Viết học thuật|VIẾT","Biên – phiên dịch|DỊCH","Văn hóa các nước|VH","Ngôn ngữ học đối chiếu|NNH","Phương pháp giảng dạy|PPGD"]],
+ ["Luật",["Lý luận nhà nước và pháp luật|LLNN","Luật Hiến pháp|LHP","Luật Dân sự|LDS","Luật Hình sự|LHS","Luật Hành chính|LHC","Tố tụng dân sự|TTDS","Luật Thương mại|LTM","Luật Lao động|LLĐ","Công pháp quốc tế|CPQT","Tư pháp quốc tế|TPQT"]],
+ ["Khoa học tự nhiên (Toán – Lý – Hóa – Sinh)",["Giải tích|GT","Đại số|ĐS","Xác suất thống kê|XSTK","Cơ học|CH","Điện từ học|ĐTH","Hóa đại cương|HĐC","Hóa hữu cơ|HHC","Sinh học tế bào|SHTB","Di truyền học|DT","Phương pháp nghiên cứu khoa học|PPNC"]],
+ ["Thiết kế – Truyền thông – Nghệ thuật",["Hình họa|HH","Màu sắc|MS","Nguyên lý thị giác|NLTG","Typography|TYPO","Thiết kế đồ họa|ĐH","Thiết kế UI/UX|UX","Nhiếp ảnh|NA","Dựng phim|DP","Lịch sử mỹ thuật|LSMT","Truyền thông đa phương tiện|TTĐPT"]]];
+const sug52Key=pf=>[pf&&pf.major||"",pf&&pf.spec||"",pf&&pf.year||""].join("|").toLowerCase();
+const norm52=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/đ/g,"d").replace(/[^a-z0-9]+/g," ").trim();
+function sug52Preset(pf){const m=norm52(pf&&pf.major);if(!m)return[];let best=null,sc=0;MAJORS52.forEach(([name,L])=>{const w=norm52(name).split(" ").filter(x=>x.length>2);const s=w.filter(x=>m.includes(x)).length;if(s>sc){sc=s;best=L}});
+  if(!best&&/dien tu|may tinh|ece|electronic/.test(m))best=MAJORS52[0][1];return (best||[]).map(x=>{const [t,c]=x.split("|");return {t,c}})}
+function sug52List(){const pf=UI.profile;if(!pf||!pf.major)return[];const c=local.get("sug52",{});const L=(c.k===sug52Key(pf)&&Array.isArray(c.L)&&c.L.length)?c.L:sug52Preset(pf);
+  const hide=new Set(local.get("sug52Hide",[]).map(norm52));const have=new Set(UI.subjs.map(s=>norm52(s.title)));return L.filter(x=>x&&x.t&&!hide.has(norm52(x.t))&&!have.has(norm52(x.t)))}
+let _sug52Busy=false;
+async function sug52AI(force){const pf=UI.profile;if(!pf||!pf.major||_sug52Busy)return false;const c=local.get("sug52",{});if(!force&&c.k===sug52Key(pf)&&c.L&&c.L.length)return true;
+  if(typeof P==="undefined"||!P.sample)return false;_sug52Busy=true;
+  try{const q=`Bạn là cố vấn học tập đại học. Liệt kê 12 môn học quan trọng nhất mà sinh viên ngành "${pf.major}"${pf.spec?`, chuyên ngành "${pf.spec}"`:""}${pf.year?`, đang ở ${pf.year}`:""}${pf.school?`, trường ${pf.school}`:""} thường học, xếp theo thứ tự học từ cơ bản tới chuyên sâu. Dùng tên môn tiếng Việt thông dụng (có thể kèm tên tiếng Anh ngắn trong ngoặc nếu trường học bằng tiếng Anh).
+Chỉ trả lời JSON: {"subjects":[{"t":"tên môn","c":"mã/nhãn ngắn 2-5 ký tự"}]}`;
+    const r=await P.sample([{role:"user",content:q}],{max:1500,json:true,modelTier:"quick",fast:true});const j=looseJSON(r&&r.text);const L=(j&&Array.isArray(j.subjects)?j.subjects:[]).filter(x=>x&&x.t).slice(0,14).map(x=>({t:String(x.t).slice(0,60),c:String(x.c||"").slice(0,6)}));
+    if(L.length){local.set("sug52",{k:sug52Key(pf),L,at:Date.now()});return true}}catch(e){console.warn("sug52",e)}finally{_sug52Busy=false}return false}
+async function sug52Add(x){const id=mkid("sj");await Store.put(id,{type:"subj",title:x.t,code:x.c||x.t.split(/\s+/).map(w=>w[0]).join("").toUpperCase().slice(0,4),color:SUBJ_COLORS[UI.subjs.length%SUBJ_COLORS.length],created:Date.now(),order:UI.subjs.length});
+  await Store.put(mkid("fd"),{type:"fold",subj:id,parent:null,title:"Chương 1",order:0,created:Date.now()});toast(`Đã thêm môn “${x.t}”`,1400)}
+const sug52Hide=t=>{const h=local.get("sug52Hide",[]);h.push(t);local.set("sug52Hide",h.slice(-200))};
+/* thẻ gợi ý mờ trong khối Môn học */
+{const _rc52=renderCourses;renderCourses=function(){const r=_rc52.apply(this,arguments);const box=$("#courseBox");if(!box||UI.courseTab==="all")return r;const g=$("#crsGrid",box)||$(".courses",box);if(!g)return r;
+  $$(".crs-sug52",g).forEach(x=>x.remove());const add=$(".crs-add50",g);const pf=UI.profile;
+  if(!pf||!pf.major){if(!local.get("sug52Off",false)){const c=document.createElement("div");c.className="course crs-sug52 crs-sug52-ask";c.innerHTML=`<button class="ghost ic sx" aria-label="Ẩn gợi ý" title="Ẩn">${ic("close")}</button><span class="sp">${ic("spark")}</span><b>Gợi ý môn theo ngành</b><small>Cho biết ngành học của bạn → Sổ Học gợi ý các môn cần học</small><button class="btn" data-sgo>Chọn ngành</button>`;
+      $(".sx",c).onclick=e=>{e.stopPropagation();local.set("sug52Off",true);c.remove()};$("[data-sgo]",c).onclick=e=>{e.stopPropagation();profileDialog()};g.insertBefore(c,add||null)}return r}
+  const L=sug52List().slice(0,local.get("sug52All",false)?14:6);
+  L.forEach(x=>{const c=document.createElement("div");c.className="course crs-sug52";c.tabIndex=0;c.setAttribute("role","button");c.title="Bấm để thêm môn này";c.setAttribute("aria-label","Thêm môn gợi ý "+x.t);
+    c.innerHTML=`<button class="ghost ic sx" aria-label="Bỏ gợi ý ${esc(x.t)}" title="Bỏ gợi ý này">${ic("close")}</button><span class="tag">${esc(x.c||"")}</span><b>${esc(x.t)}</b><small>Gợi ý cho ngành ${esc(pf.spec||pf.major)}</small><span class="sp-add">${ic("plus")} Thêm môn</span>`;
+    $(".sx",c).onclick=e=>{e.stopPropagation();sug52Hide(x.t);c.remove();if(!$(".crs-sug52",g))renderCourses()};
+    const go=async()=>{c.classList.add("adding");await sug52Add(x)};c.onclick=e=>{if(e.target.closest(".sx"))return;go()};c.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go()}};g.insertBefore(c,add||null)});
+  const more=sug52List().length;if(more>6){const b=document.createElement("button");b.className="course crs-sug52 crs-sug52-more";b.type="button";b.innerHTML=local.get("sug52All",false)?"Thu gọn gợi ý":`+${more-6} gợi ý khác`;b.onclick=e=>{e.stopPropagation();local.set("sug52All",!local.get("sug52All",false));renderCourses()};g.insertBefore(b,add||null)}
+  /* lần đầu theo ngành mới: hỏi AI cho sát chương trình, xong thì vẽ lại */
+  const c0=local.get("sug52",{});if(c0.k!==sug52Key(pf)&&!_sug52Busy)sug52AI(false).then(ok=>{if(ok&&$("#courseBox"))renderCourses()});
+  return r}}
+
+/* ---------- 4. hộp thoại Cá nhân hóa mới ---------- */
+const STYLES52=["Ví dụ thực tế trong ngành","Trực quan bằng hình và sơ đồ","Chặt chẽ, suy ra từ gốc","Từng bước như giải bài tập","Tóm tắt trước, chi tiết sau","Gợi ý mẹo nhớ","Có bài tự luyện ở cuối","Liên hệ đề thi"];
+profileDialog=function(){
+  const pf=Object.assign({name:"",school:"",major:"",spec:"",year:"",level:"mid",lang:"vi",goal:"",styles:[],notes:"",accent:"",scale:1},UI.profile||{});
+  openModal({title:"Cá nhân hóa việc học",small:true,body:`<div class="form pf52">
+    <p class="muted" style="margin:0;font-size:13.5px">Sổ Học dùng thông tin này để: <b>gợi ý môn học</b> của ngành (hiện mờ ở khối Môn học), và để <b>AI giảng, ra đề, làm slide/video</b> đúng ngành, đúng trình độ, đúng ngôn ngữ bạn chọn.</p>
+    <div class="field"><span>Ngành học</span><div class="pf52-maj">${MAJORS52.map(([m])=>`<button type="button" class="chip" data-mj="${esc(m)}" aria-pressed="${pf.major===m}">${esc(m)}</button>`).join("")}</div>
+      <input class="input" id="pfM" value="${esc(pf.major)}" placeholder="Hoặc gõ ngành của bạn, ví dụ: Kỹ thuật Y sinh"></div>
+    <div class="row3"><div class="field"><label for="pfSp">Chuyên ngành</label><input class="input" id="pfSp" value="${esc(pf.spec)}" placeholder="Ví dụ: Vi mạch, Hệ thống nhúng"></div><div class="field"><label for="pfY">Năm học</label><input class="input" id="pfY" value="${esc(pf.year)}" placeholder="Năm 2"></div><div class="field"><label for="pfS">Trường</label><input class="input" id="pfS" value="${esc(pf.school)}" placeholder="Ví dụ: VGU"></div></div>
+    <div class="field"><span>Môn học gợi ý cho ngành <small class="muted" id="pf52st"></small></span><div class="pf52-sug" id="pf52sug"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn" id="pf52ai">${ic("spark")} Hỏi AI gợi ý lại theo ngành / chuyên ngành</button><button type="button" class="btn" id="pf52rs">Hiện lại các gợi ý đã bỏ</button></div></div>
+    <div class="row3"><div class="field"><label for="pfLv">Trình độ</label><select id="pfLv">${Object.entries({basic:"Mới bắt đầu",mid:"Trung bình",adv:"Nâng cao"}).map(([k,l])=>`<option value="${k}" ${pf.level===k?"selected":""}>${l}</option>`).join("")}</select></div>
+      <div class="field"><label for="pfLg">AI trình bày bằng</label><select id="pfLg">${Object.entries({vi:"Tiếng Việt",bi:"Việt + thuật ngữ Anh",en:"English",de:"Deutsch"}).map(([k,l])=>`<option value="${k}" ${pf.lang===k?"selected":""}>${l}</option>`).join("")}</select></div>
+      <div class="field"><label for="pfN">Tên gọi</label><input class="input" id="pfN" value="${esc(pf.name)}"></div></div>
+    <div class="field"><label for="pfG">Mục tiêu học tập</label><input class="input" id="pfG" value="${esc(pf.goal)}" placeholder="Ví dụ: Qua môn điểm A, hiểu đủ sâu để làm đồ án"></div>
+    <div class="field"><span>Cách giải thích bạn thích</span><div class="model-pick">${STYLES52.map(s=>`<button type="button" class="chip" data-st="${esc(s)}" aria-pressed="${(pf.styles||[]).includes(s)}">${esc(s)}</button>`).join("")}</div></div>
+    <div class="field"><label for="pfX">Dặn thêm cho AI</label><textarea class="input" id="pfX" placeholder="Ví dụ: luôn có ví dụ số cụ thể; hạn chế lý thuyết dài dòng.">${esc(pf.notes)}</textarea></div>
+    <div class="row3"><div class="field"><label for="pfA">Màu nhấn riêng</label><input type="color" id="pfA" value="${esc(pf.accent||"#e38a4e")}" style="width:100%;height:40px;padding:2px"><label class="chk-row"><input type="checkbox" class="chk" id="pfAon" ${pf.accent?"checked":""}> Dùng màu này thay màu giao diện</label></div>
+      <div class="field"><label for="pfZ">Cỡ chữ & khoảng cách</label><input type="range" id="pfZ" min="0.85" max="1.25" step="0.05" value="${pf.scale||1}"><output id="pfZo">${Math.round((pf.scale||1)*100)}%</output></div></div></div>`,
+    foot:`<div class="grow"></div><button class="pill-btn" data-close>Hủy</button><button class="pill-btn primary" id="pfOk">${ic("check")} Lưu</button>`});
+  const cur=()=>({...pf,major:$("#pfM").value.trim(),spec:$("#pfSp").value.trim(),year:$("#pfY").value.trim(),school:$("#pfS").value.trim()});
+  const drawSug=()=>{const box=$("#pf52sug");if(!box)return;const keep=UI.profile;UI.profile=cur();const L=sug52List();UI.profile=keep;
+    box.innerHTML=L.length?L.map((x,i)=>`<span class="pf52-c" data-i="${i}"><button type="button" class="pf52-add" title="Thêm môn này">${ic("plus")} ${esc(x.t)}</button><button type="button" class="pf52-x" aria-label="Bỏ gợi ý ${esc(x.t)}" title="Bỏ gợi ý">${ic("close")}</button></span>`).join(""):`<span class="muted" style="font-size:13px">${cur().major?"Không còn gợi ý — bấm “Hỏi AI gợi ý lại”.":"Chọn hoặc gõ ngành để xem gợi ý."}</span>`;
+    $$(".pf52-c",box).forEach(c=>{const x=L[+c.dataset.i];$(".pf52-x",c).onclick=()=>{sug52Hide(x.t);drawSug()};$(".pf52-add",c).onclick=async()=>{c.classList.add("adding");await sug52Add(x);setTimeout(drawSug,250)}})};
+  $$("[data-mj]").forEach(b=>b.onclick=()=>{$("#pfM").value=b.dataset.mj;$$("[data-mj]").forEach(x=>x.setAttribute("aria-pressed",x===b));drawSug()});
+  let tm;["#pfM","#pfSp","#pfY"].forEach(s=>$(s).oninput=()=>{clearTimeout(tm);tm=setTimeout(()=>{$$("[data-mj]").forEach(x=>x.setAttribute("aria-pressed",x.dataset.mj===$("#pfM").value.trim()));drawSug()},250)});
+  $("#pf52ai").onclick=async()=>{const st=$("#pf52st");const keep=UI.profile;UI.profile=cur();if(!UI.profile.major){UI.profile=keep;toast("Chọn ngành trước");return}st.textContent="· AI đang soạn danh sách…";const ok=await sug52AI(true);const k2=UI.profile;UI.profile=keep;st.textContent=ok?"· theo AI":"· AI chưa trả lời được, đang dùng danh sách sẵn có";if(ok&&keep&&sug52Key(keep)!==sug52Key(k2)){/* giữ kết quả cho ngành mới */}drawSug()};
+  $("#pf52rs").onclick=()=>{local.set("sug52Hide",[]);drawSug()};
+  $$("[data-st]").forEach(b=>b.onclick=()=>b.setAttribute("aria-pressed",b.getAttribute("aria-pressed")!=="true"));
+  $("#pfZ").oninput=e=>{$("#pfZo").textContent=Math.round(e.target.value*100)+"%";applyPrefs({...pf,scale:+e.target.value})};
+  $("#pfOk").onclick=async()=>{const n={...cur(),name:$("#pfN").value.trim(),level:$("#pfLv").value,lang:$("#pfLg").value,goal:$("#pfG").value.trim(),styles:$$("[data-st]").filter(b=>b.getAttribute("aria-pressed")==="true").map(b=>b.dataset.st),notes:$("#pfX").value.trim(),accent:$("#pfAon").checked?$("#pfA").value:"",scale:+$("#pfZ").value};
+    UI.profile=n;applyPrefs(n);closeDialog();await Store.put("profile-me",{type:"profile",...n}).catch(()=>{});toast("Đã lưu cá nhân hóa — AI và gợi ý môn học sẽ theo ngành của bạn",2600);local.set("sug52Off",false);if($("#courseBox"))renderCourses()};
+  drawSug()};
 
 /* =====================================================================
    BẢN WEB ĐỘC LẬP — cài đặt AI, đăng nhập Google, sao lưu dữ liệu
@@ -5127,7 +8535,7 @@ function settingsDialog(focus){
 }
 /* lần đầu mở: hướng dẫn ngắn */
 setTimeout(()=>{if(SOHOC.LS.get("welcomed",false))return;SOHOC.LS.set("welcomed",true);
-  openModal({title:"Chào mừng đến Sổ Học Điện Tử",small:true,body:`<div class="form"><p style="margin:0">Trang này chạy hoàn toàn trên trình duyệt của bạn:</p><ul style="margin:0;padding-left:20px;display:grid;gap:6px"><li>Môn học, bài học và tài liệu được <b>lưu trên máy này</b> (có thể sao lưu ra tệp).</li><li>Trợ lý AI dùng <b>API key của bạn</b>: Google AI Studio (Gemini, có gói miễn phí) hoặc Claude — thêm trong Cài đặt.</li><li>Đăng nhập bằng <b>tài khoản Google</b> (có thể thêm nhiều tài khoản) để đồng bộ <b>Google Calendar</b> và đọc <b>Gmail</b> (cần Client ID, xem README).</li></ul></div>`,foot:`<button class="pill-btn" data-close>Để sau</button><div class="grow"></div><button class="pill-btn primary" id="wGo">${ic("key")} Mở Cài đặt</button>`});
+  openModal({title:"Chào mừng đến Sổ Học Điện Tử",small:true,body:`<div class="form"><p style="margin:0">Trang này chạy hoàn toàn trên trình duyệt của bạn:</p><ul style="margin:0;padding-left:20px;display:grid;gap:6px"><li>Môn học, bài học và tài liệu được <b>lưu trên máy này</b> (có thể sao lưu ra tệp).</li><li>Trợ lý AI dùng <b>API key của bạn</b>: Google AI Studio (Gemini, có gói miễn phí) hoặc Claude — thêm trong Cài đặt.</li><li>Đã dùng Sổ Học ở máy khác? <b>Đăng nhập Google</b> trong Cài đặt — API key và lựa chọn mô hình được tự lấy về (nếu bạn bật “Đồng bộ giữa các máy”).</li><li>Đăng nhập bằng <b>tài khoản Google</b> (có thể thêm nhiều tài khoản) để đồng bộ <b>Google Calendar</b> và đọc <b>Gmail</b> (cần Client ID, xem README).</li></ul></div>`,foot:`<button class="pill-btn" data-close>Để sau</button><div class="grow"></div><button class="pill-btn primary" id="wGo">${ic("key")} Mở Cài đặt</button>`});
   $("#wGo").onclick=()=>{closeDialog();settingsDialog()}},1800);
 /* cài đặt như ứng dụng (PWA) */
 if("serviceWorker" in navigator&&location.protocol.startsWith("http"))addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
@@ -5509,9 +8917,11 @@ async function seedSample(){
       else if(UI.cur){const n=docs.find(d=>d.id===UI.cur.id);if(!n){goHome();return}UI.cur=n;renderChat();renderCrumb();if(UI.srcTab!=="src")renderSources();const ti=$("#tTitle");if(ti&&document.activeElement!==ti)ti.value=n.title}
     });
     Store.watch({type:"cal"},docs=>{UI.cals=docs;refreshViews("cal")});
-    Store.watch({type:"subj"},docs=>{UI.subjs=docs;refreshViews("subj")});
+    Store.watch({type:"subj"},docs=>{UI.subjs=docs.sort((a,b)=>(a.order||0)-(b.order||0)||(a.created||0)-(b.created||0));refreshViews("subj")});
     Store.watch({type:"fold"},docs=>{UI.folds=docs;refreshViews("fold")});
     Store.watch({type:"task"},docs=>{UI.tasks=docs;refreshViews("task")});
+    Store.watch({type:"todo"},docs=>{UI.todos=docs;refreshViews("todo")});
+    Store.watch({type:"proj"},docs=>{const loc=new Map((UI.projs||[]).map(p=>[p.id,p]));UI.projs=docs.map(d=>{const l=loc.get(d.id);const ed=typeof PJ!=="undefined"&&PJ.view==="proj"&&PJ.id===d.id&&$("#pjOv")&&!$("#pjOv").hidden;return l&&(ed||(l.updated||0)>=(d.updated||0))?l:d});if(typeof pjOnWatch==="function")pjOnWatch();if(UI.view==="subj"&&UI.subjTab==="proj")refreshViews("proj")});
     Store.watch({type:"ev"},docs=>{UI.evs=docs;refreshViews("ev")});
     loadDash();loadBg();
     Store.get("profile-me").then(p=>{if(p){UI.profile=p;applyPrefs(p);if(UI.view==="home")renderHome()}}).catch(()=>{});
