@@ -1977,6 +1977,31 @@ body.place53 .blk-gap{display:grid!important;opacity:1!important}
 [data-nl53]{font-size:11px;white-space:nowrap}
 .op53f output{float:right;font-variant-numeric:tabular-nums;color:var(--muted)}
 .op53f input[type=range]{width:100%}
+/* ===== v47 ===== */
+.hero>.gl53-w{justify-self:start;align-self:start;width:max-content}
+.gl53-e{transition:opacity .15s;transform:none}
+.gl53-w:hover .gl53-e{transform:none}
+.popmenu.im53m{background:var(--panel)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;animation:none!important;transition:none!important}
+.popmenu.im53m .im53-g>button{transition:background-color .12s}
+/* thanh trên: + và tay kéo */
+#top [data-top]{position:relative;touch-action:pan-y}
+.tp54{position:absolute;right:-5px;bottom:-5px;width:16px;height:16px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink,#fff);opacity:0;transform:scale(.7);transition:opacity .12s,transform .12s;cursor:pointer;z-index:3;box-shadow:0 1px 4px rgb(0 0 0/.25)}
+.tp54 svg{width:10px;height:10px}
+.tg54{position:absolute;left:-2px;top:50%;transform:translateY(-50%);font-size:11px;line-height:1;color:var(--muted);opacity:0;transition:opacity .12s;cursor:grab;padding:4px 1px;user-select:none}
+#top [data-top]:hover .tp54,#top [data-top]:focus-visible .tp54{opacity:1;transform:none}
+#top [data-top]:hover .tg54{opacity:.8}
+#top.top-sorting{cursor:grabbing;user-select:none}#top.top-sorting [data-top]{transition:none}#top.top-sorting .tp54,#top.top-sorting .tx51{display:none}
+#top .top-drag{z-index:5;background:var(--accent)!important;color:var(--accent-ink,#fff)!important;box-shadow:0 8px 20px -6px rgba(0,0,0,.45);transform:scale(1.05);cursor:grabbing}
+#top [data-top][aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 16%,transparent)}
+@media (hover:none){.tp54,.tg54{display:none}}
+/* bảng Tùy chỉnh / Cảnh nền mở từ thanh trên */
+.flyout.fly54r{left:auto;right:16px;top:76px;max-height:calc(100% - 92px)}
+@media (max-width:720px){.flyout.fly54r{left:12px;right:12px;width:auto;top:68px}}
+.fm54-scene [data-fm="l"],.fm54-look [data-fm="s"],.fm54 [data-fm="x"]{display:none!important}
+.fm54-look .fly-bg>h4:not(.fm54-h){display:none}
+.fm54-h{margin:2px 0 2px;font-size:14px}
+.fm54-foot{display:flex;flex-wrap:wrap;gap:6px;padding-top:6px;border-top:1px solid var(--line)}
+.flyout.fm54>h3{order:-3}.fm54-look>.fly-bg{order:-2}
 
 
 html,body{margin:0;height:100%}[hidden]{display:none!important}img{max-width:100%}
@@ -1989,7 +2014,7 @@ html,body{margin:0;height:100%}[hidden]{display:none!important}img{max-width:100
 
 </style>
 
-<link rel="stylesheet" href="app-plus.css?v=47b3dc16b3">
+<link rel="stylesheet" href="app-plus.css?v=c899a02035">
 </head>
 <body>
 <div class="app" id="app">
@@ -2005,9 +2030,9 @@ html,body{margin:0;height:100%}[hidden]{display:none!important}img{max-width:100
 <div class="toast" id="toast" role="status"></div>
 
 <noscript><p style="padding:24px;font:16px system-ui">Sổ Học cần bật JavaScript.</p></noscript>
-<script src="config.js?v=47b3dc16b3"></script>
-<script src="platform.js?v=47b3dc16b3"></script>
-<script src="app.js?v=47b3dc16b3"></script>
-<script src="app-plus.js?v=47b3dc16b3"></script>
+<script src="config.js?v=c899a02035"></script>
+<script src="platform.js?v=c899a02035"></script>
+<script src="app.js?v=c899a02035"></script>
+<script src="app-plus.js?v=c899a02035"></script>
 </body>
 </html>
