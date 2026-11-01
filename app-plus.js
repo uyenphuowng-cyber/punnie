@@ -548,3 +548,33 @@ const _sd=settingsDialog;settingsDialog=function(){const r=_sd.apply(this,argume
   const ai=document.getElementById("setAI");if(ai&&!document.getElementById("setProf")){const pf=UI.profile||{};const sec=document.createElement("section");sec.id="setProf";
     sec.innerHTML=`<h4>${ic("spark")} Cá nhân hóa việc học</h4><p class="muted">${pf.major?`Ngành <b>${esc(pf.major)}</b>${pf.spec?" · "+esc(pf.spec):""}${pf.year?" · "+esc(pf.year):""} — AI giảng, ra đề và gợi ý môn học theo ngành này.`:"Chưa chọn ngành. Chọn ngành / chuyên ngành để có gợi ý môn học và AI giảng đúng chuyên môn."}</p><div><button class="btn" type="button" id="stProf">${ic("edit")} ${pf.major?"Sửa cá nhân hóa":"Chọn ngành & cách học"}</button></div>`;
     ai.before(sec);document.getElementById("stProf").onclick=()=>{const sv=document.getElementById("stSave");if(sv)sv.click();setTimeout(()=>profileDialog(),60)}}}catch(e){console.warn(e)}return r}})();
+
+/* =====================================================================
+   v45 (bản web) — dùng offline: báo trạng thái mạng, thông báo dễ hiểu khi AI cần mạng,
+   mục “Dùng offline” trong Cài đặt (tải sẵn thư viện, giữ dữ liệu không bị trình duyệt dọn)
+   ===================================================================== */
+(function(){
+const swMsg=t=>new Promise(res=>{const c=navigator.serviceWorker&&navigator.serviceWorker.controller;if(!c)return res(null);const ch=new MessageChannel();ch.port1.onmessage=e=>res(e.data);c.postMessage({t},[ch.port2]);setTimeout(()=>res(null),20000)});
+/* xin trình duyệt giữ dữ liệu lâu dài (không tự xóa khi máy đầy bộ nhớ) */
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persisted().then(p=>{if(!p)navigator.storage.persist().catch(()=>{})})}catch(e){}
+/* thanh báo offline */
+function net(){let b=document.getElementById("off45");if(navigator.onLine){if(b){b.classList.add("bye");setTimeout(()=>b.remove(),300);toast("Đã có mạng trở lại — AI, Google, nhạc YouTube dùng lại được",2200)}return}
+  if(b)return;b=document.createElement("div");b.id="off45";b.className="off45";b.setAttribute("role","status");
+  b.innerHTML=`${ic("info")}<span><b>Đang offline.</b> Vẫn xem, ghi chú, sửa bài học, bài tập, lịch, mô phỏng được. AI, Google Calendar/Gmail, YouTube/Spotify cần mạng.</span><button class="ghost ic" aria-label="Ẩn" title="Ẩn">${ic("close")}</button>`;
+  b.querySelector("button").onclick=()=>b.remove();document.body.appendChild(b)}
+addEventListener("online",net);addEventListener("offline",net);setTimeout(()=>{if(!navigator.onLine)net()},1500);
+/* lỗi AI khi mất mạng → nói rõ */
+if(typeof aiErr==="function"){const _ae=aiErr;aiErr=function(e){if(!navigator.onLine)return "Đang offline — trợ lý AI cần kết nối mạng. Các phần khác của Sổ Học vẫn dùng bình thường.";return _ae.apply(this,arguments)}}
+/* mục “Dùng offline” trong Cài đặt */
+if(typeof settingsDialog==="function"){const _sd=settingsDialog;settingsDialog=function(){const r=_sd.apply(this,arguments);try{const bak=document.getElementById("setBak");if(!bak||document.getElementById("setOff"))return r;
+  const sec=document.createElement("section");sec.id="setOff";sec.innerHTML=`<h4>${ic("dl")} Dùng offline</h4>
+    <p class="muted">Sổ Học lưu sẵn trang và dữ liệu trên máy này, nên mở được cả khi không có mạng (sau lần mở đầu tiên có mạng). Cần mạng: trợ lý AI, đăng nhập/đồng bộ Google, Calendar, Gmail, Drive, YouTube, Spotify.</p>
+    <div id="stOffSt" class="muted" style="font-size:13px">Đang kiểm tra…</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" id="stOffGo" type="button">${ic("dl")} Tải sẵn mọi thứ để dùng offline</button></div>`;
+  bak.before(sec);
+  const st=async()=>{const el=document.getElementById("stOffSt");if(!el)return;if(!("serviceWorker" in navigator)||!navigator.serviceWorker.controller){el.innerHTML="Chưa bật — tải lại trang một lần (khi có mạng) để bật chế độ offline.";return}
+    const s=await swMsg("status");let per="";try{per=navigator.storage&&navigator.storage.persisted?((await navigator.storage.persisted())?" · dữ liệu được giữ lâu dài":" · trình duyệt có thể dọn dữ liệu khi máy đầy — nên cài thành ứng dụng"):""}catch(e){}
+    el.innerHTML=s?`<b style="color:var(--ok)">Đã bật.</b> Trang: ${s.core} tệp · thư viện (3D, PDF, Word, công thức): ${s.libs}/${s.total}${per}`:"Đã bật."};
+  st();document.getElementById("stOffGo").onclick=async()=>{const b=document.getElementById("stOffGo");b.disabled=true;b.textContent="Đang tải…";if(!navigator.onLine){toast("Cần có mạng để tải sẵn",2000);b.disabled=false;b.textContent="Tải sẵn mọi thứ để dùng offline";return}
+    const r2=await swMsg("precache");try{await navigator.storage.persist()}catch(e){}b.disabled=false;b.innerHTML=`${ic("check")} Đã tải sẵn`;toast(r2&&r2.ok?`Đã tải sẵn ${r2.libs}/${r2.total} thư viện — dùng offline được`:"Chưa tải xong — thử lại khi mạng ổn định",2400);st()}}catch(e){console.warn(e)}return r}}
+})();

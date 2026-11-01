@@ -1,0 +1,55 @@
+{
+  "name": "so-hoc-dien-tu",
+  "productName": "Sổ Học Điện Tử",
+  "version": "1.0.0",
+  "description": "Sổ Học Điện Tử — ứng dụng máy tính",
+  "main": "main.js",
+  "author": "Sổ Học",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "vn.sohoc.dientu",
+    "productName": "Sổ Học Điện Tử",
+    "files": [
+      "main.js",
+      "site.json",
+      "web/**",
+      "icon.png"
+    ],
+    "win": {
+      "icon": "icon.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Sổ Học Điện Tử",
+      "artifactName": "SoHoc-cai-dat.${ext}"
+    },
+    "portable": {
+      "artifactName": "SoHoc-chay-ngay.${ext}"
+    },
+    "mac": {
+      "icon": "icon.png",
+      "target": [
+        "dmg"
+      ],
+      "artifactName": "SoHoc-mac.${ext}"
+    },
+    "linux": {
+      "icon": "icon.png",
+      "target": [
+        "AppImage"
+      ],
+      "artifactName": "SoHoc-linux.${ext}"
+    },
+    "publish": null
+  }
+}

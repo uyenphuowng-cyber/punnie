@@ -1,0 +1,103 @@
+# Tự build app máy tính (Windows / macOS / Linux) và app Android từ chính kho này.
+# Chạy: tab Actions → "Build apps" → Run workflow. Xong sẽ có bản phát hành ở mục Releases.
+name: Build apps
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            args: --win nsis portable --x64
+          - os: macos-latest
+            args: --mac dmg
+          - os: ubuntu-latest
+            args: --linux AppImage
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Chép bản web vào app + ghi địa chỉ GitHub Pages
+        shell: bash
+        run: |
+          mkdir -p desktop/web
+          cp index.html app.js app-plus.js app-plus.css platform.js config.js manifest.webmanifest sw.js icon-192.png icon-512.png desktop/web/
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"; REPO="${GITHUB_REPOSITORY#*/}"
+          if [ "${REPO,,}" = "$OWNER.github.io" ]; then URL="https://$OWNER.github.io/"; else URL="https://$OWNER.github.io/$REPO/"; fi
+          echo "{\"url\":\"$URL\"}" > desktop/site.json
+          cat desktop/site.json
+      - name: Build
+        working-directory: desktop
+        shell: bash
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: |
+          npm install --no-audit --no-fund
+          npx electron-builder ${{ matrix.args }} --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/*.dmg
+            desktop/dist/*.AppImage
+          if-no-files-found: ignore
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Build APK
+        shell: bash
+        run: |
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"; REPO="${GITHUB_REPOSITORY#*/}"
+          HOST="$OWNER.github.io"
+          if [ "${REPO,,}" = "$HOST" ]; then URL="https://$HOST/"; else URL="https://$HOST/$REPO/"; fi
+          echo "Mở: $URL"
+          gradle -p android assembleDebug -PsiteUrl="$URL" -PsiteHost="$HOST"
+          mkdir -p out && cp android/app/build/outputs/apk/debug/app-debug.apk out/SoHoc-android.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: out/SoHoc-android.apk
+
+  release:
+    needs: [desktop, android]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: files
+          merge-multiple: true
+      - run: ls -la files || true
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apps-${{ github.run_number }}
+          name: Sổ Học — ứng dụng (bản ${{ github.run_number }})
+          body: |
+            - **Windows:** SoHoc-cai-dat.exe (cài đặt, có lối tắt Desktop) hoặc SoHoc-chay-ngay.exe (chạy luôn, không cần cài)
+            - **Android:** SoHoc-android.apk (cho phép "Cài ứng dụng từ nguồn không xác định" khi cài)
+            - **macOS:** SoHoc-mac.dmg · **Linux:** SoHoc-linux.AppImage
+            Ứng dụng mở trang GitHub Pages của kho này nên luôn là bản mới nhất.
+          files: files/*
+          fail_on_unmatched_files: false
