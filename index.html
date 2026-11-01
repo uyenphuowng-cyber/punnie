@@ -1946,6 +1946,37 @@ canvas.cov50-smooth{image-rendering:auto!important}
 .pf52-c{display:inline-flex;align-items:center;border-radius:999px;border:1px solid var(--line);background:var(--panel);opacity:.7;transition:opacity .15s}.pf52-c:hover{opacity:1;border-color:var(--accent)}
 .pf52-c button{border:0;background:transparent;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:4px;font:inherit;font-size:12.5px;padding:5px 4px 5px 10px}.pf52-c .pf52-x{padding:5px 8px 5px 2px;color:var(--muted)}.pf52-c .pf52-x:hover{color:var(--bad)}.pf52-c svg{width:12px;height:12px}.pf52-c.adding{opacity:.3}
 .set52 section{display:grid;gap:8px;padding:12px 0;border-bottom:1px solid var(--line)}.set52 section:last-child{border-bottom:0}.set52 h4{display:flex;gap:8px;align-items:center;margin:0;font-size:15px}.set52 p{margin:0;font-size:13.5px}
+/* ===== v46 ===== */
+.gl53-w{position:relative;display:inline-flex;padding:0;border:0;background:none;border-radius:14px;cursor:pointer;flex:none}
+.gl53-w:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.gl53-e{position:absolute;right:-6px;bottom:-6px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--panel);border:1px solid var(--line);color:var(--ink);opacity:0;transform:scale(.8);transition:opacity .15s,transform .15s;box-shadow:0 2px 6px rgb(0 0 0/.18)}
+.gl53-e svg{width:12px;height:12px}
+.gl53-w:hover .gl53-e,.gl53-w:focus-visible .gl53-e{opacity:1;transform:none}
+@media (hover:none){.gl53-e{opacity:.9;transform:none}}
+img.gl53img{border-radius:12px;object-fit:cover;display:block;image-rendering:auto}img.gl53img.px{image-rendering:pixelated}
+.im53{display:grid;gap:10px;min-width:min(340px,82vw)}
+.im53-g{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.im53-g>button{display:flex;gap:8px;align-items:center;text-align:left;padding:7px 8px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);cursor:pointer;font:inherit;min-width:0}
+.im53-g>button[aria-checked="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.im53-g>button:hover{background:color-mix(in srgb,var(--accent) 10%,var(--panel2))}
+.im53-g>button.busy{opacity:.6;pointer-events:none}
+.im53-g b{display:block;font-size:12.5px}.im53-g small{display:block;font-size:11px;color:var(--muted);line-height:1.25}
+.im53-p{flex:none;width:34px;height:34px;display:grid;place-items:center}.im53-p svg{max-width:34px;max-height:34px}
+.im53-c{display:flex;gap:6px;align-items:center}.im53-c .input{flex:1;min-width:0}.im53-c input[type=color]{width:34px;height:34px;padding:0;border:1px solid var(--line);border-radius:8px;background:none}
+@media (max-width:480px){.im53-g{grid-template-columns:1fr}}
+/* đặt khối đã thu nhỏ */
+body.place53 #dgrid>.blk[data-bid]{cursor:copy}
+body.place53 #dgrid>.blk[data-bid] *{pointer-events:none}
+body.place53 .blk-gap{display:grid!important;opacity:1!important}
+.pl53-hl.blk{outline:2px dashed var(--accent);outline-offset:4px}
+.pl53-hl.pl53-b{box-shadow:-6px 0 0 -1px var(--accent)}.pl53-hl.pl53-a{box-shadow:6px 0 0 -1px var(--accent)}
+.pl53-hl.blk-gap{background:color-mix(in srgb,var(--accent) 22%,transparent)!important;outline:2px solid var(--accent)}
+.pl53bar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:90;display:flex;flex-wrap:wrap;gap:8px;align-items:center;max-width:min(720px,calc(100vw - 24px));padding:10px 12px;border-radius:16px;background:var(--panel);border:1px solid var(--accent);box-shadow:0 10px 30px rgb(0 0 0/.25)}
+.pl53bar span{flex:1 1 220px;font-size:12.5px;color:var(--muted)}
+.pl53-ghost{position:fixed;z-index:95;pointer-events:none;opacity:.9;box-shadow:0 8px 20px rgb(0 0 0/.25)}
+[data-nl53]{font-size:11px;white-space:nowrap}
+.op53f output{float:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+.op53f input[type=range]{width:100%}
 
 
 html,body{margin:0;height:100%}[hidden]{display:none!important}img{max-width:100%}
@@ -1958,7 +1989,7 @@ html,body{margin:0;height:100%}[hidden]{display:none!important}img{max-width:100
 
 </style>
 
-<link rel="stylesheet" href="app-plus.css?v=90c00a3352">
+<link rel="stylesheet" href="app-plus.css?v=47b3dc16b3">
 </head>
 <body>
 <div class="app" id="app">
@@ -1974,9 +2005,9 @@ html,body{margin:0;height:100%}[hidden]{display:none!important}img{max-width:100
 <div class="toast" id="toast" role="status"></div>
 
 <noscript><p style="padding:24px;font:16px system-ui">Sổ Học cần bật JavaScript.</p></noscript>
-<script src="config.js?v=90c00a3352"></script>
-<script src="platform.js?v=90c00a3352"></script>
-<script src="app.js?v=90c00a3352"></script>
-<script src="app-plus.js?v=90c00a3352"></script>
+<script src="config.js?v=47b3dc16b3"></script>
+<script src="platform.js?v=47b3dc16b3"></script>
+<script src="app.js?v=47b3dc16b3"></script>
+<script src="app-plus.js?v=47b3dc16b3"></script>
 </body>
 </html>

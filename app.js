@@ -2649,7 +2649,7 @@ function renderBlockBody(b){const def=blkDef(b.k);const body=$(`[data-bb="${b.id
   try{def.body(body);bindHomeCommon(body)}catch(e){console.warn(e);body.innerHTML=`<div class="warnbox">Khối này gặp lỗi: ${esc(e.message||String(e))}</div>`}}
 
 /* ---------- chuyển trang mượt ---------- */
-function vt(fn){return function(...a){if(RM()||!document.startViewTransition||document.hidden)return fn.apply(this,a);let r;document.startViewTransition(()=>{r=fn.apply(this,a)});return r}}
+function vt(fn){return function(...a){if(RM()||!document.startViewTransition||document.hidden)return fn.apply(this,a);let r;const t=document.startViewTransition(()=>{r=fn.apply(this,a)});try{t.ready.catch(()=>{});t.finished.catch(()=>{});t.updateCallbackDone.catch(()=>{})}catch(e){}return r}}
 goHome=vt(goHome);openSubject=vt(openSubject);goCal=vt(goCal);openNotebook=vt(openNotebook);
 
 /* =====================================================================
@@ -8411,6 +8411,127 @@ profileDialog=function(){
   $("#pfOk").onclick=async()=>{const n={...cur(),name:$("#pfN").value.trim(),level:$("#pfLv").value,lang:$("#pfLg").value,goal:$("#pfG").value.trim(),styles:$$("[data-st]").filter(b=>b.getAttribute("aria-pressed")==="true").map(b=>b.dataset.st),notes:$("#pfX").value.trim(),accent:$("#pfAon").checked?$("#pfA").value:"",scale:+$("#pfZ").value};
     UI.profile=n;applyPrefs(n);closeDialog();await Store.put("profile-me",{type:"profile",...n}).catch(()=>{});toast("Đã lưu cá nhân hóa — AI và gợi ý môn học sẽ theo ngành của bạn",2600);local.set("sug52Off",false);if($("#courseBox"))renderCourses()};
   drawSug()};
+
+/* =====================================================================
+   v46 — biểu tượng bài học đổi được (mặc định · theo giao diện · theo bài học · tự tạo · AI · ảnh của bạn) ·
+   ảnh thẻ Trò chuyện vẽ đúng cỡ khung (nét) · mở lại khối đã thu nhỏ: bấm chỗ muốn đặt ·
+   các thanh (Bài tập, Lịch…) thu hẹp không tự trượt lên hàng trên · chỉnh độ trong suốt nền các mục
+   ===================================================================== */
+
+/* ---------- 1. biểu tượng bài học ---------- */
+const ICON53_RULES=[[/giải tích|tích phân|đạo hàm|calculus|analysis|advmath|toán cao cấp|maths?\b/i,"∫"],[/xác suất|thống kê|probab|statist/i,"σ"],[/đại số|algebra|ma trận|matrix/i,"λ"],
+ [/mạch|circuit|điện tử|electron|transistor|diode|op-?amp/i,"Ω"],[/số|digital|logic|fpga|vhdl|verilog|boole/i,"⊕"],[/vi xử lý|vi điều khiển|micro|embedded|nhúng|arduino|stm32/i,"μ"],
+ [/tín hiệu|signal|dsp|fourier|laplace/i,"∿"],[/lập trình|program|code|python|c\+\+|java|thuật toán|algorithm/i,"</>"],[/vật lý|physics|cơ học|quang|nhiệt/i,"⚛"],
+ [/hóa|chem/i,"⚗"],[/sinh|bio|y học|med|giải phẫu/i,"❦"],[/tiếng anh|english|ngôn ngữ|language|tiếng đức|deutsch/i,"Aa"],[/kinh tế|econom|tài chính|finance|kế toán|marketing|quản trị/i,"$"],
+ [/luật|law/i,"§"],[/mạng|network|internet|truyền thông|communication/i,"⇄"],[/ai\b|trí tuệ|machine learning|học máy/i,"✦"],[/vẽ|thiết kế|design|kiến trúc/i,"✎"]];
+function icon53Auto(nb){const s=subjOf(nb.subj);const t=[nb.title,s&&s.title,s&&s.code].filter(Boolean).join(" ");const r=ICON53_RULES.find(([re])=>re.test(t));
+  const sym=r?r[1]:((nb.title||"?").trim().replace(/[^\p{L}\p{N}]/gu,"").slice(0,2)||"?");return {sym,bg:(s&&s.color)||"#6b5a9e",fg:"#ffffff"}}
+function icon53SVG(sym,bg,fg,size){const n=[...String(sym)].length;const fs=n>=3?15:n===2?19:24;
+  return `<svg class="glyph gl53" width="${size}" height="${size}" viewBox="0 0 46 46" aria-hidden="true"><rect width="46" height="46" rx="12" fill="${bg}"/><text x="23" y="${23+fs*.36}" text-anchor="middle" font-size="${fs}" font-weight="800" font-family="var(--f-display,system-ui),'Segoe UI Emoji','Apple Color Emoji',sans-serif" fill="${fg}">${esc(sym)}</text></svg>`}
+const nb53=id=>(UI.nbs&&UI.nbs.find(n=>n.id===id))||(UI.cur&&UI.cur.id===id?UI.cur:null);
+{const _g53=glyph;glyph=function(id,size=46){const nb=nb53(id);const c=nb&&nb.icon;if(!c||!c.m||c.m==="def")return _g53.apply(this,arguments);
+  try{if(c.m==="theme"){let s=_g53(id,size);const H=["#2b6f4f","#7ee0a7","#7a3d1c","#f4a26a","#244a7a","#8cc0ff","#5a2f6e","#d6a4ff","#6e5a1c","#f2d36b"];H.forEach((h,i)=>{s=s.split(h).join(i%2?"var(--accent-ink,#fff)":"var(--accent)")});s=s.split("var(--gl-bg)").join("var(--accent)").split("var(--gl-fg)").join("var(--accent-ink,#fff)");return s.replace('class="glyph"','class="glyph gl53"')}
+    if(c.m==="auto"){const a=icon53Auto(nb);return icon53SVG(a.sym,a.bg,a.fg,size)}
+    if(c.m==="custom"||c.m==="ai")return icon53SVG(c.sym||"★",c.bg||"var(--accent)",c.fg||"#fff",size);
+    if(c.m==="img"&&c.url)return `<img class="glyph gl53 gl53img${c.px?" px":""}" src="${esc(c.url)}" width="${size}" height="${size}" alt="" aria-hidden="true" style="width:${size}px;height:${size}px">`}catch(e){console.warn(e)}
+  return _g53.apply(this,arguments)}}
+/* ảnh tải lên → cắt vuông giữa, lưu PNG 256 px (đủ nét cho mọi cỡ hiển thị) */
+async function icon53FromFile(f,px){const im=await loadImg(await fileToURL(f));const s=Math.min(im.naturalWidth,im.naturalHeight);const sx=(im.naturalWidth-s)/2,sy=(im.naturalHeight-s)/2;
+  const c=document.createElement("canvas");if(px){const t=document.createElement("canvas");t.width=t.height=40;const g=t.getContext("2d");g.drawImage(im,sx,sy,s,s,0,0,40,40);try{if(window.GIFENC)pxQuant(t)}catch(e){}c.width=c.height=240;const g2=c.getContext("2d");g2.imageSmoothingEnabled=false;g2.drawImage(t,0,0,240,240)}
+  else{c.width=c.height=256;const g=c.getContext("2d");g.imageSmoothingQuality="high";g.drawImage(im,sx,sy,s,s,0,0,256,256)}return c.toDataURL("image/png")}
+async function icon53AI(nb){if(typeof P==="undefined"||!P.sample)throw new Error("AI chưa sẵn sàng");const s=subjOf(nb.subj);
+  const r=await P.sample([{role:"user",content:`Chọn MỘT biểu tượng (1 emoji, hoặc 1–3 ký tự/ký hiệu toán học) và màu nền hex hợp với bài học "${nb.title}"${s?` thuộc môn "${s.title}"`:""}${nb.summary?`. Tóm tắt: ${String(nb.summary).slice(0,300)}`:""}. Chỉ trả lời JSON: {"sym":"…","bg":"#rrggbb"}`}],{max:200,json:true,modelTier:"quick",fast:true});
+  const j=looseJSON(r&&r.text);if(!j||!j.sym)throw new Error("AI không trả lời");return {m:"ai",sym:String(j.sym).slice(0,4),bg:/^#[0-9a-f]{6}$/i.test(j.bg||"")?j.bg:"#6b5a9e",fg:"#ffffff"}}
+function icon53Menu(anchor,nb){const c=Object.assign({m:"def"},nb.icon||{});const a=icon53Auto(nb);
+  const opt=(k,l,s,prev)=>`<button type="button" role="radio" data-im="${k}" aria-checked="${c.m===k}"><span class="im53-p">${prev}</span><span><b>${l}</b><small>${s}</small></span></button>`;
+  const m=popMenu(anchor,`<div class="who">Biểu tượng bài học</div><div class="im53">
+    <div class="im53-g" role="radiogroup">${opt("def","Giữ nguyên","Biểu tượng mặc định",(UI.nbs.find(n=>n.id===nb.id)&&(()=>{const k=nb.icon;nb.icon=null;const g=glyph(nb.id,34);nb.icon=k;return g})())||"")}
+      ${opt("theme","Theo giao diện","Đổi màu theo giao diện đang dùng",(()=>{const k=nb.icon;nb.icon={m:"theme"};const g=glyph(nb.id,34);nb.icon=k;return g})())}
+      ${opt("auto","Theo bài học","Tự chọn ký hiệu theo tên bài/môn",icon53SVG(a.sym,a.bg,a.fg,34))}
+      ${opt("ai","AI tạo theo bài","AI chọn biểu tượng hợp nội dung",c.m==="ai"?icon53SVG(c.sym,c.bg,c.fg,34):icon53SVG("✦","var(--accent)","#fff",34))}
+      ${opt("custom","Tự tạo","Chữ, ký hiệu hoặc emoji + màu",icon53SVG(c.m==="custom"?c.sym:"A",c.m==="custom"?c.bg:"#888","#fff",34))}
+      ${opt("img","Ảnh của bạn","Tải ảnh lên, tự cắt vừa khung",c.m==="img"&&c.url?`<img src="${esc(c.url)}" width="34" height="34" alt="" style="border-radius:9px;object-fit:cover">`:ic("img"))}</div>
+    <div class="im53-c" ${c.m==="custom"?"":"hidden"}><input class="input" id="im53T" maxlength="4" value="${esc(c.m==="custom"?c.sym:"")}" placeholder="Ví dụ: ∑, DSD, 🔌"><input type="color" id="im53B" value="${esc(/^#/.test(c.bg||"")?c.bg:a.bg)}"><input type="color" id="im53F" value="${esc(c.fg||"#ffffff")}"><button class="btn" id="im53Ok" type="button">${ic("check")} Dùng</button></div>
+    <label class="btn" hidden id="im53Up">${ic("img")} Chọn ảnh…<input type="file" accept="image/*" hidden id="im53File"></label>
+    <label class="chk-row" id="im53PxR" ${c.m==="img"?"":"hidden"}><input type="checkbox" class="chk" id="im53Px" ${c.px?"checked":""}> Chuyển ảnh sang kiểu pixel</label></div>`);
+  m.classList.add("wide");m.addEventListener("click",e=>e.stopPropagation());
+  const save=async v=>{nb.icon=v;await Store.patch(nb.id,{icon:v});try{renderChat();renderTop()}catch(e){}};
+  const pick=()=>$("#im53File",m).click();
+  $$("[data-im]",m).forEach(b=>b.onclick=async()=>{const k=b.dataset.im;$$("[data-im]",m).forEach(x=>x.setAttribute("aria-checked",x===b));$(".im53-c",m).hidden=k!=="custom";$("#im53PxR",m).hidden=k!=="img";
+    if(k==="custom"){$("#im53T",m).focus();return}if(k==="img"){if(c.url&&c.m==="img")return save({...c,m:"img"});return pick()}
+    if(k==="ai"){b.classList.add("busy");try{await save(await icon53AI(nb));toast("AI đã tạo biểu tượng cho bài",1400)}catch(e){toast("AI chưa tạo được — dùng biểu tượng theo bài học",2200);await save({m:"auto"})}closePop();return}
+    await save({m:k});closePop()});
+  $("#im53Ok",m).onclick=async()=>{const t=$("#im53T",m).value.trim();if(!t){toast("Nhập chữ hoặc ký hiệu");return}await save({m:"custom",sym:t,bg:$("#im53B",m).value,fg:$("#im53F",m).value});closePop()};
+  $("#im53T",m).onkeydown=e=>{if(e.key==="Enter")$("#im53Ok",m).click()};
+  $("#im53File",m).onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const px=$("#im53Px",m).checked;const url=await icon53FromFile(f,px);await save({m:"img",url,px});toast("Đã đặt ảnh làm biểu tượng",1200);closePop()}catch(err){toast("Không đọc được ảnh")}};
+  $("#im53Px",m).onchange=()=>{toast("Chọn lại ảnh để áp dụng kiểu "+($("#im53Px",m).checked?"pixel":"thường"),1800);pick()};
+  return m}
+
+/* ---------- 2. thẻ Trò chuyện: ảnh nền vẽ đúng cỡ khung × mật độ điểm ảnh → nét; nút đổi biểu tượng ---------- */
+function fit53(src,W,H,pixel){const c=document.createElement("canvas");c.width=W;c.height=H;const g=c.getContext("2d");const sw=src.width||src.naturalWidth,sh=src.height||src.naturalHeight;
+  const k=Math.max(W/sw,H/sh);const w=sw*k,h=sh*k;g.imageSmoothingEnabled=!pixel;g.imageSmoothingQuality="high";g.drawImage(src,(W-w)/2,(H-h)/2,w,h);return c}
+const _h53=new Map();
+hero50Apply=function(){const box=$("#chatIn");const nb=UI.cur;if(!box||!nb)return;const h=$(".hero",box);if(!h)return;
+  if(!$("[data-hero50]",h)){const b=document.createElement("button");b.className="ghost ic hero50-b";b.dataset.hero50="1";b.title="Đổi ảnh nền thẻ: mặc định, theo cảnh nền hoặc ảnh của bạn";b.setAttribute("aria-label","Đổi ảnh nền thẻ bài học");b.innerHTML=ic("img");
+    b.onclick=e=>{e.stopPropagation();cov50Menu(b,{title:"Ảnh nền thẻ bài học",get:()=>(UI.nbs.find(n=>n.id===nb.id)||nb).hero||local.get("heroDef",COV50_DEF),set:async v=>{local.set("heroDef",{m:v.m,px:!!v.px});await Store.patch(nb.id,{hero:v});_h53.clear();setTimeout(hero50Apply,80)}})};h.appendChild(b)}
+  const gl=h.querySelector(".glyph");if(gl&&!h.querySelector(".gl53-w")){const w=document.createElement("button");w.type="button";w.className="gl53-w";w.title="Đổi biểu tượng bài học";w.setAttribute("aria-label","Đổi biểu tượng bài học");gl.replaceWith(w);w.appendChild(gl);w.insertAdjacentHTML("beforeend",`<span class="gl53-e">${ic("edit")}</span>`);w.onclick=e=>{e.stopPropagation();icon53Menu(w,UI.nbs.find(n=>n.id===nb.id)||nb)}}
+  const cfg=(UI.nbs.find(n=>n.id===nb.id)||nb).hero||local.get("heroDef",COV50_DEF);
+  if(!cfg||cfg.m==="def"||(cfg.m==="img"&&!cfg.url)){h.classList.remove("hero50");h.style.removeProperty("--h50");return}
+  const dpr=Math.min(3,window.devicePixelRatio||1);const W=Math.max(200,Math.round(h.clientWidth*dpr)),H=Math.max(80,Math.round(h.clientHeight*dpr));
+  const pixel=!!cfg.px||(cfg.m==="theme"&&(!bgSrc().img||UI.bg.pix));const key=JSON.stringify([cfg,W,H,UI.bg.sel,UI.bg.pix,isNightSkin()]);
+  const apply=u=>{if(!u||!h.isConnected)return;h.classList.add("hero50");h.classList.toggle("px",pixel);h.style.setProperty("--h50",`url("${u}")`)};
+  if(_h53.has(key))return apply(_h53.get(key));
+  (async()=>{let src=null;if(cfg.m==="theme"){const s=bgSrc();if(s.img)src=await loadImg(s.img);else src=sceneCanvas(s.scene,Math.max(160,Math.round(W/(pixel?4:2))),Math.max(60,Math.round(H/(pixel?4:2))),nb.id)}
+    else if(cfg.m==="img"){const u=typeof img40URL==="function"?await img40URL(cfg.url):cfg.url;const im=await loadImg(u);if(cfg.px){const sm=fit53(im,Math.round(W/6),Math.round(H/6),false);try{if(window.GIFENC)pxQuant(sm)}catch(e){}src=sm}else src=im}
+    if(!src)return;const u=fit53(src,W,H,pixel).toDataURL(pixel?"image/png":"image/jpeg",.92);_h53.set(key,u);if(_h53.size>12)_h53.delete(_h53.keys().next().value);apply(u)})().catch(e=>console.warn(e))};
+{let _hr53=0;addEventListener("resize",()=>{clearTimeout(_hr53);_hr53=setTimeout(()=>{if($("#chatIn .hero.hero50"))hero50Apply()},300)})}
+
+/* ---------- 3. mở lại khối đã thu nhỏ: bấm chỗ muốn đặt (hoặc kéo thả ô vào trang) ---------- */
+let place53=null;
+function place53End(){if(!place53)return;document.body.classList.remove("place53");$$(".pl53-hl").forEach(x=>x.classList.remove("pl53-hl","pl53-b","pl53-a"));const bar=$("#pl53bar");if(bar)bar.remove();document.removeEventListener("keydown",place53.key,true);document.removeEventListener("click",place53.click,true);document.removeEventListener("pointermove",place53.move,true);place53=null}
+function place53Put(id,targetId,after){const L=UI.dash.blocks;const i=L.findIndex(x=>x.id===id);if(i<0)return;const [b]=L.splice(i,1);b.m=false;
+  let j=targetId==null?L.length:L.findIndex(x=>x.id===targetId);if(j<0)j=L.length;if(after&&targetId!=null)j++;L.splice(j,0,b);saveDash();renderHome();
+  const el=$(`.blk[data-bid="${b.id}"]`);if(el){el.classList.add("pop-in");el.scrollIntoView({block:"nearest",behavior:RM()?"auto":"smooth"})}}
+function hit53(x,y){const els=document.elementsFromPoint(x,y);const gap=els.find(e=>e.classList&&e.classList.contains("blk-gap"));if(gap)return {gap};const bl=els.map(e=>e.closest&&e.closest("#dgrid>.blk[data-bid]")).find(Boolean);if(!bl)return null;const r=bl.getBoundingClientRect();return {bl,after:(x-r.left)>r.width/2}}
+function place53Start(id){place53End();const b=UI.dash.blocks.find(x=>x.id===id);if(!b)return;const name=blkName51(b);document.body.classList.add("place53");
+  const bar=document.createElement("div");bar.id="pl53bar";bar.className="pl53bar";bar.innerHTML=`<b>Đặt “${esc(name)}” vào đâu?</b><span>Bấm vào một khối (nửa trái: đặt trước · nửa phải: đặt sau) hoặc ô “+” trống.</span><button class="btn" data-p="old" type="button">Vị trí cũ</button><button class="btn" data-p="end" type="button">Cuối trang</button><button class="ghost ic" data-p="x" type="button" aria-label="Hủy">${ic("close")}</button>`;document.body.appendChild(bar);
+  const hl=(t)=>{$$(".pl53-hl").forEach(x=>x.classList.remove("pl53-hl","pl53-b","pl53-a"));if(!t)return;const e=t.gap||t.bl;e.classList.add("pl53-hl");if(t.bl)e.classList.add(t.after?"pl53-a":"pl53-b")};
+  place53={id,key:e=>{if(e.key==="Escape"){e.preventDefault();place53End()}},move:e=>hl(hit53(e.clientX,e.clientY)),
+    click:e=>{if(e.target.closest("#pl53bar")){const p=e.target.closest("[data-p]");if(!p)return;e.preventDefault();e.stopPropagation();const k=p.dataset.p;place53End();if(k==="old"){b.m=false;saveDash();renderHome()}if(k==="end")place53Put(id,null);return}
+      const t=hit53(e.clientX,e.clientY);if(!t)return;e.preventDefault();e.stopPropagation();place53End();
+      if(t.gap){const idx=+t.gap.dataset.idx;const L=UI.dash.blocks.filter(x=>x.id!==id);const tgt=L[idx];place53Put(id,tgt?tgt.id:null,false)}else place53Put(id,t.bl.dataset.bid,t.after)}};
+  document.addEventListener("keydown",place53.key,true);setTimeout(()=>{document.addEventListener("click",place53.click,true);document.addEventListener("pointermove",place53.move,true)},0);toast("Bấm vào chỗ muốn đặt khối",1600)}
+{const _rh53=renderHome;renderHome=function(){const r=_rh53.apply(this,arguments);try{
+  $$(".min-tray .min-chip[data-restore]").forEach(ch=>{if(ch._p53)return;ch._p53=1;const id=ch.dataset.restore;ch.title="Bấm rồi chọn chỗ đặt trên trang · hoặc kéo thả vào chỗ muốn đặt";
+    ch.onclick=e=>{if(e.target.closest(".mx51"))return;e.preventDefault();e.stopPropagation();place53Start(id)};
+    /* kéo thả ô vào trang */
+    ch.addEventListener("pointerdown",e=>{if(e.button!==0||e.target.closest(".mx51"))return;const x0=e.clientX,y0=e.clientY;let drag=false,ghost=null;
+      const mv=ev=>{if(!drag&&Math.hypot(ev.clientX-x0,ev.clientY-y0)>7){drag=true;ghost=ch.cloneNode(true);ghost.className="min-chip pl53-ghost";document.body.appendChild(ghost);document.body.classList.add("place53")}
+        if(drag){ghost.style.left=ev.clientX+8+"px";ghost.style.top=ev.clientY+8+"px";const t=hit53(ev.clientX,ev.clientY);$$(".pl53-hl").forEach(x=>x.classList.remove("pl53-hl","pl53-b","pl53-a"));if(t){const el=t.gap||t.bl;el.classList.add("pl53-hl");if(t.bl)el.classList.add(t.after?"pl53-a":"pl53-b")}}};
+      const up=ev=>{removeEventListener("pointermove",mv);removeEventListener("pointerup",up);if(!drag)return;ghost.remove();document.body.classList.remove("place53");$$(".pl53-hl").forEach(x=>x.classList.remove("pl53-hl","pl53-b","pl53-a"));
+        const t=hit53(ev.clientX,ev.clientY);ch._skip=Date.now();if(!t)return;if(t.gap){const idx=+t.gap.dataset.idx;const L=UI.dash.blocks.filter(x=>x.id!==id);const tgt=L[idx];place53Put(id,tgt?tgt.id:null,false)}else place53Put(id,t.bl.dataset.bid,t.after)};
+      addEventListener("pointermove",mv);addEventListener("pointerup",up)});
+    ch.addEventListener("click",e=>{if(ch._skip&&Date.now()-ch._skip<400){e.stopImmediatePropagation();e.preventDefault()}},true)});
+  /* ---------- 4. thanh dạng mục (Bài tập, Việc trong tuần, Lịch, Môn học…): thu hẹp vẫn ở hàng riêng ---------- */
+  $$("#dgrid>.blk.sec[data-bid]").forEach(el=>{const b=UI.dash.blocks.find(x=>x.id===el.dataset.bid);if(!b)return;el.style.gridColumnStart="";el.style.gridColumnEnd="";
+    const full=b.w>=6;if(full||b.nl===false||innerWidth<=720)return;const cs=getComputedStyle(el).gridColumnStart;const span=/span/.test(cs)?cs:`span ${Math.round(b.w*2)}`;el.style.gridColumnStart="1";el.style.gridColumnEnd=span});
+  if(UI.dashEdit)$$("#dgrid>.blk.sec[data-bid] .blk-tools").forEach(t=>{if($("[data-nl53]",t))return;const el=t.closest(".blk");const b=UI.dash.blocks.find(x=>x.id===el.dataset.bid);if(!b)return;const on=b.nl!==false;
+    const x=document.createElement("button");x.dataset.nl53="1";x.type="button";x.textContent=on?"⤓ Hàng riêng":"⤒ Ghép hàng";x.title=on?"Đang đứng hàng riêng — bấm để cho ghép lên cạnh khối phía trên khi thu hẹp":"Đang ghép hàng — bấm để luôn đứng hàng riêng";x.onclick=e=>{e.stopPropagation();b.nl=on?false:true;saveDash();renderHome()};t.appendChild(x)});
+  op53Apply()}catch(e){console.warn(e)}return r}}
+
+/* ---------- 5. độ trong suốt nền các mục (mặc định giữ như cũ) ---------- */
+UI.op53=local.get("op53",100);
+function op53Apply(){const v=+UI.op53||100;const root=document.documentElement;const m=$("#main");if(!m)return;
+  if(v>=100){m.style.removeProperty("--panel");m.style.removeProperty("--panel2");root.classList.remove("op53");return}
+  m.style.removeProperty("--panel");m.style.removeProperty("--panel2");const cs=getComputedStyle(m);const p=cs.getPropertyValue("--panel").trim(),p2=cs.getPropertyValue("--panel2").trim();if(!p)return;
+  m.style.setProperty("--panel",`color-mix(in srgb, ${p} ${v}%, transparent)`);if(p2)m.style.setProperty("--panel2",`color-mix(in srgb, ${p2} ${Math.min(100,v+8)}%, transparent)`);root.classList.add("op53");root.style.setProperty("--op53",v/100)}
+{const _bp53=bgPickerHTML;bgPickerHTML=function(){return _bp53.apply(this,arguments)+`<div class="field op53f"><label for="op53r">Độ đậm nền các mục <output id="op53o">${UI.op53}%</output></label><input type="range" id="op53r" min="25" max="100" step="5" value="${UI.op53}" aria-label="Độ đậm nền các mục"><small class="muted">100% = như mặc định · kéo sang trái để nền các khối trong suốt hơn, thấy cảnh nền rõ hơn</small></div>`};
+ const _bb53=bindBgPicker;bindBgPicker=function(root){const r=_bb53.apply(this,arguments);const s=$("#op53r",root);if(s)s.oninput=()=>{UI.op53=+s.value;$("#op53o",root).textContent=s.value+"%";local.set("op53",UI.op53);op53Apply()};return r}}
+{const w=f=>function(){const r=f.apply(this,arguments);setTimeout(op53Apply,30);return r};
+ if(typeof applySkin==="function")applySkin=w(applySkin);if(typeof applyBg==="function")applyBg=w(applyBg);if(typeof syncTheme==="function")syncTheme=w(syncTheme);
+ const _rs53=renderSubject;renderSubject=function(){const r=_rs53.apply(this,arguments);op53Apply();return r};
+ const _on53=openNotebook;openNotebook=function(){const r=_on53.apply(this,arguments);setTimeout(op53Apply,60);return r}}
+setTimeout(op53Apply,800);
 
 /* =====================================================================
    BẢN WEB ĐỘC LẬP — cài đặt AI, đăng nhập Google, sao lưu dữ liệu

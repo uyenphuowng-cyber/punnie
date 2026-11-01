@@ -2,7 +2,7 @@
    - Bản trang (HTML/JS/CSS/biểu tượng) lưu sẵn khi cài; có mạng thì lấy bản mới, mất mạng dùng bản đã lưu.
    - Thư viện ngoài (3D, PDF, Word, công thức, zip) và phông chữ được tải sẵn vào bộ nhớ riêng, giữ qua các lần cập nhật.
    - Dữ liệu môn học / bài học / ghi chú nằm trong IndexedDB của trình duyệt nên vốn đã dùng được offline. */
-const V="sohoc-90c00a3352",LIBS_C="sohoc-libs-v1";
+const V="sohoc-47b3dc16b3",LIBS_C="sohoc-libs-v1";
 const CORE=["./","index.html","app.js","app-plus.js","app-plus.css","platform.js","config.js","manifest.webmanifest","icon-192.png","icon-512.png"];
 const LIBS=["https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js","https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js","https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js","https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js","https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js","https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"];
 const CDN=/(^|\.)(cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net|unpkg\.com|fonts\.googleapis\.com|fonts\.gstatic\.com)$/;
