@@ -114,7 +114,7 @@ sample.json=async(prompt,o={})=>{const r=await call(prompt+"\n\nCHỈ trả lờ
    Mỗi tài khoản giữ token riêng (chỉ trên trình duyệt này). Dịch vụ được cấp quyền dần
    (đăng nhập trước, liên kết Calendar / Gmail khi cần). */
 const GC="Google Calendar",GM="Gmail";
-const SC={base:"openid email profile",cal:"https://www.googleapis.com/auth/calendar.events",calr:"https://www.googleapis.com/auth/calendar.calendarlist.readonly",mail:"https://www.googleapis.com/auth/gmail.readonly",yt:"https://www.googleapis.com/auth/youtube.readonly",send:"https://www.googleapis.com/auth/gmail.compose",drive:"https://www.googleapis.com/auth/drive.readonly",appdata:"https://www.googleapis.com/auth/drive.appdata"};
+const SC={base:"openid email profile",cal:"https://www.googleapis.com/auth/calendar.events",calr:"https://www.googleapis.com/auth/calendar.calendarlist.readonly",mail:"https://www.googleapis.com/auth/gmail.readonly",yt:"https://www.googleapis.com/auth/youtube.readonly",send:"https://www.googleapis.com/auth/gmail.compose",drive:"https://www.googleapis.com/auth/drive.readonly",appdata:"https://www.googleapis.com/auth/drive.appdata",nb:"https://www.googleapis.com/auth/notebook"};
 const SVC_OF={YouTube:["yt"],"Google Drive":["drive"],[GC]:["cal","calr"],[GM]:["mail","send"]};
 const clientId=()=>LS.get("googleClientId","")||CFG.googleClientId||"";
 try{const m=/[#&]sohoc-cid=([\w.-]+\.apps\.googleusercontent\.com)/.exec(location.hash||"");if(m){LS.set("googleClientId",m[1]);LS.set("cidFromLink",true);history.replaceState(null,"",location.pathname+location.search)}}catch(e){}
@@ -147,8 +147,8 @@ async function auth({svc=[],add=false,acct=null}={}){
       const id=u.sub||(a0&&a0.id)||("g"+Date.now());let a=accts.find(x=>x.id===id)||(a0&&a0.id==="old"?a0:null);
       if(!a){a={id,svc:{}};accts.push(a)}if(a.id!==id&&OWN===a.id){OWN=id;LS.set("dataOwner",OWN)}a.id=id;a.name=u.name||u.given_name||a.name||"";a.email=u.email||a.email||"";a.pic=u.picture||a.pic||"";
       const has=k=>{try{return google.accounts.oauth2.hasGrantedAllScopes(r,SC[k])}catch(e){return String(r.scope||"").includes(SC[k])}};
-      a.svc={cal:has("cal"),calr:has("calr"),mail:has("mail"),send:has("send"),yt:has("yt"),drive:has("drive"),appdata:has("appdata")};a.tok={t:r.access_token,exp:Date.now()+(+r.expires_in||3600)*1000};
-      act=a.id;saveA();const miss=svc.filter(k=>!a.svc[k]);if(miss.length){rej(err("approval_required","Bạn chưa tích ô cho phép "+miss.map(k=>({cal:"Google Calendar",calr:"xem danh sách lịch",yt:"xem YouTube",drive:"xem tệp Google Drive",mail:"đọc Gmail",send:"soạn/gửi Gmail"})[k]).join(", ")));return}res(a)},
+      a.svc={cal:has("cal"),calr:has("calr"),mail:has("mail"),send:has("send"),yt:has("yt"),drive:has("drive"),appdata:has("appdata"),nb:has("nb")};a.tok={t:r.access_token,exp:Date.now()+(+r.expires_in||3600)*1000};
+      act=a.id;saveA();const miss=svc.filter(k=>!a.svc[k]);if(miss.length){rej(err("approval_required","Bạn chưa tích ô cho phép "+miss.map(k=>({cal:"Google Calendar",calr:"xem danh sách lịch",yt:"xem YouTube",drive:"xem tệp Google Drive",mail:"đọc Gmail",send:"soạn/gửi Gmail",nb:"xem và quản lý sổ Gemini Notebook"})[k]).join(", ")));return}res(a)},
     error_callback:e=>rej(err(e&&e.type==="popup_closed"?"popup_closed":"auth_error",e&&e.message||"Đăng nhập Google bị hủy"))});
     c.requestAccessToken({prompt:add?"select_account consent":(a0&&a0.tok?"":"consent")})})}
 async function getToken(interactive,svc){const a=cur();if(a&&tokOk(a)&&(!svc||svc.every(k=>a.svc&&a.svc[k])))return a.tok.t;if(!clientId())throw err("no_client","Chưa cấu hình Google Client ID");
@@ -258,7 +258,35 @@ const cloud_={granted:()=>{const a=cur();return !!(a&&a.svc&&a.svc.appdata)},rea
     const b="sohoc"+Date.now();const meta=JSON.stringify({name:CLOUD_NAME,parents:["appDataFolder"]});
     await cloudReq("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",{method:"POST",headers:{"Content-Type":"multipart/related; boundary="+b},body:`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${b}--`},t)},
   async remove(){const t=await cloudTok(false);const f=await this._find(t);if(f)await cloudReq(DRV+"files/"+encodeURIComponent(f.id),{method:"DELETE"},t)}};
-window.SOHOC={CFG,LS,drive:drive_,cloud:cloud_,pkey:k=>k+PKS(),getToken:()=>getToken(true),google:google_,yt:ytApi_,signOut(){const a=cur();if(a)google_.remove(a.id)},
+
+/* ---------- Gemini Notebook (NotebookLM) API — Public Preview: tạo sổ, thêm nguồn văn bản/đường link, liệt kê ---------- */
+const NBA="https://notebook.googleapis.com/v1";
+function nbErr(st,j,path){const e=(j&&j.error)||{};const m=String(e.message||"");const blob=JSON.stringify(e);
+  if(st===401||(st===403&&/insufficient|scope/i.test(blob)))return err("needs_reauth","Cần cho phép quyền Gemini Notebook — bấm Kết nối lại.");
+  if(st===403&&/WORKSPACE_ACCOUNT_NOT_SUPPORTED/.test(blob))return err("workspace","Tài khoản trường/công ty (Google Workspace) chưa dùng được API này. Hãy kết nối bằng Gmail cá nhân.");
+  if(st===403&&/SERVICE_DISABLED|has not been used|is disabled|API_DISABLED/i.test(blob))return err("api_off","Chưa bật “Gemini Notebook API” trong Google Cloud (đúng project của Client ID). Vào console.cloud.google.com → APIs & Services → Library → tìm “Gemini Notebook API” → Enable, rồi thử lại sau 1–2 phút.");
+  if(st===404&&/\/notebooks$/.test(path))return err("first_login","Tài khoản này chưa từng mở Gemini Notebook. Hãy vào notebook.google.com đăng nhập một lần rồi thử lại.");
+  if(st===404)return err("not_found","Không thấy sổ trên Gemini Notebook (có thể đã bị xóa).");
+  if(st===429)return err("rate","Gửi quá nhanh — chờ 1 phút rồi đồng bộ tiếp.");
+  return err("nb_http",(m||"HTTP "+st).slice(0,240))}
+async function nbReq(path,opt={},inter=false){let t=await getToken(inter,["nb"]);let r;
+  try{r=await _fetch(NBA+path,{...opt,headers:{Authorization:"Bearer "+t,...(opt.body?{"content-type":"application/json"}:{})}})}catch(e){throw err("network","Không gọi được Gemini Notebook API (mất mạng hoặc bị trình duyệt chặn).")}
+  const j=await r.json().catch(()=>({}));if(!r.ok){const e=nbErr(r.status,j,path);if(e.code==="needs_reauth"){const a=cur();if(a&&a.svc)a.svc.nb=false;saveA()}throw e}return j}
+const nblm_={
+  scopeOk(){const a=cur();return !!(a&&a.svc&&a.svc.nb)},
+  ready(){const a=cur();return !!(a&&a.svc&&a.svc.nb&&tokOk(a))},
+  account(){const a=cur();return a?{email:a.email,name:a.name}:null},
+  async connect(){return auth({svc:["nb"]})},
+  url(name){const id=String(name||"").split("/").pop();return id?"https://notebook.google.com/notebook/"+encodeURIComponent(id):"https://notebook.google.com/"},
+  async list(){let out=[],tok="";for(let i=0;i<10;i++){const j=await nbReq("/notebooks?pageSize=100"+(tok?"&pageToken="+encodeURIComponent(tok):""));out=out.concat(j.notebooks||[]);tok=j.nextPageToken;if(!tok)break}return out},
+  async create(title,inter){return nbReq("/notebooks",{method:"POST",body:JSON.stringify({displayName:String(title||"Sổ học").slice(0,200)})},inter)},
+  async get(name){return nbReq("/"+name)},
+  async rename(name,title){return nbReq("/"+name+"?updateMask=displayName",{method:"PATCH",body:JSON.stringify({displayName:String(title).slice(0,200)})})},
+  async addText(name,title,text,md=true){return nbReq("/"+name+"/sources",{method:"POST",body:JSON.stringify({displayName:String(title||"Nguồn").slice(0,200),mimeType:md?"text/markdown":"text/plain",textContent:{content:String(text||"")}})})},
+  async addUrl(name,title,url){return nbReq("/"+name+"/sources",{method:"POST",body:JSON.stringify({displayName:String(title||url).slice(0,200),webContent:{url}})})},
+  async sources(name){const j=await nbReq("/"+name+"/sources?pageSize=200");return j.sources||[]},
+  async source(sname){return nbReq("/"+sname)}};
+window.SOHOC={CFG,LS,nblm:nblm_,drive:drive_,cloud:cloud_,pkey:k=>k+PKS(),getToken:()=>getToken(true),google:google_,yt:ytApi_,signOut(){const a=cur();if(a)google_.remove(a.id)},
   hasKey:()=>!!apiKey(),hasOwnerKey:()=>!!ownerKey(),usingOwnerKey:()=>provider()==="gemini"&&useOwner(),keyMode,provider,model,listGeminiModels,clientId,
   async exportAll(){await load();const out={app:"so-hoc-dien-tu",v:1,exported:new Date().toISOString(),docs:Object.fromEntries(docs),assets:{}};
     try{const d=await getDB();await new Promise((res,rej)=>{const rq=d.transaction("assets").objectStore("assets").openCursor();const pend=[];rq.onsuccess=()=>{const c=rq.result;if(c){pend.push(b64(c.value).then(u=>{out.assets[c.key]=u}));c.continue()}else Promise.all(pend).then(res,rej)};rq.onerror=()=>rej(rq.error)})}catch(e){}

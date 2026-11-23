@@ -127,3 +127,16 @@ Thư viện ngoài được tải từ CDN khi cần: KaTeX (công thức), thre
 - **Máy tính (bản .exe riêng):** dùng gói `SoHocDienTu-Windows.zip`; nhớ thêm `http://localhost:47823` vào *Authorized JavaScript origins*.
 - **Android:** mở trang bằng Chrome → ⋮ → *Cài đặt ứng dụng*. Muốn có tệp .apk / đưa lên Google Play: vào https://www.pwabuilder.com, dán địa chỉ trang GitHub Pages → *Package for stores* → Android.
 - **iPhone/iPad:** mở bằng Safari → Chia sẻ → *Thêm vào Màn hình chính*.
+
+## Đồng bộ với Gemini Notebook (NotebookLM) — trong cột Studio
+1. Google Cloud (đúng project của Client ID) → APIs & Services → Library → **Gemini Notebook API** → Enable.
+2. Google Auth Platform → **Data Access** → thêm scope `https://www.googleapis.com/auth/notebook`. App ở chế độ Testing thì thêm Gmail của bạn vào **Audience → Test users**.
+3. Mở https://notebook.google.com và đăng nhập một lần bằng Gmail đó.
+4. Trong bài học → Studio → **Gemini Notebook → Đồng bộ**.
+
+Giới hạn của Google (bản xem trước): chỉ Gmail cá nhân; API chỉ tạo sổ và thêm nguồn (văn bản/đường link) — không xóa/sửa nguồn, không tạo tổng quan âm thanh/video (bấm “Mở” để tạo trên Gemini Notebook, rồi “Dán kết quả về Studio”).
+
+### Dùng thẳng AI của Gemini Notebook bằng Gmail
+- **App máy tính**: bấm “Gemini Notebook” (thanh trên trong bài học) → Gemini Notebook hiện ngay bên phải, đăng nhập Gmail một lần (được nhớ). Ở ô Trò chuyện chọn **AI trả lời: Gemini Notebook** → câu hỏi được gửi thẳng sang bên phải. Bôi đen câu trả lời → **Lưu vào Studio**.
+- **Trình duyệt**: Gemini Notebook mở ở cửa sổ cạnh bên; câu hỏi được sao chép sẵn, chỉ cần dán (Ctrl+V).
+- **iPhone**: mở Gemini Notebook ở tab mới (hoặc app nếu đã cài); câu hỏi được sao chép sẵn.

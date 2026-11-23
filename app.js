@@ -8624,6 +8624,184 @@ fit53=function(src,W,H,pixel){return fit54(src,W,H,pixel)};
   return r}}
 
 /* =====================================================================
+   v48 — Studio ⇄ Gemini Notebook (NotebookLM) qua web
+   · Bản web (có đăng nhập Google): đồng bộ nguồn + ghi chú của bài lên một sổ Gemini Notebook bằng API chính thức
+     (Public Preview: tạo sổ, thêm nguồn văn bản/đường link). Tự đồng bộ khi thêm nguồn. Liên kết với sổ có sẵn.
+   · Mọi bản: tải gói nguồn (.md) để thả vào Gemini Notebook, dán kết quả từ Gemini Notebook về Studio.
+   · Gemini Notebook chưa cho tạo tổng quan âm thanh / video… qua API cá nhân → nút mở đúng sổ để bấm tạo ở đó.
+   ===================================================================== */
+const GN55=()=>window.SOHOC&&SOHOC.nblm&&SOHOC.clientId&&SOHOC.clientId()?SOHOC.nblm:null;
+const gnOf55=nb=>Object.assign({map:{},auto:true,notes:true},(nb&&nb.gn)||{});
+function h55(s){let h=0x811c9dc5;s=String(s||"");for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0}return h.toString(36)+"."+s.length}
+async function srcText55(s){if(UI.textCache&&UI.textCache.has(s.id))return UI.textCache.get(s.id);let t="";for(let i=0;i<(s.chunks||0);i++){const d=await Store.get(`txt-${s.id}-${i}`);if(d)t+=d.text}return t}
+const isWeb55=s=>s.kind==="link"&&/^https?:\/\//.test(s.url||"")&&!/mail\.google\.com/.test(s.url);
+function notesMd55(){return UI.notes.slice().reverse().map(n=>`## ${n.title||"Ghi chú"}\n\n${String(n.body||"").replace(/<[^>]+>/g,"").trim()}`).join("\n\n---\n\n")}
+const KN55={audio:"Tổng quan âm thanh",video:"Tổng quan video",mindmap:"Sơ đồ tư duy",report:"Báo cáo",flash:"Thẻ ghi nhớ",quiz:"Bài kiểm tra",slides:"Bản trình bày",info:"Đồ họa thông tin"};
+
+/* ---------- đồng bộ ---------- */
+let busy55=null;
+async function gnSync55(opt={}){const api=GN55();const nb=UI.cur;if(!api||!nb)return;if(busy55)return busy55;
+  const run=(async()=>{const g=gnOf55(UI.nbs.find(n=>n.id===nb.id)||nb);const inter=!!opt.inter;let made=0,skip=0,fail=[];
+    gnState55({busy:true,msg:"Đang kết nối…"});
+    try{
+      if(!api.ready()){if(!inter)throw Object.assign(new Error("Bấm Đồng bộ để đăng nhập Google lại"),{code:"needs_reauth"});await api.connect()}
+      if(!g.name){gnState55({busy:true,msg:"Đang tạo sổ trên Gemini Notebook…"});const n=await api.create(nb.title,inter);g.name=n.name;g.title=n.displayName||nb.title;g.map={};g.notesH=null}
+      const list=UI.srcs.slice();let i=0;
+      for(const s of list){i++;gnState55({busy:true,msg:`Đang gửi nguồn ${i}/${list.length}…`});
+        const txt=isWeb55(s)?"":await srcText55(s);const h=isWeb55(s)?"u:"+s.url:h55(txt);const old=g.map[s.id];
+        if(old&&old.h===h){skip++;continue}
+        if(!isWeb55(s)&&!txt.trim()){skip++;continue}
+        try{const r=isWeb55(s)?await api.addUrl(g.name,s.name,s.url):await api.addText(g.name,(old?s.name+" (bản cập nhật)":s.name),`# ${s.name}\n\n${txt}`);
+          g.map[s.id]={h,sn:r.name,at:Date.now()};made++}
+        catch(e){if(/needs_reauth|api_off|workspace|first_login|network|not_found/.test(e.code||""))throw e;fail.push(s.name+": "+e.message);if(e.code==="rate")break}}
+      if(g.notes&&UI.notes.length){const md=notesMd55();const h=h55(md);if(h!==g.notesH){gnState55({busy:true,msg:"Đang gửi ghi chú…"});
+        try{const r=await api.addText(g.name,`Ghi chú — ${nb.title} (${new Date().toLocaleDateString("vi-VN")})`,`# Ghi chú của ${nb.title}\n\n${md}`);g.notesH=h;g.notesSn=r.name;made++}catch(e){fail.push("Ghi chú: "+e.message)}}}
+      g.at=Date.now();g.err=fail.length?fail.slice(0,3).join(" · "):"";await Store.patch(nb.id,{gn:g});
+      const msg=made?`Đã gửi ${made} mục lên Gemini Notebook${skip?` · ${skip} mục không đổi`:""}`:"Gemini Notebook đã có đủ nguồn mới nhất";
+      gnState55({busy:false,msg:fail.length?`${msg} · ${fail.length} lỗi`:msg});if(opt.inter||made)toast(fail.length?`${msg}. Lỗi: ${fail[0]}`:msg,fail.length?4200:2000);
+      if(made&&opt.check)setTimeout(()=>gnCheck55(),6000)}
+    catch(e){console.warn(e);const g2=gnOf55(UI.cur);if(g.name&&!g2.name){g.at=Date.now();g.err=e.message;try{await Store.patch(nb.id,{gn:g})}catch(_){}}
+      gnState55({busy:false,msg:e.message,err:e.code||"err"});if(inter)toast(e.message,5200)}})();
+  busy55=run;try{await run}finally{busy55=null}}
+/* xem nguồn nào Gemini Notebook xử lý lỗi (vd: trang web chặn) */
+async function gnCheck55(){const api=GN55();const nb=UI.cur;if(!api||!nb)return;const g=gnOf55(nb);if(!g.name||!api.ready())return;
+  try{const L=await api.sources(g.name);const bad=L.filter(x=>x.state==="FAILED");const pend=L.filter(x=>x.state==="PROCESSING").length;
+    gnState55({msg:`Gemini Notebook: ${L.length} nguồn${pend?` · ${pend} đang xử lý`:""}${bad.length?` · ${bad.length} lỗi (${bad.slice(0,2).map(x=>x.displayName).join(", ")})`:""}`});
+    if(bad.length){const ids=new Set(bad.map(x=>x.name));Object.keys(g.map).forEach(k=>{if(ids.has(g.map[k].sn))delete g.map[k]});await Store.patch(nb.id,{gn:g})}}catch(e){}}
+/* tự đồng bộ khi thêm nguồn / ghi chú */
+let at55=0;function gnAuto55(){const api=GN55();const nb=UI.cur;if(!api||!nb)return;const g=gnOf55(nb);if(!g.name||!g.auto||!api.ready())return;clearTimeout(at55);at55=setTimeout(()=>gnSync55({check:true}),2500)}
+{const _ss55=saveSource;saveSource=async function(){const r=await _ss55.apply(this,arguments);gnAuto55();return r}}
+{const _an55=addNote;addNote=async function(){const r=await _an55.apply(this,arguments);gnAuto55();return r}}
+
+/* ---------- giao diện trong Studio ---------- */
+let st55={};
+function gnState55(o){st55=Object.assign({},st55,o);const b=$("#gn55");if(b)gnPaint55(b)}
+function gnPaint55(box){const api=GN55();const nb=UI.cur;if(!nb)return;const g=gnOf55(UI.nbs.find(n=>n.id===nb.id)||nb);const linked=!!g.name;
+  const done=UI.srcs.filter(s=>g.map[s.id]).length;const tot=UI.srcs.length;
+  const line=st55.busy?st55.msg:st55.msg&&st55.nb===nb.id?st55.msg:!api?"Tải gói nguồn rồi thả vào Gemini Notebook, hoặc dùng bản web để đồng bộ tự động.":!linked?"Chưa liên kết. Bấm Đồng bộ để tạo một sổ cùng tên và gửi nguồn lên.":`${done}/${tot} nguồn đã gửi${g.at?` · ${new Date(g.at).toLocaleString("vi-VN",{hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"})}`:""}${g.err?" · có lỗi":""}`;
+  st55.nb=nb.id;
+  box.innerHTML=`<div class="gn55-h"><span class="gn55-ic" aria-hidden="true">${ic("spark")}</span><div class="gn55-t"><b>Gemini Notebook</b><small class="${st55.err?"gn55-e":""}" title="${esc(g.err||"")}">${st55.busy?`<span class="spin"></span> `:""}${esc(line)}</small></div>
+    ${api?`<button class="btn sm gn55-go" data-g55="sync" ${st55.busy?"disabled":""} title="${linked?"Gửi nguồn mới/đã sửa lên sổ đã liên kết":"Tạo sổ trên Gemini Notebook và gửi toàn bộ nguồn"}">${ic("loop")} ${linked?"Đồng bộ":"Đồng bộ"}</button>`:`<button class="btn sm gn55-go" data-g55="pack" title="Tải tất cả nguồn thành 1 tệp .md">${ic("download")} Tải gói</button>`}
+    <button class="btn sm" data-g55="open" title="${linked?"Mở đúng sổ này trên Gemini Notebook":"Mở Gemini Notebook"}">${ic("link")} Mở</button>
+    <button class="ghost ic" data-g55="menu" aria-label="Tùy chọn Gemini Notebook">${ic("more")}</button></div>
+    ${linked?`<div class="gn55-mk" role="group" aria-label="Tạo trên Gemini Notebook"><span>Tạo ở Gemini Notebook:</span>${["audio","video","mindmap","report","flash","quiz","slides","info"].map(k=>`<button type="button" data-g55k="${k}">${KN55[k]}</button>`).join("")}</div>`:""}`;
+  $$("[data-g55]",box).forEach(b=>b.onclick=e=>{e.stopPropagation();const k=b.dataset.g55;if(k==="sync")gnSync55({inter:true,check:true});if(k==="open")gnOpen55();if(k==="pack")gnPack55();if(k==="menu")gnMenu55(b)});
+  $$("[data-g55k]",box).forEach(b=>b.onclick=()=>{gnOpen55();toast(`Trên Gemini Notebook, bấm “${KN55[b.dataset.g55k]}” ở cột Studio. Xong thì dùng ⋯ → “Dán kết quả về Studio”.`,5200)})}
+function gnOpen55(){const api=GN55();const g=gnOf55(UI.cur);const u=g.name&&api?api.url(g.name):"https://notebook.google.com/";window.open(u,"_blank","noopener")}
+async function gnPack55(){const nb=UI.cur;if(!nb)return;let md=`# ${nb.title}\n\n`;for(const s of UI.srcs){const t=isWeb55(s)?`Liên kết: ${s.url}\n\n${await srcText55(s)}`:await srcText55(s);md+=`\n\n---\n\n## ${s.name}\n\n${t}`}
+  if(UI.notes.length)md+=`\n\n---\n\n# Ghi chú\n\n${notesMd55()}`;
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([md],{type:"text/markdown"}));a.download=(nb.title||"so-hoc").replace(/[\\/:*?"<>|]+/g," ").slice(0,80)+" — nguon.md";document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);
+  toast("Đã tải gói nguồn. Trên Gemini Notebook: Thêm nguồn → Tải lên → chọn tệp này.",4200)}
+function gnMenu55(anchor){const api=GN55();const nb=UI.cur;const g=gnOf55(nb);const acc=api&&api.account();
+  const m=popMenu(anchor,`<div class="who">Gemini Notebook${acc&&acc.email&&api.scopeOk()?` · ${esc(acc.email)}`:""}</div>
+    ${api?`<button data-m55="auto" role="menuitemcheckbox" aria-checked="${g.auto}">${ic(g.auto?"check":"loop")}<span>Tự đồng bộ khi thêm nguồn</span></button>
+    <button data-m55="notes" role="menuitemcheckbox" aria-checked="${g.notes}">${ic(g.notes?"check":"note")}<span>Gửi cả ghi chú</span></button>
+    <button data-m55="link">${ic("link")}<span>${g.name?"Đổi sang sổ khác đã có…":"Liên kết với sổ đã có…"}</span></button>
+    ${g.name?`<button data-m55="check">${ic("check")}<span>Kiểm tra nguồn trên Gemini Notebook</span></button><button data-m55="resend">${ic("loop")}<span>Gửi lại toàn bộ nguồn</span></button><button data-m55="unlink">${ic("close")}<span>Bỏ liên kết (không xóa sổ bên đó)</span></button>`:""}<div class="sep"></div>`:""}
+    <button data-m55="paste">${ic("note")}<span>Dán kết quả từ Gemini Notebook về Studio…</span></button>
+    <button data-m55="pack">${ic("download")}<span>Tải gói nguồn (.md) để tải lên thủ công</span></button>
+    <button data-m55="help">${ic("spark")}<span>Hướng dẫn cài đặt</span></button>`);
+  m.addEventListener("click",e=>e.stopPropagation());
+  $$("[data-m55]",m).forEach(b=>b.onclick=async()=>{const k=b.dataset.m55;closePop();const save=async v=>{Object.assign(g,v);await Store.patch(nb.id,{gn:g});gnState55({})};
+    if(k==="auto")return save({auto:!g.auto});if(k==="notes")return save({notes:!g.notes});
+    if(k==="unlink")return confirmDialog("Bỏ liên kết Gemini Notebook?","Sổ bên Gemini Notebook vẫn giữ nguyên. Lần đồng bộ sau sẽ tạo sổ mới.","Bỏ liên kết",async()=>{await Store.patch(nb.id,{gn:{auto:g.auto,notes:g.notes,map:{}}});st55={};gnState55({})});
+    if(k==="resend")return save({map:{},notesH:null}).then(()=>gnSync55({inter:true,check:true}));
+    if(k==="check")return gnCheck55();if(k==="paste")return gnPaste55();if(k==="pack")return gnPack55();if(k==="help")return gnHelp55();
+    if(k==="link")return gnLink55()})}
+async function gnLink55(){const api=GN55();const nb=UI.cur;try{if(!api.ready())await api.connect();gnState55({busy:true,msg:"Đang lấy danh sách sổ…"});const L=await api.list();gnState55({busy:false,msg:""});
+    openDialog({title:"Chọn sổ Gemini Notebook",body:`<p class="muted">Nguồn của “${esc(nb.title)}” sẽ được gửi thêm vào sổ bạn chọn.</p><div class="gn55-list">${L.length?L.map((x,i)=>`<button class="item" data-i="${i}"><b>${esc(x.displayName||"(không tên)")}</b><small>${x.createTime?new Date(x.createTime).toLocaleDateString("vi-VN"):""}</small></button>`).join(""):`<p class="muted">Chưa có sổ nào.</p>`}</div>`,foot:`<button class="btn" data-close>Đóng</button>`});
+    $$("#dcard [data-i]").forEach(b=>b.onclick=async()=>{const x=L[+b.dataset.i];const g=gnOf55(nb);await Store.patch(nb.id,{gn:{...g,name:x.name,title:x.displayName,map:{},notesH:null}});closeDialog();toast("Đã liên kết. Bấm Đồng bộ để gửi nguồn.",2200);gnState55({msg:""})})}
+  catch(e){gnState55({busy:false,msg:e.message,err:e.code});toast(e.message,5200)}}
+function gnPaste55(){const nb=UI.cur;openDialog({title:"Dán kết quả từ Gemini Notebook",body:`<p class="muted">Trên Gemini Notebook, mở báo cáo / thẻ ghi nhớ / bài kiểm tra / câu trả lời → sao chép → dán vào đây. Nội dung được lưu thành ghi chú trong Studio của bài này.</p>
+  <div class="field"><label for="gnT">Tên</label><input class="input" id="gnT" value="Từ Gemini Notebook — ${esc(new Date().toLocaleDateString("vi-VN"))}"></div>
+  <div class="field"><label for="gnB">Nội dung</label><textarea class="input" id="gnB" rows="10" placeholder="Dán ở đây (Ctrl+V)"></textarea></div>`,foot:`<button class="btn" data-close>Hủy</button><button class="btn primary" id="gnOk">${ic("check")} Lưu vào Studio</button>`});
+  setTimeout(()=>{const t=$("#gnB");if(t)t.focus()},60);
+  $("#gnOk").onclick=async()=>{const b=$("#gnB").value.trim();if(!b){toast("Chưa dán nội dung");return}const t=$("#gnT").value.trim()||"Từ Gemini Notebook";const g=gnOf55(nb);
+    if(g.notes)g.notesH=h55(notesMd55()+"\n\n---\n\n## "+t+"\n\n"+b);/* tránh gửi ngược chính nội dung vừa dán */
+    closeDialog();await addNote(t,b);}}
+function gnHelp55(){const api=GN55();openDialog({title:"Đồng bộ với Gemini Notebook (NotebookLM)",body:`
+  ${api?`<ol class="gn55-steps">
+   <li><b>Bật API:</b> vào <a href="https://console.cloud.google.com/apis/library/notebook.googleapis.com" target="_blank" rel="noopener">Google Cloud → Gemini Notebook API</a> (đúng project chứa Client ID của trang) → <b>Enable</b>.</li>
+   <li><b>Thêm quyền:</b> Google Auth Platform → <b>Data Access</b> → Add or remove scopes → thêm <code>https://www.googleapis.com/auth/notebook</code> → Save. Nếu app đang ở chế độ Testing, thêm Gmail của bạn vào <b>Audience → Test users</b>.</li>
+   <li><b>Mở Gemini Notebook một lần:</b> vào <a href="https://notebook.google.com" target="_blank" rel="noopener">notebook.google.com</a> và đăng nhập bằng đúng Gmail đó.</li>
+   <li>Trở lại đây, bấm <b>Đồng bộ</b> → cho phép quyền “Gemini Notebook”. Xong!</li></ol>
+  <p class="muted">Giới hạn hiện tại của Google (bản xem trước): chỉ Gmail cá nhân (không dùng tài khoản trường), API chỉ tạo sổ & thêm nguồn — không xóa/sửa nguồn, không tạo tổng quan âm thanh/video. Nguồn sửa xong sẽ được gửi thành “bản cập nhật”. Tệp PDF/Word được gửi dưới dạng chữ đã trích.</p>`
+  :`<p>Bản này chưa đăng nhập Google được, nên dùng cách thủ công:</p><ol class="gn55-steps"><li>Bấm <b>Tải gói</b> → được 1 tệp .md chứa toàn bộ nguồn + ghi chú.</li><li>Trên <a href="https://notebook.google.com" target="_blank" rel="noopener">Gemini Notebook</a>: Thêm nguồn → Tải lên → chọn tệp đó.</li><li>Tạo tổng quan âm thanh, thẻ ghi nhớ… ở đó; sao chép kết quả và dùng ⋯ → <b>Dán kết quả về Studio</b>.</li></ol><p class="muted">Bản web (GitHub Pages) có đồng bộ tự động.</p>`}`,foot:`<button class="btn primary" data-close>Đã hiểu</button>`})}
+{const _rs55=renderStudio;renderStudio=function(){const r=_rs55.apply(this,arguments);try{const b=$("#studioBody");if(b&&UI.cur&&!$("#gn55",b)){const box=document.createElement("div");box.id="gn55";box.className="gn55";b.prepend(box);gnPaint55(box)}}catch(e){console.warn(e)}return r}}
+{const _on55=openNotebook;openNotebook=function(){st55={};const r=_on55.apply(this,arguments);const had=!!gnOf55(UI.cur).name;setTimeout(()=>{const nb=UI.cur;const g=gnOf55(nb);const api=GN55();if(had&&!busy55&&api&&g.name&&g.auto&&api.ready())gnSync55({})},2500);return r}}
+
+/* =====================================================================
+   v49 — dùng thẳng AI của Gemini Notebook (NotebookLM) bằng tài khoản Gmail
+   · App máy tính: Gemini Notebook gắn ngay bên phải cửa sổ (đăng nhập Gmail 1 lần, được nhớ).
+     Hỏi từ ô Trò chuyện → tự điền & gửi sang Gemini Notebook; bôi đen câu trả lời → “Lưu vào Studio”.
+   · Trình duyệt (máy tính): mở Gemini Notebook thành cửa sổ cạnh bên; câu hỏi được sao chép sẵn để dán.
+   · Điện thoại: mở Gemini Notebook (app hoặc tab mới); câu hỏi được sao chép sẵn.
+   · Trước khi mở luôn đồng bộ nguồn mới (nếu đã cài API) → sổ bên đó có đủ tài liệu của bài.
+   ===================================================================== */
+const DESK56=()=>window.sohocDesk&&sohocDesk.gnb?sohocDesk.gnb:null;
+const MOB56=()=>innerWidth<=720||/iPhone|iPad|Android/i.test(navigator.userAgent);
+UI.ai56=local.get("ai56","sohoc");/* sohoc | gnb */
+let pop56=null,deskSt56={open:false};
+async function gnUrl56(inter){const nb=UI.cur;if(!nb)return "https://notebook.google.com/";const api=GN55();let g=gnOf55(UI.nbs.find(n=>n.id===nb.id)||nb);
+  const need=api&&UI.srcs.length&&(!g.name||UI.srcs.some(s=>!g.map[s.id]));
+  if(need&&(api.ready()||inter==="desk")){try{await gnSync55({inter:inter==="desk"});let d=null;try{d=await Store.get(nb.id)}catch(_){}g=gnOf55((d&&d.gn?d:null)||UI.nbs.find(n=>n.id===nb.id)||nb)}catch(e){}}
+  else if(need&&inter)toast(g.name?"Có nguồn mới chưa gửi — bấm “Đồng bộ” trong Studio để Gemini Notebook có đủ tài liệu":"Bấm “Đồng bộ” trong Studio để tạo sổ có sẵn tài liệu của bài",4200);
+  return g.name&&api?api.url(g.name):"https://notebook.google.com/"}
+/* mở popup NGAY trong lúc bấm (tránh bị chặn), rồi mới chuyển tới đúng sổ */
+async function gnOpen56(){const D=DESK56();if(D){await D.open(await gnUrl56("desk"));return "desk"}
+  const mob=MOB56();let w=null;
+  if(!mob&&pop56&&!pop56.closed)w=pop56;
+  else{const W=Math.round(Math.min(760,Math.max(440,screen.availWidth*.42))),H=Math.round(screen.availHeight*.94);const L=Math.round((screen.availLeft||0)+screen.availWidth-W),T=Math.round((screen.availTop||0)+8);
+    w=mob?window.open("about:blank","_blank"):window.open("about:blank","gemini-notebook",`popup=yes,width=${W},height=${H},left=${L},top=${T}`);
+    if(w)try{w.document.title="Gemini Notebook";w.document.body.style.cssText="font:15px system-ui;padding:24px;color:#555";w.document.body.textContent="Đang mở Gemini Notebook…"}catch(e){}}
+  const u=await gnUrl56(true);
+  if(!w){window.open(u,"_blank");return "tab"}
+  try{w.location.replace(u)}catch(e){try{w.location.href=u}catch(_){}}
+  if(!mob){pop56=w;try{w.focus()}catch(e){}if(!local.get("pop56tip",false)){local.set("pop56tip",true);toast("Gemini Notebook mở ở cửa sổ bên phải. Đẩy Sổ Học sang trái (Windows + ←) để dùng song song.",5200)}return "pop"}return "tab"}
+async function gnAsk56(text){const D=DESK56();text=String(text||"").trim();if(!text)return;
+  try{navigator.clipboard.writeText(text).catch(()=>{})}catch(e){}
+  if(D){await gnOpen56();const r=await D.ask(text);toast(r==="sent"?"Đã gửi câu hỏi sang Gemini Notebook bên phải →":r==="typed"?"Đã điền câu hỏi bên Gemini Notebook — bấm Enter để gửi":"Câu hỏi đã được sao chép — bấm vào ô chat bên phải rồi dán (Ctrl+V)",3000);return}
+  const how=await gnOpen56();toast(how==="pop"?"Đã sao chép câu hỏi — bấm vào ô chat của Gemini Notebook rồi dán (Ctrl+V)":"Đã sao chép câu hỏi — dán vào ô chat của Gemini Notebook",4200)}
+async function gnGrab56(){const D=DESK56();if(!D)return;const t=await D.grab();if(!t){toast("Bôi đen đoạn muốn lưu bên Gemini Notebook rồi bấm lại",3000);return}
+  const first=t.split("\n").find(x=>x.trim())||"Gemini Notebook";await addNote(("Gemini Notebook: "+first.trim()).slice(0,80),t)}
+
+/* ---------- ô Trò chuyện: chọn AI trả lời ---------- */
+{const _cs56=chatSend;chatSend=async function(text){if(UI.ai56==="gnb"&&UI.cur)return gnAsk56(text);return _cs56.apply(this,arguments)}}
+function aiSw56(){const c=$(".composer");if(!c||!UI.cur)return;let w=$("#aiSw56",c);if(!w){w=document.createElement("div");w.id="aiSw56";w.className="aisw56";w.setAttribute("role","radiogroup");w.setAttribute("aria-label","AI trả lời");c.prepend(w)}
+  const gn=UI.ai56==="gnb";w.innerHTML=`<span class="aisw56-l">AI trả lời:</span><button type="button" role="radio" aria-checked="${!gn}" data-ai="sohoc">${ic("spark")} Sổ Học</button><button type="button" role="radio" aria-checked="${gn}" data-ai="gnb" title="Dùng AI của Gemini Notebook (NotebookLM) bằng Gmail của bạn">${ic("book")} Gemini Notebook</button>${gn?`<button type="button" class="aisw56-o" data-ai="open">${DESK56()?(deskSt56.open?"Ẩn khung":"Hiện khung"):"Mở"} ↗</button>`:""}`;
+  $$("[data-ai]",w).forEach(b=>b.onclick=async()=>{const k=b.dataset.ai;if(k==="open"){const D=DESK56();if(D&&deskSt56.open)await D.close();else await gnOpen56();return aiSw56()}
+    UI.ai56=k;local.set("ai56",k);aiSw56();const a=$("#ask");if(a)a.placeholder=k==="gnb"?"Hỏi Gemini Notebook về tài liệu của bài này…":"Đặt câu hỏi hoặc yêu cầu tạo nội dung";
+    if(k==="gnb"){toast(DESK56()?"Câu hỏi sẽ được gửi thẳng sang Gemini Notebook bên phải":"Câu hỏi sẽ được sao chép & mở Gemini Notebook để bạn dán",2600);if(DESK56())gnOpen56()}});
+  const a=$("#ask");if(a)a.placeholder=gn?"Hỏi Gemini Notebook về tài liệu của bài này…":"Đặt câu hỏi hoặc yêu cầu tạo nội dung"}
+{const _rns56=renderNotebookShell;renderNotebookShell=function(){const r=_rns56.apply(this,arguments);try{aiSw56()}catch(e){console.warn(e)}return r}}
+
+/* ---------- khung Gemini Notebook trong Studio: nút “Dùng AI” mở cạnh bên ---------- */
+{const _gp56=gnPaint55;gnPaint55=function(box){_gp56.apply(this,arguments);try{const D=DESK56();const o=$("[data-g55=open]",box);
+    if(o){o.innerHTML=`${ic("book")} ${D?(deskSt56.open?"Ẩn":"Dùng AI"):"Dùng AI"}`;o.title=D?"Mở Gemini Notebook ngay bên phải — đăng nhập Gmail một lần":"Mở Gemini Notebook (sổ của bài này) ở cửa sổ cạnh bên";o.classList.add("primary");
+      o.onclick=async e=>{e.stopPropagation();if(D&&deskSt56.open){await D.close();return}await gnOpen56()}}
+    $$("[data-g55k]",box).forEach(b=>b.onclick=async()=>{await gnOpen56();toast(`Bên Gemini Notebook: cột Studio → “${KN55[b.dataset.g55k]}”.${D?" Xong, bôi đen nội dung rồi bấm “Lưu vào Studio”.":" Xong, sao chép rồi dùng ⋯ → “Dán kết quả về Studio”."}`,5200)})}catch(e){console.warn(e)}}}
+
+/* ---------- thanh trên (trong bài học): nút Gemini Notebook ---------- */
+{const _rt56=renderTop;renderTop=function(){const r=_rt56.apply(this,arguments);try{const t=$("#top");if(t&&UI.view==="nb"&&UI.cur&&!$("[data-gnb56]",t)){const b=document.createElement("button");b.className="ghost";b.dataset.gnb56="1";b.setAttribute("aria-pressed",String(!!deskSt56.open));
+    b.title="Dùng AI của Gemini Notebook (NotebookLM) cho bài này";b.innerHTML=`${ic("book")}<span class="hide-sm">Gemini Notebook</span>`;b.onclick=async()=>{const D=DESK56();if(D&&deskSt56.open){await D.close();return}await gnOpen56()};
+    const ref=$('[data-top="look"]',t)||$("#tSnd",t);if(ref)ref.before(b);else t.appendChild(b)}}catch(e){console.warn(e)}return r}}
+
+/* ---------- app máy tính: thanh điều khiển khi khung bên phải đang mở ---------- */
+function deskBar56(){const D=DESK56();let bar=$("#gnbar56");if(!D||!deskSt56.open){if(bar)bar.remove();document.body.classList.remove("gnb56-on");return}
+  document.body.classList.add("gnb56-on");if(!bar){bar=document.createElement("div");bar.id="gnbar56";bar.className="gnbar56";document.body.appendChild(bar)}
+  const f=deskSt56.frac||.42;bar.innerHTML=`<span class="gnbar56-t">${ic("book")} Gemini Notebook →</span>
+    ${UI.view==="nb"?`<button type="button" class="btn sm" data-b56="grab" title="Bôi đen nội dung bên Gemini Notebook rồi bấm (không bôi đen → lấy câu trả lời cuối)">${ic("note")} Lưu vào Studio</button>`:""}
+    <button type="button" class="ghost ic" data-b56="narrow" aria-label="Thu hẹp khung" title="Thu hẹp" ${f<=.3?"disabled":""}>⇥</button><button type="button" class="ghost ic" data-b56="wide" aria-label="Mở rộng khung" title="Mở rộng" ${f>=.68?"disabled":""}>⇤</button>
+    <button type="button" class="ghost ic" data-b56="back" aria-label="Quay lại trang trước bên Gemini Notebook" title="Quay lại">${ic("back")}</button>
+    <button type="button" class="ghost ic" data-b56="here" aria-label="Mở sổ của bài này" title="Về sổ của bài này">⌂</button>
+    <button type="button" class="ghost ic" data-b56="x" aria-label="Đóng khung Gemini Notebook" title="Đóng">${ic("close")}</button>`;
+  $$("[data-b56]",bar).forEach(b=>b.onclick=async()=>{const k=b.dataset.b56;if(k==="grab")return gnGrab56();if(k==="narrow")return D.width(f-.08);if(k==="wide")return D.width(f+.08);if(k==="back")return D.back();if(k==="x")return D.close();if(k==="here")return D.open(await gnUrl56(false))})}
+if(DESK56()){DESK56().onState(s=>{deskSt56=s||{open:false};deskBar56();try{$$("[data-gnb56]").forEach(b=>b.setAttribute("aria-pressed",String(!!deskSt56.open)));const box=$("#gn55");if(box)gnPaint55(box);aiSw56()}catch(e){}});
+  DESK56().state().then(s=>{deskSt56=s||{open:false};deskBar56()}).catch(()=>{})}
+/* đổi bài → khung bên phải tự chuyển sang sổ của bài mới */
+{const _on56=openNotebook;openNotebook=function(){const r=_on56.apply(this,arguments);setTimeout(async()=>{try{aiSw56();const D=DESK56();if(D&&deskSt56.open)D.open(await gnUrl56(false))}catch(e){}},900);return r}}
+
+/* =====================================================================
    BẢN WEB ĐỘC LẬP — cài đặt AI, đăng nhập Google, sao lưu dữ liệu
    ===================================================================== */
 P.local=true;

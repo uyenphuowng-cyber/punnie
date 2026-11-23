@@ -15,6 +15,7 @@
     "productName": "Sổ Học Điện Tử",
     "files": [
       "main.js",
+      "preload.js",
       "site.json",
       "web/**",
       "icon.png"

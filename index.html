@@ -2002,6 +2002,41 @@ body.place53 .blk-gap{display:grid!important;opacity:1!important}
 .fm54-h{margin:2px 0 2px;font-size:14px}
 .fm54-foot{display:flex;flex-wrap:wrap;gap:6px;padding-top:6px;border-top:1px solid var(--line)}
 .flyout.fm54>h3{order:-3}.fm54-look>.fly-bg{order:-2}
+/* ===== v48 Gemini Notebook trong Studio ===== */
+.gn55{margin:0 0 10px;padding:10px 10px 8px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--accent) 7%,var(--panel2))}
+.gn55-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.gn55-ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink,#fff);flex:none}.gn55-ic svg{width:16px;height:16px}
+.gn55-t{flex:1 1 140px;min-width:0;display:flex;flex-direction:column;line-height:1.25}
+.gn55-t b{font-size:13.5px}.gn55-t small{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.gn55-t small.gn55-e{color:var(--bad,#c0392b)}
+.gn55-t .spin{display:inline-block;width:10px;height:10px;vertical-align:-1px}
+.gn55 .btn.sm{padding:5px 10px;font-size:12.5px;min-height:30px}
+.gn55 .btn.sm svg{width:14px;height:14px}
+.gn55-mk{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;align-items:center}
+.gn55-mk span{font-size:11.5px;color:var(--muted);margin-right:2px}
+.gn55-mk button{font:inherit;font-size:11.5px;padding:3px 8px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.gn55-mk button:hover{border-color:var(--accent);color:var(--accent)}
+.gn55-list{display:grid;gap:6px;max-height:50vh;overflow:auto}
+.gn55-list .item{display:flex;justify-content:space-between;gap:10px;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--ink);cursor:pointer;font:inherit}
+.gn55-list .item:hover{border-color:var(--accent)}
+.gn55-steps{padding-left:20px;display:grid;gap:8px;line-height:1.45}.gn55-steps code{font-size:12px;word-break:break-all}
+.gn55-h{flex-wrap:nowrap}.gn55-h>.btn,.gn55-h>.ghost{flex:none}.gn55-t{flex:1 1 auto}
+.gn55-mk{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent)}.gn55-mk::-webkit-scrollbar{display:none}
+.gn55-mk button,.gn55-mk span{flex:none;white-space:nowrap}
+/* ===== v49 AI Gemini Notebook ===== */
+.aisw56{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:0 0 6px;font-size:12px}
+.aisw56-l{color:var(--muted);margin-right:2px}
+.aisw56 button{display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);cursor:pointer}
+.aisw56 button svg{width:13px;height:13px}
+.aisw56 button[aria-checked="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink,#fff)}
+.aisw56 .aisw56-o{border-style:dashed}
+.gn55 .btn.primary.sm{padding:5px 10px}
+.gnbar56{position:fixed;top:10px;right:10px;z-index:80;display:flex;align-items:center;gap:4px;padding:5px 6px 5px 10px;border-radius:12px;background:var(--panel);border:1px solid var(--accent);box-shadow:0 6px 18px rgb(0 0 0/.22);font-size:12.5px}
+.gnbar56-t{display:inline-flex;align-items:center;gap:5px;font-weight:700;margin-right:4px}.gnbar56-t svg{width:14px;height:14px}
+.gnbar56 .ghost.ic{width:28px;height:28px;font-size:14px}
+
+@media (max-width:900px){.gnbar56-t{display:none}}
+.gnbar56{top:auto;bottom:8px;right:auto;left:50%;transform:translateX(-50%)}
 
 
 html,body{margin:0;height:100%}[hidden]{display:none!important}img{max-width:100%}
@@ -2014,7 +2049,7 @@ html,body{margin:0;height:100%}[hidden]{display:none!important}img{max-width:100
 
 </style>
 
-<link rel="stylesheet" href="app-plus.css?v=c899a02035">
+<link rel="stylesheet" href="app-plus.css?v=30f78691c9">
 </head>
 <body>
 <div class="app" id="app">
@@ -2030,9 +2065,9 @@ html,body{margin:0;height:100%}[hidden]{display:none!important}img{max-width:100
 <div class="toast" id="toast" role="status"></div>
 
 <noscript><p style="padding:24px;font:16px system-ui">Sổ Học cần bật JavaScript.</p></noscript>
-<script src="config.js?v=c899a02035"></script>
-<script src="platform.js?v=c899a02035"></script>
-<script src="app.js?v=c899a02035"></script>
-<script src="app-plus.js?v=c899a02035"></script>
+<script src="config.js?v=30f78691c9"></script>
+<script src="platform.js?v=30f78691c9"></script>
+<script src="app.js?v=30f78691c9"></script>
+<script src="app-plus.js?v=30f78691c9"></script>
 </body>
 </html>
