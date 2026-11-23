@@ -140,3 +140,11 @@ Giới hạn của Google (bản xem trước): chỉ Gmail cá nhân; API chỉ
 - **App máy tính**: bấm “Gemini Notebook” (thanh trên trong bài học) → Gemini Notebook hiện ngay bên phải, đăng nhập Gmail một lần (được nhớ). Ở ô Trò chuyện chọn **AI trả lời: Gemini Notebook** → câu hỏi được gửi thẳng sang bên phải. Bôi đen câu trả lời → **Lưu vào Studio**.
 - **Trình duyệt**: Gemini Notebook mở ở cửa sổ cạnh bên; câu hỏi được sao chép sẵn, chỉ cần dán (Ctrl+V).
 - **iPhone**: mở Gemini Notebook ở tab mới (hoặc app nếu đã cài); câu hỏi được sao chép sẵn.
+
+### Tài khoản trường (edu) + Gmail cá nhân cùng lúc
+- Cài đặt → **Tài khoản Google → Quản lý tài khoản & dữ liệu…**
+- Giữ tài khoản trường đang đăng nhập (Lịch học, Gmail trường). Bấm **Thêm Gmail cá nhân cho Gemini Notebook** — Gemini Notebook luôn dùng Gmail này, không cần đổi qua lại.
+- Ở dòng tài khoản trường chọn **“Dùng chung dữ liệu với <gmail cá nhân>”** → đăng nhập bằng tài khoản nào cũng xem/sửa cùng một bộ môn học, bài học, ghi chú.
+
+### Gemini Notebook ngay trong trang (Chrome/Edge trên máy tính)
+Google không cho trang khác nhúng Gemini Notebook, nên cần tiện ích nhỏ đi kèm: tải `sohoc-extension.zip` (có nút tải trong khung Gemini Notebook) → giải nén → `chrome://extensions` → bật Chế độ nhà phát triển → **Load unpacked** → chọn thư mục. Tiện ích chỉ mở khóa việc nhúng Gemini Notebook vào trang `*.github.io` của bạn; không đọc dữ liệu nào khác.

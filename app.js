@@ -8681,7 +8681,7 @@ function gnPaint55(box){const api=GN55();const nb=UI.cur;if(!nb)return;const g=g
   const line=st55.busy?st55.msg:st55.msg&&st55.nb===nb.id?st55.msg:!api?"Tải gói nguồn rồi thả vào Gemini Notebook, hoặc dùng bản web để đồng bộ tự động.":!linked?"Chưa liên kết. Bấm Đồng bộ để tạo một sổ cùng tên và gửi nguồn lên.":`${done}/${tot} nguồn đã gửi${g.at?` · ${new Date(g.at).toLocaleString("vi-VN",{hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"})}`:""}${g.err?" · có lỗi":""}`;
   st55.nb=nb.id;
   box.innerHTML=`<div class="gn55-h"><span class="gn55-ic" aria-hidden="true">${ic("spark")}</span><div class="gn55-t"><b>Gemini Notebook</b><small class="${st55.err?"gn55-e":""}" title="${esc(g.err||"")}">${st55.busy?`<span class="spin"></span> `:""}${esc(line)}</small></div>
-    ${api?`<button class="btn sm gn55-go" data-g55="sync" ${st55.busy?"disabled":""} title="${linked?"Gửi nguồn mới/đã sửa lên sổ đã liên kết":"Tạo sổ trên Gemini Notebook và gửi toàn bộ nguồn"}">${ic("loop")} ${linked?"Đồng bộ":"Đồng bộ"}</button>`:`<button class="btn sm gn55-go" data-g55="pack" title="Tải tất cả nguồn thành 1 tệp .md">${ic("download")} Tải gói</button>`}
+    ${api?`<button class="btn sm gn55-go" data-g55="sync" ${st55.busy?"disabled":""} title="${linked?"Gửi nguồn mới/đã sửa lên sổ đã liên kết":"Tạo sổ trên Gemini Notebook và gửi toàn bộ nguồn"}">${ic("loop")} ${linked?"Đồng bộ":"Đồng bộ"}</button>`:`<button class="btn sm gn55-go" data-g55="pack" title="Tải tất cả nguồn thành 1 tệp .md">${ic("dl")} Tải gói</button>`}
     <button class="btn sm" data-g55="open" title="${linked?"Mở đúng sổ này trên Gemini Notebook":"Mở Gemini Notebook"}">${ic("link")} Mở</button>
     <button class="ghost ic" data-g55="menu" aria-label="Tùy chọn Gemini Notebook">${ic("more")}</button></div>
     ${linked?`<div class="gn55-mk" role="group" aria-label="Tạo trên Gemini Notebook"><span>Tạo ở Gemini Notebook:</span>${["audio","video","mindmap","report","flash","quiz","slides","info"].map(k=>`<button type="button" data-g55k="${k}">${KN55[k]}</button>`).join("")}</div>`:""}`;
@@ -8699,7 +8699,7 @@ function gnMenu55(anchor){const api=GN55();const nb=UI.cur;const g=gnOf55(nb);co
     <button data-m55="link">${ic("link")}<span>${g.name?"Đổi sang sổ khác đã có…":"Liên kết với sổ đã có…"}</span></button>
     ${g.name?`<button data-m55="check">${ic("check")}<span>Kiểm tra nguồn trên Gemini Notebook</span></button><button data-m55="resend">${ic("loop")}<span>Gửi lại toàn bộ nguồn</span></button><button data-m55="unlink">${ic("close")}<span>Bỏ liên kết (không xóa sổ bên đó)</span></button>`:""}<div class="sep"></div>`:""}
     <button data-m55="paste">${ic("note")}<span>Dán kết quả từ Gemini Notebook về Studio…</span></button>
-    <button data-m55="pack">${ic("download")}<span>Tải gói nguồn (.md) để tải lên thủ công</span></button>
+    <button data-m55="pack">${ic("dl")}<span>Tải gói nguồn (.md) để tải lên thủ công</span></button>
     <button data-m55="help">${ic("spark")}<span>Hướng dẫn cài đặt</span></button>`);
   m.addEventListener("click",e=>e.stopPropagation());
   $$("[data-m55]",m).forEach(b=>b.onclick=async()=>{const k=b.dataset.m55;closePop();const save=async v=>{Object.assign(g,v);await Store.patch(nb.id,{gn:g});gnState55({})};
@@ -8738,7 +8738,7 @@ function gnHelp55(){const api=GN55();openDialog({title:"Đồng bộ với Gemin
    · Điện thoại: mở Gemini Notebook (app hoặc tab mới); câu hỏi được sao chép sẵn.
    · Trước khi mở luôn đồng bộ nguồn mới (nếu đã cài API) → sổ bên đó có đủ tài liệu của bài.
    ===================================================================== */
-const DESK56=()=>window.sohocDesk&&sohocDesk.gnb?sohocDesk.gnb:null;
+const DESK56=()=>window.sohocDesk&&sohocDesk.gnb?sohocDesk.gnb:(window.sohocPane57||null);
 const MOB56=()=>innerWidth<=720||/iPhone|iPad|Android/i.test(navigator.userAgent);
 UI.ai56=local.get("ai56","sohoc");/* sohoc | gnb */
 let pop56=null,deskSt56={open:false};
@@ -8800,6 +8800,115 @@ if(DESK56()){DESK56().onState(s=>{deskSt56=s||{open:false};deskBar56();try{$$("[
   DESK56().state().then(s=>{deskSt56=s||{open:false};deskBar56()}).catch(()=>{})}
 /* đổi bài → khung bên phải tự chuyển sang sổ của bài mới */
 {const _on56=openNotebook;openNotebook=function(){const r=_on56.apply(this,arguments);setTimeout(async()=>{try{aiSw56();const D=DESK56();if(D&&deskSt56.open)D.open(await gnUrl56(false))}catch(e){}},900);return r}}
+
+/* =====================================================================
+   v50 — nhiều tài khoản Google + Gemini Notebook nằm ngay trong trang
+   · Gemini Notebook dùng Gmail cá nhân, Lịch/Gmail dùng tài khoản trường (edu) đang đăng nhập — không phải đổi qua lại.
+   · Dữ liệu dùng chung: đăng nhập edu vẫn xem/sửa đúng dữ liệu đã làm bằng Gmail cá nhân (và ngược lại).
+   · Trình duyệt máy tính: Gemini Notebook là một khung bên phải TRONG trang (cần tiện ích nhỏ “Sổ Học + Notebook”,
+     vì Google không cho trang khác nhúng Gemini Notebook). Không có tiện ích → vẫn mở cửa sổ riêng như trước.
+   ===================================================================== */
+const ACC57=()=>window.SOHOC&&SOHOC.accts?SOHOC.accts:null;
+const EXT57=()=>document.documentElement.getAttribute("data-sohoc-ext");
+const isEdu57=e=>!!e&&!/@(gmail|googlemail)\.com$/i.test(e);
+
+/* ---------- hộp “Tài khoản Google” ---------- */
+function accDialog57(focus){const A=ACC57();if(!A){toast("Chỉ có ở bản web");return}
+  const draw=()=>{const L=A.list();const nbA=A.roleOf("nb");const links=A.links();const cur=L.find(a=>a.active);
+    const opt=(a)=>{const mine=links[a.id]||a.id;return `<select class="input sm" data-lk="${esc(a.id)}" aria-label="Dữ liệu khi đăng nhập ${esc(a.email)}">
+      <option value="">Dữ liệu riêng của tài khoản này</option>${L.filter(x=>x.id!==a.id).map(x=>`<option value="${esc(x.id)}" ${mine===x.id?"selected":""}>Dùng chung dữ liệu với ${esc(x.email||x.name)}</option>`).join("")}</select>`};
+    return `<p class="muted">Mỗi việc có thể dùng một tài khoản khác nhau. Ví dụ: <b>Lịch học</b> bằng tài khoản trường, <b>Gemini Notebook</b> bằng Gmail cá nhân.</p>
+    <div class="acc57">${L.length?L.map(a=>`<div class="acc57-r${a.active?" on":""}">
+      <div class="acc57-h">${a.pic?`<img src="${esc(a.pic)}" alt="" width="34" height="34" referrerpolicy="no-referrer">`:`<span class="acc57-av">${esc((a.email||a.name||"?")[0].toUpperCase())}</span>`}
+        <div class="acc57-n"><b>${esc(a.email||a.name)}</b><small>${a.edu?"Tài khoản trường/công ty":"Gmail cá nhân"}</small></div>
+        <div class="acc57-b">${a.active?`<span class="pill">Đang đăng nhập · Lịch, Gmail</span>`:`<button class="btn sm" data-sw="${esc(a.id)}" title="Chuyển sang tài khoản này cho Lịch, Gmail…">Chuyển sang</button>`}
+          ${nbA&&nbA.id===a.id?`<span class="pill acc">Gemini Notebook</span>`:a.edu?"":`<button class="btn sm" data-nbu="${esc(a.id)}">Dùng cho Gemini Notebook</button>`}</div></div>
+      <label class="acc57-d">Khi đăng nhập tài khoản này: ${opt(a)}</label></div>`).join(""):`<p>Chưa đăng nhập Google.</p>`}</div>
+    <div class="row wrap" style="gap:8px;margin-top:10px"><button class="btn primary" data-add="nb">${ic("plus")} Thêm Gmail cá nhân cho Gemini Notebook</button><button class="btn" data-add="any">${ic("plus")} Thêm tài khoản khác</button></div>
+    ${cur&&cur.edu&&(!nbA||isEdu57(nbA.email))?`<p class="note57">Tài khoản trường không dùng được Gemini Notebook API. Bấm <b>Thêm Gmail cá nhân cho Gemini Notebook</b> — tài khoản trường vẫn được giữ cho Lịch học.</p>`:""}
+    <p class="muted" style="font-size:12px">Đổi “Dữ liệu” sẽ tải lại trang. Dữ liệu không bị xóa — chỉ chọn kho nào được hiển thị.</p>`};
+  openDialog({title:"Tài khoản Google",body:`<div id="acc57b">${draw()}</div>`,foot:`<button class="btn primary" data-close>Xong</button>`});
+  const bind=()=>{const b=$("#acc57b");if(!b)return;
+    $$("[data-nbu]",b).forEach(x=>x.onclick=()=>{A.setRole("nb",x.dataset.nbu);b.innerHTML=draw();bind();toast("Gemini Notebook sẽ dùng tài khoản này",1600);gnState55({msg:"",err:""})});
+    $$("[data-sw]",b).forEach(x=>x.onclick=()=>{const L=A.list();const a=L.find(z=>z.id===x.dataset.sw);confirmDialog("Chuyển tài khoản?",`Lịch, Gmail… sẽ dùng ${a.email}. Trang sẽ tải lại${A.links()[a.id]?" (vẫn dùng dữ liệu chung đã chọn)":""}.`,"Chuyển",()=>{try{SOHOC.google.switchTo?SOHOC.google.switchTo(a.id):(SOHOC.LS.set("gActive",a.id),location.reload())}catch(e){SOHOC.LS.set("gActive",a.id);location.reload()}})});
+    $$("[data-lk]",b).forEach(x=>x.onchange=()=>{A.link(x.dataset.lk,x.value||null);toast("Đã lưu — đang tải lại…",1500)});
+    $$("[data-add]",b).forEach(x=>x.onclick=async()=>{try{if(x.dataset.add==="nb"){const a=await A.addFor("nb",["nb"]);if(isEdu57(a.email))toast("Đây là tài khoản trường — hãy chọn Gmail cá nhân",3600);else{toast("Gemini Notebook dùng "+a.email,2000);
+          /* đăng nhập edu mà chưa liên kết dữ liệu → gợi ý dùng chung */
+          const cur=A.list().find(z=>z.active);if(cur&&cur.edu&&!A.links()[cur.id])toast("Muốn tài khoản trường thấy dữ liệu đã làm bằng "+a.email+"? Chọn ở mục “Khi đăng nhập tài khoản này”.",5200)}}
+        else await SOHOC.google.addAccount();b.innerHTML=draw();bind();gnState55({msg:"",err:""})}catch(e){if(e&&e.code!=="popup_closed")toast(e.message||String(e),4000)}})};
+  bind();if(focus==="nb"){const x=$("#acc57b [data-add=nb]");if(x)x.focus()}}
+
+/* ---------- Studio: tài khoản Gemini Notebook + lỗi tài khoản trường có nút sửa ngay ---------- */
+{const _gp57=gnPaint55;gnPaint55=function(box){_gp57.apply(this,arguments);try{const A=ACC57();if(!A||!GN55())return;const a=A.roleOf("nb");
+    const t=$(".gn55-t",box);if(t&&a&&a.email&&!$(".gn55-acc",t)){const s=document.createElement("button");s.type="button";s.className="gn55-acc";s.title="Đổi tài khoản dùng cho Gemini Notebook";s.textContent=a.email;s.onclick=e=>{e.stopPropagation();accDialog57("nb")};t.appendChild(s)}
+    if((st55.err==="workspace"||(a&&isEdu57(a.email)&&!st55.busy))&&!$(".gn55-fix",box)){const f=document.createElement("div");f.className="gn55-fix";
+      f.innerHTML=`<span>Tài khoản trường không dùng được Gemini Notebook.</span><button class="btn sm primary" type="button">${ic("plus")} Dùng Gmail cá nhân</button>`;
+      $("button",f).onclick=async()=>{try{const r=await A.addFor("nb",["nb"]);if(isEdu57(r.email)){toast("Vẫn là tài khoản trường — hãy chọn Gmail cá nhân",3600);return}st55={};toast("Gemini Notebook dùng "+r.email+" · Lịch vẫn dùng tài khoản trường",3000);gnSync55({inter:true,check:true})}catch(e){if(e&&e.code!=="popup_closed")toast(e.message,4000)}};box.appendChild(f)}}catch(e){console.warn(e)}}}
+{const _gm57=gnMenu55;gnMenu55=function(anchor){const r=_gm57.apply(this,arguments);try{const m=$(".popmenu:last-of-type")||document.querySelector(".popmenu");const A=ACC57();if(m&&A){const b=document.createElement("button");b.innerHTML=`${ic("user")}<span>Tài khoản cho Gemini Notebook…</span>`;b.onclick=()=>{closePop();accDialog57("nb")};const who=$(".who",m);if(who)who.after(b);else m.prepend(b)}}catch(e){}return r}}
+/* Cài đặt → mục Tài khoản Google */
+if(typeof settingsDialog==="function"&&ACC57()){const _sd57=settingsDialog;settingsDialog=function(){const r=_sd57.apply(this,arguments);try{const anchor=document.getElementById("setSync")||document.getElementById("setBak");if(anchor&&!document.getElementById("setAcc57")){
+  const sec=document.createElement("section");sec.id="setAcc57";const A=ACC57();const L=A.list();const nbA=A.roleOf("nb");const lk=A.links();const cur=L.find(a=>a.active);
+  sec.innerHTML=`<h4>${ic("user")} Tài khoản Google</h4><p class="muted">Đang đăng nhập: <b>${esc(cur?cur.email:"(khách)")}</b>${cur&&lk[cur.id]?` · dùng chung dữ liệu với <b>${esc((L.find(x=>x.id===lk[cur.id])||{}).email||"tài khoản khác")}</b>`:""}<br>Gemini Notebook: <b>${esc(nbA?nbA.email:"chưa chọn")}</b></p><button class="btn" type="button" id="acc57o">${ic("user")} Quản lý tài khoản & dữ liệu…</button>`;
+  anchor.before(sec);$("#acc57o",sec).onclick=()=>accDialog57()}}catch(e){console.warn(e)}return r}}
+
+/* ---------- khung Gemini Notebook TRONG trang (trình duyệt máy tính) ---------- */
+if(window.SOHOC&&!(window.sohocDesk&&sohocDesk.gnb)){
+  const P={open:false,frac:local.get("gnp57f",.42),url:"",ready:false,subs:new Set()};let el=null,fr=null,rid=0;const wait=new Map();
+  const emit=()=>{const s={open:P.open,frac:P.frac,url:P.url};P.subs.forEach(f=>{try{f(s)}catch(e){}})};
+  const W=()=>Math.round(Math.max(360,Math.min(innerWidth-520,innerWidth*P.frac)));
+  const lay=()=>{document.documentElement.style.setProperty("--gnpW",W()+"px");document.documentElement.classList.toggle("gnp57-on",P.open)};
+  addEventListener("resize",()=>{if(P.open)lay()});
+  const card=()=>`<div class="gnp57-card"><div class="gnp57-ic">${ic("book")}</div><h3>Đưa Gemini Notebook vào ngay trong trang</h3>
+    <p>Google không cho trang khác nhúng Gemini Notebook, nên cần một <b>tiện ích nhỏ cho Chrome/Edge</b> (cài 1 lần, khoảng 1 phút). Tiện ích chỉ mở khóa việc nhúng Gemini Notebook vào trang Sổ Học của bạn và dùng luôn Gmail đang đăng nhập trong trình duyệt.</p>
+    <ol><li><a href="sohoc-extension.zip" download>Tải tiện ích (sohoc-extension.zip)</a> → giải nén.</li><li>Mở <code>chrome://extensions</code> (Edge: <code>edge://extensions</code>) → bật <b>Chế độ nhà phát triển</b>.</li><li>Bấm <b>Tải tiện ích đã giải nén</b> (Load unpacked) → chọn thư mục vừa giải nén.</li><li>Quay lại đây, bấm <b>Tải lại trang</b>.</li></ol>
+    <div class="row wrap" style="gap:8px"><button class="btn primary" type="button" data-p57="reload">${ic("loop")} Tải lại trang</button><button class="btn" type="button" data-p57="pop">${ic("link")} Tạm mở ở cửa sổ riêng</button></div>
+    <p class="muted">Hoặc dùng <b>app máy tính</b> (Releases trên GitHub) — có sẵn Gemini Notebook bên phải, không cần tiện ích.</p></div>`;
+  const build=()=>{if(el)return;el=document.createElement("aside");el.id="gnp57";el.className="gnp57";el.setAttribute("aria-label","Gemini Notebook");
+    el.innerHTML=`<div class="gnp57-split" title="Kéo để đổi độ rộng" role="separator" aria-orientation="vertical" aria-label="Đổi độ rộng khung Gemini Notebook" tabindex="0"></div>
+      <div class="gnp57-h"><b>${ic("book")} Gemini Notebook</b><small class="gnp57-who"></small><span class="sp"></span>
+        <button class="btn sm" type="button" data-p57="grab" title="Bôi đen nội dung bên dưới rồi bấm (không bôi đen → lấy câu trả lời cuối)">${ic("note")} Lưu vào Studio</button><button class="ghost ic" type="button" data-p57="re" aria-label="Tải lại khung" title="Tải lại">${ic("loop")}</button>
+        <button class="ghost ic" type="button" data-p57="tab" aria-label="Mở ở tab riêng (để đăng nhập)" title="Mở ở tab riêng (vd. để đăng nhập)">${ic("link")}</button>
+        <button class="ghost ic" type="button" data-p57="x" aria-label="Đóng khung" title="Đóng">${ic("close")}</button></div>
+      <div class="gnp57-b"></div><div class="gnp57-hint" hidden></div>`;document.body.appendChild(el);
+    el.addEventListener("click",e=>{const b=e.target.closest("[data-p57]");if(!b)return;const k=b.dataset.p57;
+      if(k==="x")api.close();if(k==="grab"){if(UI.view!=="nb"||!UI.cur){toast("Mở một bài học trước để lưu vào Studio của bài đó",2600);return}gnGrab56()}if(k==="re"){if(fr)fr.src=P.url}if(k==="reload")location.reload();
+      if(k==="tab")window.open(P.url||"https://notebook.google.com/","_blank","noopener");
+      if(k==="pop"){const w=Math.round(Math.min(760,Math.max(440,screen.availWidth*.42)));window.open(P.url||"https://notebook.google.com/","gemini-notebook",`popup=yes,width=${w},height=${Math.round(screen.availHeight*.94)},left=${Math.round((screen.availLeft||0)+screen.availWidth-w)},top=8`)}});
+    /* kéo để đổi độ rộng */
+    const sp=$(".gnp57-split",el);sp.addEventListener("pointerdown",e=>{e.preventDefault();sp.setPointerCapture(e.pointerId);document.documentElement.classList.add("gnp57-drag");
+      const mv=ev=>{P.frac=Math.max(.25,Math.min(.72,(innerWidth-ev.clientX)/innerWidth));lay();try{applyLayout()}catch(e){}};const up=()=>{sp.removeEventListener("pointermove",mv);sp.removeEventListener("pointerup",up);document.documentElement.classList.remove("gnp57-drag");local.set("gnp57f",P.frac);emit()};
+      sp.addEventListener("pointermove",mv);sp.addEventListener("pointerup",up)});
+    sp.addEventListener("keydown",e=>{if(e.key==="ArrowLeft"||e.key==="ArrowRight"){P.frac=Math.max(.25,Math.min(.72,P.frac+(e.key==="ArrowLeft"?.03:-.03)));lay();local.set("gnp57f",P.frac);emit()}})};
+  let hintT=0;
+  const load=u=>{const b=$(".gnp57-b",el);const who=$(".gnp57-who",el);const a=ACC57()&&ACC57().roleOf("nb");who.textContent=a&&a.email?a.email:"";
+    if(!EXT57()){b.innerHTML=card();fr=null;return}
+    if(!fr){b.innerHTML="";fr=document.createElement("iframe");fr.title="Gemini Notebook";fr.allow="clipboard-read; clipboard-write; microphone; autoplay; fullscreen";fr.referrerPolicy="origin";b.appendChild(fr)}
+    if(fr.dataset.u!==u){fr.dataset.u=u;P.ready=false;fr.src=u;const h=$(".gnp57-hint",el);h.hidden=true;clearTimeout(hintT);
+      hintT=setTimeout(()=>{if(!P.ready){h.hidden=false;h.innerHTML=`Khung chưa hiện? Có thể bạn chưa đăng nhập ${a&&a.email?esc(a.email):"Gmail"} trong trình duyệt. <button class="btn sm" type="button" data-p57="tab">Đăng nhập ở tab mới</button> rồi bấm ${ic("loop")}.`}},9000)}};
+  addEventListener("message",e=>{if(!fr||e.source!==fr.contentWindow||!/^https:\/\/(notebook|notebooklm)\.google\.com$/.test(e.origin))return;const d=e.data||{};if(!d.sohocGnb)return;
+    if(d.t==="ready"||d.t==="nav"){P.ready=true;P.url=d.url||P.url;const h=$(".gnp57-hint",el);if(h)h.hidden=!d.login;if(d.login&&h)h.innerHTML=`Gemini Notebook cần đăng nhập. Google không cho đăng nhập trong khung — <button class="btn sm" type="button" data-p57="tab">đăng nhập ở tab mới</button> rồi bấm ${ic("loop")}.`;return}
+    const w=wait.get(d.id);if(w){wait.delete(d.id);w(d)}});
+  const call=(t,extra,ms=12000)=>new Promise(res=>{if(!fr||!fr.contentWindow)return res(null);const id=++rid;wait.set(id,res);try{fr.contentWindow.postMessage({sohocGnb:1,t,id,...extra},new URL(fr.src).origin)}catch(e){wait.delete(id);return res(null)}setTimeout(()=>{if(wait.has(id)){wait.delete(id);res(null)}},ms)});
+  const api={version:1,
+    open:async u=>{build();P.url=u||P.url||"https://notebook.google.com/";load(P.url);P.open=true;el.hidden=false;lay();emit();return true},
+    close:async()=>{P.open=false;if(el)el.hidden=true;lay();emit();return true},
+    toggle:async u=>P.open?api.close():api.open(u),
+    width:async f=>{P.frac=Math.max(.25,Math.min(.72,+f||.42));local.set("gnp57f",P.frac);lay();emit();return P.frac},
+    state:async()=>({open:P.open,frac:P.frac,url:P.url}),
+    reload:async()=>{if(fr)fr.src=P.url;return true},
+    back:async()=>{call("back",{},10);return true},
+    ask:async t=>{if(!EXT57()||!fr)return "clipboard";const r=await call("ask",{text:String(t||"")},15000);return r&&r.r||"clipboard"},
+    grab:async()=>{const r=await call("grab",{},5000);return r&&r.text||""},
+    onState:f=>{P.subs.add(f);return()=>P.subs.delete(f)}};
+  if(!(innerWidth<=720||/iPhone|iPad|Android/i.test(navigator.userAgent))){window.sohocPane57=api;
+    api.onState(s=>{deskSt56=s||{open:false};deskBar56();try{$$("[data-gnb56]").forEach(b=>b.setAttribute("aria-pressed",String(!!deskSt56.open)));const box=$("#gn55");if(box)gnPaint55(box);aiSw56()}catch(e){}})}
+}
+/* khung Gemini Notebook đang mở → trang hẹp lại: tự thu gọn cột Nguồn (và Studio nếu vẫn chật), không lưu thay đổi */
+{const _al57=applyLayout;applyLayout=function(){const on=document.documentElement.classList.contains("gnp57-on");const L=UI.lay;if(!on||!L||!L.coll)return _al57.apply(this,arguments);
+  const gw=parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--gnpW"))||0;const avail=innerWidth-gw;const keep={...L.coll};
+  if(avail-(L.src+L.studio+62)<520)L.coll.paneSrc=true;if(avail-(52+L.studio+62)<520)L.coll.paneStudio=true;
+  try{return _al57.apply(this,arguments)}finally{L.coll=keep}}}
+if(window.sohocPane57){window.sohocPane57.onState(()=>{try{applyLayout()}catch(e){}});addEventListener("resize",()=>{try{applyLayout()}catch(e){}})}
 
 /* =====================================================================
    BẢN WEB ĐỘC LẬP — cài đặt AI, đăng nhập Google, sao lưu dữ liệu
