@@ -1,23 +1,25 @@
 {
   "manifest_version": 3,
-  "name": "Sổ Học — Gemini Notebook trong trang",
+  "name": "Sổ Học — cầu nối Gemini Notebook",
   "short_name": "Sổ Học + Notebook",
-  "version": "1.0.0",
-  "description": "Cho Gemini Notebook (NotebookLM) hiện ngay bên trong trang Sổ Học Điện Tử của bạn, dùng tài khoản Gmail đang đăng nhập trong Chrome.",
+  "version": "2.0.0",
+  "description": "Cho trang Sổ Học Điện Tử của bạn giao việc cho Gemini Notebook (NotebookLM) bằng Gmail đang đăng nhập trong Chrome, rồi nhận kết quả về. Chỉ hoạt động với trang Sổ Học của bạn.",
   "icons": { "16": "icon16.png", "48": "icon48.png", "128": "icon128.png" },
-  "permissions": ["declarativeNetRequest"],
+  "permissions": ["declarativeNetRequest", "storage", "system.display"],
   "host_permissions": [
     "https://notebook.google.com/*",
     "https://notebooklm.google.com/*",
-    "https://*.github.io/*",
+    "https://uyenphuowng-cyber.github.io/*",
     "http://localhost/*",
     "http://127.0.0.1/*"
   ],
+  "background": { "service_worker": "background.js" },
   "declarative_net_request": {
     "rule_resources": [{ "id": "frame", "enabled": true, "path": "rules.json" }]
   },
   "content_scripts": [
-    { "matches": ["https://*.github.io/*", "http://localhost/*", "http://127.0.0.1/*"], "js": ["site.js"], "run_at": "document_start" },
-    { "matches": ["https://notebook.google.com/*", "https://notebooklm.google.com/*"], "js": ["frame.js"], "run_at": "document_idle", "all_frames": true }
+    { "matches": ["https://uyenphuowng-cyber.github.io/*", "http://localhost/*", "http://127.0.0.1/*"], "js": ["site.js"], "run_at": "document_start" },
+    { "matches": ["https://notebook.google.com/*", "https://notebooklm.google.com/*"], "js": ["frame.js"], "run_at": "document_idle", "all_frames": true },
+    { "matches": ["https://notebook.google.com/*", "https://notebooklm.google.com/*"], "js": ["nb.js"], "run_at": "document_idle" }
   ]
 }

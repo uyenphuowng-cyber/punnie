@@ -1,0 +1,19 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'vn.sohoc.dientu'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'vn.sohoc.dientu'
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+        def host = (project.findProperty('siteHost') ?: 'example.github.io')
+        def url = (project.findProperty('siteUrl') ?: 'https://example.github.io/')
+        manifestPlaceholders = [hostName: host, launchUrl: url]
+        resValue 'string', 'asset_statements', '[{ \\"relation\\": [\\"delegate_permission/common.handle_all_urls\\"], \\"target\\": { \\"namespace\\": \\"web\\", \\"site\\": \\"https://' + host + '\\" } }]'
+    }
+    buildTypes { release { minifyEnabled false } }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+dependencies { implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0' }

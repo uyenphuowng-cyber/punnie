@@ -82,27 +82,70 @@ async function callClaude(input,o){
   catch(e){if(e&&e.name==="AbortError")throw err("cancelled","Đã dừng",{text});throw e}
   return{text,truncated:stop==="max_tokens"}}
 const GEM="https://generativelanguage.googleapis.com/v1beta";
-function gemErr(status,j){const e=j&&j.error||{};const m=e.message||("HTTP "+status);const st=e.status||"";
+function gemErr0(status,j){const e=j&&j.error||{};const m=e.message||("HTTP "+status);const st=e.status||"";
   if(status===429||st==="RESOURCE_EXHAUSTED")return err("rate_limited",m);if(/API key not valid|API_KEY_INVALID|invalid api key/i.test(m)||status===401||st==="UNAUTHENTICATED")return err("bad_key",m);if(status===403||st==="PERMISSION_DENIED")return err("bad_key",m);
   if(status===404||/not found|is not supported/i.test(m))return err("bad_model",m);if(/token|too long|exceeds/i.test(m)&&status===400)return err("prompt_too_large",m);if(status===503||status===500||st==="UNAVAILABLE")return err("rate_limited",m);return err("api_error",m)}
-async function callGemini(input,o){
+function gemErr(status,j){const x=gemErr0(status,j);x.status=status;try{const e=(j&&j.error)||{};(e.details||[]).forEach(d=>{const t=String(d["@type"]||"");if(/RetryInfo/.test(t)&&d.retryDelay){const v=parseFloat(d.retryDelay);if(v>=0)x.retry=v}
+    if(/QuotaFailure/.test(t))(d.violations||[]).forEach(v=>{if(/PerDay/i.test(String(v.quotaId||"")+String(v.quotaMetric||"")))x.daily=true})});
+  const mm=/retry in ([\d.]+)\s*s/i.exec(e.message||"");if(mm&&x.retry==null)x.retry=parseFloat(mm[1]);if(/per ?day|daily/i.test(e.message||""))x.daily=true}catch(_){}return x}
+async function callGemini0(input,o){
   const key=apiKey("gemini");if(!key)throw err("not_granted","Chưa có API key Google AI Studio");
   const msgs=toMessages(input);const contents=[];msgs.forEach(m=>{const role=m.role==="assistant"?"model":"user";const last=contents[contents.length-1];if(last&&last.role===role)last.parts.push({text:m.content});else contents.push({role,parts:[{text:m.content}]})});
   if(contents.length&&contents[0].role!=="user")contents.unshift({role:"user",parts:[{text:"(bắt đầu)"}]});
   if(o.images&&o.images.length){const first=contents.findIndex(c=>c.role==="user");const parts=[];for(const b of o.images.slice(0,6)){const x=await blobToB64(b);parts.push({inline_data:{mime_type:x.mime,data:x.data}})}contents[first].parts=[...parts,...contents[first].parts]}
   const gc={maxOutputTokens:o.max||16384};if(o.json)gc.responseMimeType="application/json";
-  const md=model(o.modelTier,"gemini");const sp=LS.get("speed","balanced");
+  const md=o._model||model(o.modelTier,"gemini");const sp=LS.get("speed","balanced");
   if(/gemini-(3|4)/i.test(md)&&!LS.get("noThink:"+md,false)&&(sp==="fast"||(sp==="balanced"&&(o.json||o.fast)))&&o.fast!==false)gc.thinkingConfig={thinkingLevel:"LOW"};
-  let r;try{r=await _fetch(`${GEM}/models/${encodeURIComponent(model(o.modelTier,"gemini"))}:streamGenerateContent?alt=sse`,{method:"POST",signal:o.signal,headers:{"content-type":"application/json","x-goog-api-key":key},body:JSON.stringify({contents,generationConfig:gc})})}
+  let r;try{r=await _fetch(`${GEM}/models/${encodeURIComponent(md)}:streamGenerateContent?alt=sse`,{method:"POST",signal:o.signal,headers:{"content-type":"application/json","x-goog-api-key":key},body:JSON.stringify({contents,generationConfig:gc})})}
   catch(e){if(e&&e.name==="AbortError")throw err("cancelled","Đã dừng");throw err("network","Không kết nối được tới Google AI Studio")}
   if(!r.ok){let j={};try{j=await r.json()}catch(e){}if(Array.isArray(j))j=j[0]||{};
-    if(r.status===400&&gc.thinkingConfig&&/think/i.test(JSON.stringify(j))){LS.set("noThink:"+md,true);return callGemini(input,{...o,fast:false})}throw gemErr(r.status,j)}
+    if(r.status===400&&gc.thinkingConfig&&/think/i.test(JSON.stringify(j))){LS.set("noThink:"+md,true);return callGemini0(input,{...o,fast:false})}const ge=gemErr(r.status,j);const ra=parseFloat(r.headers.get("retry-after"));if(ra>=0&&ge.retry==null)ge.retry=ra;throw ge}
   let text="",stop=null,blocked=null;
   try{await sse(r,ev=>{if(ev.error)throw gemErr(ev.error.code||500,ev);if(ev.promptFeedback&&ev.promptFeedback.blockReason)blocked=ev.promptFeedback.blockReason;const c=(ev.candidates||[])[0];if(!c)return;
       const parts=(c.content&&c.content.parts)||[];const add=parts.filter(p=>p.text&&!p.thought).map(p=>p.text).join("");if(add){text+=add;if(o.onText)o.onText({text})}if(c.finishReason&&c.finishReason!=="FINISH_REASON_UNSPECIFIED")stop=c.finishReason})}
   catch(e){if(e&&e.name==="AbortError")throw err("cancelled","Đã dừng",{text});throw e}
   if(!text&&(blocked||stop==="SAFETY"||stop==="PROHIBITED_CONTENT"))throw err("refused","Gemini từ chối trả lời nội dung này ("+(blocked||stop)+")");
   return{text,truncated:stop==="MAX_TOKENS"}}
+/* ---- Gemini: hàng đợi + tự chờ/thử lại + đổi sang mô hình khác cùng khóa khi quá tải ----
+   · tối đa 2 yêu cầu chạy cùng lúc, cách nhau ≥ 0,4 s (tự giãn ra khi bị từ chối, nhanh lại khi ổn)
+   · 429/503: đọc “retryDelay” của Google, chờ đúng thời gian đó (kèm thông báo), thử tối đa 7 lần
+   · mô hình đang bị giới hạn → chuyển ngay sang mô hình Flash khác (mỗi mô hình có hạn mức riêng)
+   · hết lượt trong NGÀY: không chờ vô ích, thử mô hình khác rồi báo rõ */
+const GQ={run:0,wait:[],gap:400,last:0,cool:new Map(),dead:new Set()};
+const gqMax=()=>Math.max(1,Math.min(4,+LS.get("gConc",2)||2));
+function gqPump(){while(GQ.run<gqMax()&&GQ.wait.length){const w=GQ.wait.shift();if(w.signal&&w.signal.aborted){w.rej(err("cancelled","Đã dừng"));continue}
+  const d=Math.max(0,GQ.last+GQ.gap-Date.now());GQ.run++;GQ.last=Date.now()+d;setTimeout(()=>w.go(()=>{GQ.run--;gqPump()}),d)}}
+const gqSlot=signal=>new Promise((go,rej)=>{GQ.wait.push({go,rej,signal});gqPump()});
+const gqSleep=(ms,signal)=>new Promise((res,rej)=>{if(signal&&signal.aborted)return rej(err("cancelled","Đã dừng"));const ab=()=>{clearTimeout(t);rej(err("cancelled","Đã dừng"))};const t=setTimeout(()=>{if(signal)signal.removeEventListener("abort",ab);res()},ms);if(signal)signal.addEventListener("abort",ab,{once:true})});
+const gqNote=d=>{try{window.dispatchEvent(new CustomEvent("sohoc:ai-wait",{detail:d}))}catch(_){}};
+async function gqModels(base){
+  if(!LS.get("gFallback",true))return [base];
+  let L=LS.get("gFbList",null);
+  if(!L||!Array.isArray(L.l)||Date.now()-L.t>12*3600e3){let ids=[];
+    try{ids=(await listGeminiModels(apiKey("gemini"))).map(m=>m.id)}catch(e){}
+    const sc=id=>(/preview|exp/.test(id)?0:100)+(/lite/.test(id)?0:10)+(parseFloat((/gemini-(\d+(?:\.\d+)?)/.exec(id)||[])[1])||0);
+    let l=ids.filter(id=>/flash/.test(id)&&!/pro|image|tts|live|audio|thinking|8b/.test(id)).sort((a,b)=>sc(b)-sc(a)).slice(0,5);
+    if(!l.length&&!ids.length)l=["gemini-flash-latest","gemini-flash-lite-latest"];
+    L={t:Date.now(),l};LS.set("gFbList",L)}
+  return [base,...L.l.filter(x=>x!==base)]}
+async function callGemini(input,o){
+  const base=o._model||model(o.modelTier,"gemini");const chain=await gqModels(base).catch(()=>[base]);
+  const t0=Date.now();let last=null;
+  for(let at=0;at<7;at++){
+    const now=Date.now(),alive=chain.filter(m=>!GQ.dead.has(m));if(!alive.length)throw last||err("bad_model","Không có mô hình dùng được");
+    let m=alive.find(x=>(GQ.cool.get(x)||0)<=now);
+    if(!m){const nx=alive.reduce((a,b)=>(GQ.cool.get(a)||0)<=(GQ.cool.get(b)||0)?a:b);const w=Math.max(800,(GQ.cool.get(nx)||0)-now);
+      if(w>75000||Date.now()-t0+w>170000)throw Object.assign(last||err("rate_limited","Gemini đang quá tải"),{exhausted:true});
+      gqNote({type:"wait",secs:Math.ceil(w/1000),model:nx});await gqSleep(w,o.signal);m=nx}
+    if(m!==chain[0]&&at>0)gqNote({type:"switch",model:m,from:chain[0]});
+    const done=await gqSlot(o.signal);
+    try{const r=await callGemini0(input,{...o,_model:m});GQ.gap=Math.max(400,GQ.gap*.85);done();return r}
+    catch(e){done();last=e;
+      if(e&&e.code==="bad_model"&&m!==chain[0]){GQ.dead.add(m);continue}
+      if(e&&e.code==="rate_limited"&&!e.text){GQ.gap=Math.min(6000,GQ.gap*1.7);
+        const sec=e.daily?1800:Math.min(90,Math.max(2,e.retry!=null?e.retry+1:Math.min(30,2**(at+1))))+Math.random();GQ.cool.set(m,Date.now()+sec*1000);continue}
+      throw e}}
+  throw Object.assign(last||err("rate_limited","Gemini đang quá tải"),{exhausted:true})}
 async function listGeminiModels(key){const r=await _fetch(`${GEM}/models?pageSize=200`,{headers:{"x-goog-api-key":key||apiKey("gemini")}});const j=await r.json().catch(()=>({}));if(!r.ok)throw gemErr(r.status,j);
   return (j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes("generateContent")&&/gemini/i.test(m.name)&&!/embedding|image|tts|live|audio|robotics/i.test(m.name)).map(m=>({id:m.name.replace(/^models\//,""),name:m.displayName||m.name}))}
 const call=(input,o={})=>provider()==="claude"?callClaude(input,o):callGemini(input,o);

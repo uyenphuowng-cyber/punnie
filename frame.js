@@ -23,7 +23,7 @@
     await new Promise(r => setTimeout(r, 250));
     const r0 = box.getBoundingClientRect();
     const btn = [...document.querySelectorAll("button")].filter(b => vis(b) && !b.disabled &&
-      /send|submit|gửi|query|hỏi/i.test((b.getAttribute("aria-label") || "") + " " + (b.type || "") + " " + (b.className || "")))
+      (/^\s*(send|submit|gửi|ask|hỏi|query)\b/i.test((b.getAttribute("aria-label") || "").trim()) || /(^|[\s_-])(submit|send)([\s_-]|$)/i.test(String(b.className || ""))))
       .sort((a, b) => Math.hypot(a.getBoundingClientRect().x - r0.right, a.getBoundingClientRect().y - r0.y) - Math.hypot(b.getBoundingClientRect().x - r0.right, b.getBoundingClientRect().y - r0.y))[0];
     if (btn) { btn.click(); return "sent"; }
     box.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true }));

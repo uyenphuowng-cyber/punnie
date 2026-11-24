@@ -8771,7 +8771,7 @@ function aiSw56(){const c=$(".composer");if(!c||!UI.cur)return;let w=$("#aiSw56"
   const gn=UI.ai56==="gnb";w.innerHTML=`<span class="aisw56-l">AI trả lời:</span><button type="button" role="radio" aria-checked="${!gn}" data-ai="sohoc">${ic("spark")} Sổ Học</button><button type="button" role="radio" aria-checked="${gn}" data-ai="gnb" title="Dùng AI của Gemini Notebook (NotebookLM) bằng Gmail của bạn">${ic("book")} Gemini Notebook</button>${gn?`<button type="button" class="aisw56-o" data-ai="open">${DESK56()?(deskSt56.open?"Ẩn khung":"Hiện khung"):"Mở"} ↗</button>`:""}`;
   $$("[data-ai]",w).forEach(b=>b.onclick=async()=>{const k=b.dataset.ai;if(k==="open"){const D=DESK56();if(D&&deskSt56.open)await D.close();else await gnOpen56();return aiSw56()}
     UI.ai56=k;local.set("ai56",k);aiSw56();const a=$("#ask");if(a)a.placeholder=k==="gnb"?"Hỏi Gemini Notebook về tài liệu của bài này…":"Đặt câu hỏi hoặc yêu cầu tạo nội dung";
-    if(k==="gnb"){toast(DESK56()?"Câu hỏi sẽ được gửi thẳng sang Gemini Notebook bên phải":"Câu hỏi sẽ được sao chép & mở Gemini Notebook để bạn dán",2600);if(DESK56())gnOpen56()}});
+    if(k==="gnb"){const ag=typeof AGENT58==="function"&&AGENT58();toast(ag?"Câu hỏi sẽ chạy ở Gemini Notebook (cửa sổ nhỏ) và câu trả lời hiện ngay trong khung chat này":DESK56()?"Câu hỏi sẽ được gửi thẳng sang Gemini Notebook bên phải":"Câu hỏi sẽ được sao chép & mở Gemini Notebook để bạn dán",3000);if(DESK56()&&!ag)gnOpen56()}});
   const a=$("#ask");if(a)a.placeholder=gn?"Hỏi Gemini Notebook về tài liệu của bài này…":"Đặt câu hỏi hoặc yêu cầu tạo nội dung"}
 {const _rns56=renderNotebookShell;renderNotebookShell=function(){const r=_rns56.apply(this,arguments);try{aiSw56()}catch(e){console.warn(e)}return r}}
 
@@ -8911,6 +8911,135 @@ if(window.SOHOC&&!(window.sohocDesk&&sohocDesk.gnb)){
 if(window.sohocPane57){window.sohocPane57.onState(()=>{try{applyLayout()}catch(e){}});addEventListener("resize",()=>{try{applyLayout()}catch(e){}})}
 
 /* =====================================================================
+   v51 — Sổ Học ⇄ Gemini Notebook: giao việc → Notebook chạy → kết quả về Sổ Học
+   · Cần tiện ích “Sổ Học + Notebook” bản 2 (Chrome/Edge máy tính). Tiện ích giữ một cửa sổ Gemini Notebook nhỏ,
+     điền lệnh, chờ Notebook trả lời xong rồi gửi về đây. Không tốn lượt khóa API Gemini của bạn.
+   · Tác vụ Studio (thẻ nhớ, quiz, sơ đồ tư duy, báo cáo, bảng, đồ họa): Notebook trả JSON → hiện bằng giao diện Sổ Học.
+   · Hỏi đáp: câu trả lời của Notebook hiện ngay trong khung chat (không cần dán).
+   · AI của Sổ Học quá tải (dù đã tự chờ/đổi mô hình) → tự chuyển sang Notebook.
+   · Ghép cửa sổ: Sổ Học bên trái, Notebook bên phải (chia đôi màn hình), đóng thì trả lại kích thước cũ.
+   ===================================================================== */
+const AGV58=()=>+(document.documentElement.getAttribute("data-sohoc-agent")||0);
+const AGENT58=()=>AGV58()>=2&&!MOB56()&&!(window.sohocDesk&&sohocDesk.gnb);
+UI.eng58=local.get("eng58","auto");/* auto | gnb | own */
+const GNB58=new Set(["flash","quiz","table","info","mindmap","report"]);/* loại trả JSON ngắn/vừa — hợp chạy qua chat Notebook */
+const B58={n:0,w:new Map(),j:new Map()};
+const E58={login:"Gemini Notebook chưa đăng nhập — đăng nhập Gmail trong cửa sổ Notebook nhỏ vừa hiện, rồi thử lại.",nobox:"Không thấy ô chat trong cửa sổ Gemini Notebook (mở cửa sổ đó, hoàn tất màn hình chào mừng nếu có).",noscript:"Cửa sổ Gemini Notebook chưa sẵn sàng — thử lại sau vài giây.",noanswer:"Gemini Notebook không trả lời (sổ có thể chưa có nguồn).",timeout:"Gemini Notebook trả lời quá lâu.",cancelled:"Đã dừng.",open:"Không mở được cửa sổ Gemini Notebook.",origin:"Tiện ích không nhận trang này.",nolink:"Chưa có sổ trên Gemini Notebook cho bài này.",invalid_json:"Gemini Notebook trả lời không đúng định dạng.",notile:"Không thấy nút đó trên Gemini Notebook."};
+const eMsg58=c=>{c=String(c||"");return E58[c.split(":")[0]]||("Lỗi cầu nối: "+c)};
+window.addEventListener("message",e=>{if(e.source!==window||e.origin!==location.origin)return;const d=e.data;if(!d||typeof d!=="object")return;
+  if(d.sohocRes===1&&B58.w.has(d.id)){const f=B58.w.get(d.id);B58.w.delete(d.id);f(d.res)}
+  else if(d.sohocEvt===1){const x=d.data||{};
+    if(d.evt==="job-progress"){const j=B58.j.get(x.job);if(j&&j.onP)try{j.onP(x)}catch(_){}}
+    else if(d.evt==="job-done"){const j=B58.j.get(x.job);if(j){B58.j.delete(x.job);j.res(x.result||{ok:false,error:"noreply"})}}
+    else if(d.evt==="dock-state"&&window.sohocDock58)sohocDock58.sync(x)}});
+function ext58(op,args,ms=8000){return new Promise(res=>{const id="r"+(++B58.n)+"_"+Date.now();const t=setTimeout(()=>{B58.w.delete(id);res({ok:false,error:"timeout"})},ms);
+  B58.w.set(id,r=>{clearTimeout(t);res(r||{ok:false,error:"noreply"})});postMessage({sohocReq:1,id,op,args:args||{}},location.origin)})}
+function job58(cmd,url,payload,o={}){return new Promise(res=>{const job="j"+(++B58.n)+Date.now().toString(36);let fin=false;
+  const done=r=>{if(fin)return;fin=true;clearTimeout(t);B58.j.delete(job);res(r)};
+  const t=setTimeout(()=>{ext58("abort",{job});done({ok:false,error:"timeout"})},o.timeout||240000);
+  B58.j.set(job,{onP:o.onP,res:done});
+  if(o.signal)o.signal.addEventListener("abort",()=>{ext58("abort",{job});done({ok:false,error:"cancelled"})},{once:true});
+  ext58("job",{job,cmd,url,payload},60000).then(r=>{if(!r||r.ok===false)done(r||{ok:false,error:"noreply"})})})}
+const nbOf58=()=>UI.cur?gnOf55(UI.nbs.find(n=>n.id===UI.cur.id)||UI.cur):null;
+const nbLinked58=()=>{const g=nbOf58();return !!(g&&g.name)};
+async function nbUrl58(inter){const u=await gnUrl56(inter?"desk":false);return nbLinked58()?u:""}
+async function needLogin58(url){try{await ext58("ping",{url,focus:true},60000)}catch(e){}}
+
+/* ---------- tác vụ Studio qua chat của Notebook (trả JSON) ---------- */
+async function viaGnb58(prompt,k,onChars,inter){
+  const url=await nbUrl58(inter);if(!url)return{ok:false,error:"nolink"};
+  const body=String(prompt).split("\n\nNGUỒN:\n")[0].replace(/Trường "cite" là mảng số thứ tự nguồn \[n\] đã dùng\./,'Trường "cite" là mảng số thứ tự nguồn (theo thứ tự nguồn trong sổ) đã dùng.');
+  const full=body+"\n\nHãy dựa CHỈ vào các nguồn có sẵn trong sổ này. Trả lời bằng ĐÚNG MỘT đối tượng JSON hợp lệ, không thêm bất kỳ chữ nào khác và không bọc trong ```.";
+  const r=await job58("ask",url,{prompt:full},{onP:x=>{if(onChars)onChars(x.chars||0)},timeout:230000});
+  if(!r||!r.ok){if(r&&r.error==="login")needLogin58(url);return r||{ok:false,error:"noreply"}}
+  const j=looseJSON(r.text);if(!j||typeof j!=="object")return{ok:false,error:"invalid_json",text:r.text};
+  return{ok:true,json:j}}
+{const _sp58=spec;spec=function(k,cfg){const s=_sp58.apply(this,arguments);if(s&&typeof s.task==="string"&&!s.task.startsWith("[[K:"))s.task="[[K:"+k+"]]"+s.task;return s}}
+{const _gj58=genJSON;genJSON=async function(prompt,o,onChars){
+  let k=null;const m=/\[\[K:(\w+)\]\]/.exec(prompt);if(m){k=m[1];prompt=prompt.replace(m[0],"")}
+  const eng=UI.eng58,can=AGENT58()&&eng!=="own"&&!!UI.cur&&nbLinked58();
+  if(can&&GNB58.has(k)&&(eng==="gnb"||eng==="auto")){
+    if(!local.get("gnb58tip",false)){local.set("gnb58tip",true);toast("Sổ Học giao việc này cho Gemini Notebook (cửa sổ nhỏ ở góc phải dưới) — không tốn lượt khóa API. Có thể đổi ở nút “Chạy” trên đầu Studio.",6500)}
+    const r=await viaGnb58(prompt,k,onChars,false);if(r.ok)return r.json;
+    toast(eMsg58(r.error)+" — chuyển sang AI của Sổ Học",5200)}
+  try{return await _gj58.call(this,prompt,o,onChars)}
+  catch(e){
+    if(e&&e.code==="rate_limited"&&can&&eng!=="own"&&!(GNB58.has(k)&&(eng==="gnb"||eng==="auto"))){
+      toast("AI của Sổ Học đang quá tải — thử chạy ở Gemini Notebook…",4200);const r=await viaGnb58(prompt,k,onChars,false);if(r.ok)return r.json}
+    throw e}}}
+
+/* ---------- hỏi đáp: câu trả lời của Notebook hiện ngay trong khung chat ---------- */
+async function chatViaGnb58(text,replace){
+  if(!UI.cur)return;const nb=UI.cur;if(innerWidth<=1100)mobPane("paneChat");
+  /* UI.chat có thể bị nạp lại từ kho lưu trữ giữa chừng → luôn lấy tin cuối ở thời điểm ghi, không giữ tham chiếu cũ */
+  const last=()=>{const m=UI.chat[UI.chat.length-1];return m&&m.role==="assistant"?m:null};
+  if(replace&&last()){Object.assign(last(),{content:"",pending:true})}
+  else{UI.chat.push({role:"user",content:text},{role:"assistant",content:"",pending:true,labels:[]})}
+  renderChat();scrollChat();
+  const url=await nbUrl58(true);
+  const r=url?await job58("ask",url,{prompt:text},{onP:x=>{const el=$(`.msg.ai[data-i="${UI.chat.length-1}"]`);if(el)el.textContent="Gemini Notebook đang trả lời… ("+(x.chars||0)+" ký tự)"},timeout:230000}):{ok:false,error:"nolink"};
+  let out;
+  if(r&&r.ok)out=r.text+"\n\n_— trả lời bởi Gemini Notebook_";
+  else{out="Không lấy được câu trả lời từ Gemini Notebook: "+eMsg58(r&&r.error);if(r&&r.error==="login"&&url)needLogin58(url)}
+  const m=last();if(m){m.content=out;m.pending=false}
+  try{await Store.put("chat-"+nb.id,{type:"chat",nb:nb.id,turns:UI.chat.slice(-40).map(x=>({role:x.role,content:x.content,labels:x.labels||null}))})}catch(e){}
+  const m2=last();if(m2&&m2.content!==out){m2.content=out;m2.pending=false}
+  if(UI.cur&&UI.cur.id===nb.id){renderChat();scrollChat()}}
+{const _ga58=gnAsk56;gnAsk56=async function(text){if(AGENT58()&&UI.cur&&nbLinked58()||AGENT58()&&UI.cur&&GN55())return chatViaGnb58(String(text||"").trim());return _ga58.apply(this,arguments)}}
+{const _cs58=chatSend;const busyTxt58=()=>[{},{exhausted:true},{daily:true}].map(x=>{try{return aiErr(Object.assign({code:"rate_limited"},x))}catch(e){return null}}).filter(Boolean);
+  chatSend=async function(text){const r=await _cs58.apply(this,arguments);
+    try{if(UI.ai56!=="gnb"&&AGENT58()&&UI.eng58!=="own"&&UI.cur&&nbLinked58()){const m=UI.chat[UI.chat.length-1];
+      if(m&&m.role==="assistant"&&!m.pending&&busyTxt58().some(t=>String(m.content).includes(t))){toast("AI của Sổ Học đang quá tải — hỏi Gemini Notebook thay…",3800);await chatViaGnb58(text,true)}}}catch(e){console.warn(e)}return r}}
+
+/* ---------- ghép cửa sổ: Sổ Học | Gemini Notebook (chia đôi màn hình) ---------- */
+if(AGENT58()){
+  const O=window.sohocPane57||null;const S={open:false,frac:local.get("gnp57f",.42),subs:new Set(),fb:false};
+  const emit=()=>{const s={open:S.open,frac:S.frac};S.subs.forEach(f=>{try{f(s)}catch(e){}})};
+  const D={version:2,
+    open:async u=>{if(S.fb&&O)return O.open(u);const r=await ext58("dock.open",{url:u||"https://notebook.google.com/",frac:S.frac},40000);
+      if(!r||!r.ok){if(O){S.fb=true;toast("Không ghép được cửa sổ — mở khung trong trang thay thế",3000);return O.open(u)}toast("Không mở được cửa sổ Gemini Notebook",3000);return false}
+      S.open=true;emit();if(r.login)toast("Đăng nhập Gmail ngay trong cửa sổ bên phải, rồi bấm lại “Dùng AI”.",5200);return true},
+    close:async()=>{if(S.fb&&O){S.fb=false;return O.close()}await ext58("dock.close",{},15000);S.open=false;emit();return true},
+    toggle:async u=>S.open?D.close():D.open(u),
+    width:async f=>{S.frac=Math.max(.25,Math.min(.7,+f||.42));local.set("gnp57f",S.frac);if(S.fb&&O)return O.width(S.frac);if(S.open)await ext58("dock.width",{frac:S.frac},15000);emit();return S.frac},
+    state:async()=>S.fb&&O?O.state():{open:S.open,frac:S.frac},
+    reload:async()=>{if(S.fb&&O)return O.reload();await ext58("reload");return true},
+    back:async()=>{if(S.fb&&O)return O.back();await ext58("back");return true},
+    ask:async t=>{if(S.fb&&O)return O.ask(t);const url=await nbUrl58(false);const r=await job58("ask",url||"",{prompt:String(t||"")},{timeout:230000});return r.ok?"sent":"clipboard"},
+    grab:async()=>{if(S.fb&&O)return O.grab();const r=await job58("grab","",{},{timeout:15000});return r&&r.text||""},
+    onState:f=>{S.subs.add(f);const off=O?O.onState(f):()=>{};return()=>{S.subs.delete(f);off()}}};
+  window.sohocDock58={sync:s=>{if(s&&s.open===false){S.open=false;emit()}}};
+  window.sohocPane57=D;
+  D.onState(s=>{deskSt56=s||{open:false};deskBar56();try{$$("[data-gnb56]").forEach(b=>b.setAttribute("aria-pressed",String(!!deskSt56.open)));const box=$("#gn55");if(box)gnPaint55(box);aiSw56()}catch(e){}});
+  D.onState(()=>{try{applyLayout()}catch(e){}});
+  ext58("hello",{},4000).then(r=>{if(r&&r.dock){S.open=true;emit()}}).catch(()=>{})}
+
+/* ---------- nút “Chạy” trên đầu Studio: chọn nơi chạy + kiểm tra kết nối ---------- */
+const ENG58={auto:"Tự động",gnb:"Notebook",own:"Sổ Học AI"};
+function engMenu58(anchor){const A=AGENT58();
+  const row=(k,t,d)=>`<button data-eng="${k}"><span style="display:grid;text-align:left"><b style="font-weight:600">${t}${UI.eng58===k?" ✓":""}</b><small style="opacity:.75;font-weight:400;white-space:normal;max-width:300px">${d}</small></span></button>`;
+  const m=popMenu(anchor,`<div class="who">Nơi chạy tác vụ Studio &amp; hỏi đáp</div>
+    ${A?"":`<div class="who" style="color:var(--warn,#f4a26a)">Chưa phát hiện tiện ích bản 2 (hoặc đang dùng điện thoại) — chỉ dùng được AI của Sổ Học. Cài tiện ích để Gemini Notebook chạy giúp.</div>`}
+    ${row("auto","Tự động (khuyên dùng)","Thẻ nhớ, quiz, sơ đồ, báo cáo, bảng, đồ họa chạy ở Gemini Notebook. Việc khác dùng AI của Sổ Học; nếu quá tải thì chuyển sang Notebook.")}
+    ${row("gnb","Ưu tiên Gemini Notebook","Như trên; lỗi bên Notebook mới quay lại AI của Sổ Học.")}
+    ${row("own","Chỉ AI của Sổ Học (khóa API)","Không dùng Gemini Notebook.")}
+    ${A?`<div class="sep"></div><button data-e="ping">${ic("loop")}<span>Kiểm tra / mở cửa sổ Gemini Notebook</span></button><button data-e="dock">${ic("book")}<span>Ghép cửa sổ cạnh bên (chia đôi màn hình)</span></button>`:""}`);
+  if(!m)return;
+  $$("[data-eng]",m).forEach(x=>x.onclick=()=>{UI.eng58=x.dataset.eng;local.set("eng58",UI.eng58);const b=$("#eng58");if(b)b.textContent=ENG58[UI.eng58]+" ▾";toast("Chạy tác vụ: "+ENG58[UI.eng58],1800)});
+  $$("[data-e]",m).forEach(x=>x.onclick=async()=>{closePop();
+    if(x.dataset.e==="dock"){const D=window.sohocPane57;if(D)await D.open(await gnUrl56("desk"));return}
+    const url=await nbUrl58(true);if(!url){toast("Chưa có sổ cho bài này — bấm “Đồng bộ” trong khung Gemini Notebook ở Studio trước.",4600);return}
+    toast("Đang mở cửa sổ Gemini Notebook…",2000);const r=await ext58("ping",{url,focus:true},60000);
+    toast(r&&r.ok?"Kết nối tốt — cửa sổ Gemini Notebook sẵn sàng nhận việc.":eMsg58(r&&r.error),5200)})}
+/* các chip “Tạo ở Gemini Notebook”: tự bấm ô Studio tương ứng trong cửa sổ Notebook */
+{const _gp58=gnPaint55;gnPaint55=function(box){_gp58.apply(this,arguments);try{
+  if(window.SOHOC&&!$("#eng58",box)){const row=document.createElement("div");row.className="gn58-eng";row.innerHTML=`<span>Chạy tác vụ ở:</span><button type="button" class="btn sm" id="eng58" title="Nơi chạy tác vụ Studio và hỏi đáp: Gemini Notebook hay AI của Sổ Học">${ENG58[UI.eng58]||"Tự động"} ▾</button>${AGENT58()?"":`<small>cần tiện ích bản 2</small>`}`;box.appendChild(row);$("#eng58",row).onclick=e=>{e.stopPropagation();engMenu58(e.currentTarget)}}
+  if(!AGENT58())return;
+  $$("[data-g55k]",box).forEach(b=>b.onclick=async e=>{e.stopPropagation();const kind=b.dataset.g55k;const url=await nbUrl58(true);if(!url){toast("Bấm “Đồng bộ” trong Studio trước để tạo sổ có đủ nguồn",3600);return}
+    toast(`Đang bấm “${KN55[kind]}” trong Gemini Notebook…`,2200);const r=await job58("studio",url,{kind},{timeout:60000});
+    toast(r.ok?`Đã gửi lệnh “${KN55[kind]}” — tạo xong sẽ nằm trong cột Studio của cửa sổ Gemini Notebook (âm thanh/video không chép về Sổ Học được).`:eMsg58(r.error)+(r.error==="notile"?" Hãy mở cửa sổ Notebook và bấm tay.":""),6500)})}catch(e){console.warn(e)}}}
+
+/* =====================================================================
    BẢN WEB ĐỘC LẬP — cài đặt AI, đăng nhập Google, sao lưu dữ liệu
    ===================================================================== */
 P.local=true;
@@ -8926,7 +9055,9 @@ aiErr=function(e){const c=e&&e.code;const pn=SOHOC.provider()==="claude"?"Claude
   if(c==="not_granted")return `Chưa có API key ${pn}. Bấm biểu tượng bánh răng ở thanh bên trái → Cài đặt AI để thêm.`;
   if(c==="bad_key")return `API key ${pn} không đúng hoặc đã hết hiệu lực. Kiểm tra lại trong Cài đặt AI.`;
   if(c==="bad_model")return `Không dùng được mô hình “${SOHOC.model(null)}”. Bấm “Lấy danh sách mô hình” trong Cài đặt AI để chọn mô hình khác.`;
-  if(c==="rate_limited")return `${pn} đang quá tải hoặc bạn đã dùng hết lượt miễn phí trong phút/ngày. Đợi một chút rồi thử lại.`;
+  if(c==="rate_limited"){if(e.daily)return `${pn}: khóa này đã hết lượt miễn phí trong NGÀY (đã thử cả các mô hình khác). Chạy tác vụ ở Gemini Notebook (không tốn lượt của khóa), đổi sang khóa khác, hoặc đợi sang ngày mới.`;
+    if(e.exhausted)return `${pn} vẫn đang quá tải sau khi Sổ Học đã tự chờ và thử lại nhiều lần${e.retry?` (Google yêu cầu đợi ~${Math.ceil(e.retry)} giây)`:""}. Bấm tạo lại sau ít phút, hoặc chạy tác vụ này ở Gemini Notebook.`;
+    return `${pn} đang quá tải hoặc bạn đã dùng hết lượt miễn phí trong phút/ngày. Đợi một chút rồi thử lại.`}
   if(c==="refused")return String(e.message||"AI từ chối trả lời nội dung này.");
   if(c==="network")return `Không kết nối được tới ${pn}. Kiểm tra mạng rồi thử lại.`;
   if(c==="api_error")return `${pn} báo lỗi: `+String(e.message||"").slice(0,200);
@@ -9101,6 +9232,11 @@ if(SOHOC.LS.get("provider",null)==null&&SOHOC.LS.get("apiKey","")&&!SOHOC.LS.get
 window.addEventListener("sohoc:profile",e=>{try{if(typeof saveDecor==="function")saveDecor()}catch(_){}try{document.activeElement&&document.activeElement.blur&&document.activeElement.blur()}catch(_){}
   const d=document.createElement("div");d.className="prof-sw";d.setAttribute("role","status");d.innerHTML=`<div><span class="spin"></span><b>Đang mở dữ liệu của ${esc(e.detail&&e.detail.name||"tài khoản")}…</b><small>Sổ học, sticker, giao diện và cài đặt của từng tài khoản được lưu riêng.</small></div>`;document.body.appendChild(d);requestAnimationFrame(()=>d.classList.add("on"))});
 (()=>{let m=null;try{m=sessionStorage.getItem("sohoc:profMsg");sessionStorage.removeItem("sohoc:profMsg")}catch(e){}if(m)setTimeout(()=>toast(m,3000),1200)})();
+
+/* thông báo khi Gemini bận: Sổ Học tự chờ / đổi mô hình (gộp thành 1 thông báo, không dồn) */
+{let lt=0;window.addEventListener("sohoc:ai-wait",ev=>{const d=ev.detail||{};const n=Date.now();if(n-lt<2500)return;lt=n;
+  if(d.type==="wait")toast(`Gemini đang bận — Sổ Học tự thử lại sau ${d.secs} giây…`,Math.min(4500,d.secs*1000));
+  else if(d.type==="switch")toast(`Mô hình ${d.from} đang bận — đã chuyển sang ${d.model} (cùng khóa của bạn)`,3800)})}
 
 /* =====================================================================
    PHÒNG THÍ NGHIỆM 3D — mô hình chạy được, điều khiển trực tiếp

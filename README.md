@@ -148,3 +148,16 @@ Giới hạn của Google (bản xem trước): chỉ Gmail cá nhân; API chỉ
 
 ### Gemini Notebook ngay trong trang (Chrome/Edge trên máy tính)
 Google không cho trang khác nhúng Gemini Notebook, nên cần tiện ích nhỏ đi kèm: tải `sohoc-extension.zip` (có nút tải trong khung Gemini Notebook) → giải nén → `chrome://extensions` → bật Chế độ nhà phát triển → **Load unpacked** → chọn thư mục. Tiện ích chỉ mở khóa việc nhúng Gemini Notebook vào trang `*.github.io` của bạn; không đọc dữ liệu nào khác.
+
+### Giao việc cho Gemini Notebook và nhận kết quả về (tiện ích bản 2)
+API chính thức của Gemini Notebook chỉ có “tạo sổ” và “thêm nguồn” — **không có chat, không có tạo âm thanh/video**. Vì vậy tiện ích bản 2 tự mở một cửa sổ Gemini Notebook nhỏ (góc phải dưới, dùng Gmail đang đăng nhập trong Chrome), điền lệnh, chờ Notebook trả lời xong rồi gửi kết quả về Sổ Học.
+- **Studio**: thẻ ghi nhớ, quiz, sơ đồ tư duy, báo cáo, bảng dữ liệu, đồ họa → Notebook trả JSON → hiện bằng giao diện Sổ Học. Không tốn lượt khóa API Gemini của bạn.
+- **Hỏi đáp**: chọn “AI trả lời: Gemini Notebook” ở ô Trò chuyện → câu trả lời hiện ngay trong khung chat.
+- **Tự cứu khi AI Sổ Học quá tải**: chat/slide/video… bị Gemini từ chối (dù đã tự chờ & đổi mô hình) → tự chuyển sang Notebook.
+- **Nơi chạy** (khung Gemini Notebook ở Studio → “Chạy tác vụ ở”): Tự động / Ưu tiên Notebook / Chỉ AI Sổ Học. Có nút “Kiểm tra / mở cửa sổ Gemini Notebook” và “Ghép cửa sổ cạnh bên” (chia đôi màn hình, đóng thì trả lại cỡ cũ).
+- Lần đầu: nếu cửa sổ Notebook hiện trang đăng nhập → đăng nhập Gmail cá nhân ngay trong cửa sổ đó (không bị Google chặn như khi nhúng khung), rồi bấm lại.
+- Tiện ích **chỉ** nhận lệnh từ `https://uyenphuowng-cyber.github.io` và `localhost`. Đổi tên miền: sửa `manifest.json` (host_permissions, content_scripts[0].matches), `rules.json` (initiatorDomains) và `ALLOW` trong `background.js`.
+- Giới hạn: giao diện Gemini Notebook do Google quyết định và có thể đổi — nếu không tìm thấy ô chat/nút, Sổ Học báo lỗi rõ và quay về AI của Sổ Học. Tổng quan âm thanh/video tạo ở Notebook không chép về Sổ Học được (chỉ bấm tạo giúp).
+
+### Khi Gemini báo “quá tải” (Sổ Học tự xử lý)
+Yêu cầu được xếp hàng (tối đa 2 cùng lúc, cách nhau ≥0,4 s). Gặp 429/503 → đọc thời gian Google yêu cầu chờ, chờ đúng bấy nhiêu (có thông báo) rồi thử lại tới 7 lần; mô hình đang bị giới hạn → chuyển ngay sang mô hình Flash khác cùng khóa (mỗi mô hình có hạn mức riêng; tắt bằng `localStorage sohoc:gFallback=false`). Hết lượt trong NGÀY → không chờ vô ích, báo rõ và gợi ý chạy ở Gemini Notebook.
