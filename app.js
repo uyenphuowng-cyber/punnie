@@ -3567,7 +3567,8 @@ const GEN_QUICK=new Set(["flash","quiz","table","info","yt","mindmap"]);
 const GEN_EST={flash:3500,quiz:5000,table:3500,info:2600,yt:2500,mindmap:3200,report:9000,slides:9000,video:11000,audio:9000};
 UI.genProg=new Map();
 function tierFor(k){if(UI.speed==="quality")return "default";if(UI.speed==="fast")return "quick";return GEN_QUICK.has(k)?"quick":"default"}
-function looseJSON(t){let s=String(t||"").trim().replace(/^```(?:json)?\s*/i,"").replace(/```\s*$/,"");try{return JSON.parse(s)}catch(e){}const a=s.indexOf("{"),b=s.lastIndexOf("}");if(a>=0&&b>a){try{return JSON.parse(s.slice(a,b+1))}catch(e){}}return null}
+function looseJSON(t){try{return (window.SOHOC&&SOHOC.parseJSON||null)?SOHOC.parseJSON(t):_looseJSON0(t)}catch(e){return _looseJSON0(t)}}
+function _looseJSON0(t){let s=String(t||"").trim().replace(/^```(?:json)?\s*/i,"").replace(/```\s*$/,"");try{return JSON.parse(s)}catch(e){}const a=s.indexOf("{"),b=s.lastIndexOf("}");if(a>=0&&b>a){try{return JSON.parse(s.slice(a,b+1))}catch(e){}}return null}
 async function genJSON(prompt,o,onChars){
   /* viết có luồng để hiện tiến độ; nếu JSON hỏng thì thử lại bằng chế độ JSON */
   if(P.local){return P.sample.json(prompt,{...o,onText:({text})=>onChars&&onChars(text.length)})}
@@ -8884,7 +8885,7 @@ if(window.SOHOC&&!(window.sohocDesk&&sohocDesk.gnb)){
     if(!EXT57()){b.innerHTML=card();fr=null;return}
     if(!fr){b.innerHTML="";fr=document.createElement("iframe");fr.title="Gemini Notebook";fr.allow="clipboard-read; clipboard-write; microphone; autoplay; fullscreen";fr.referrerPolicy="origin";b.appendChild(fr)}
     if(fr.dataset.u!==u){fr.dataset.u=u;P.ready=false;fr.src=u;const h=$(".gnp57-hint",el);h.hidden=true;clearTimeout(hintT);
-      hintT=setTimeout(()=>{if(!P.ready){h.hidden=false;h.innerHTML=`Khung chưa hiện? Có thể bạn chưa đăng nhập ${a&&a.email?esc(a.email):"Gmail"} trong trình duyệt. <button class="btn sm" type="button" data-p57="tab">Đăng nhập ở tab mới</button> rồi bấm ${ic("loop")}.`}},9000)}};
+      hintT=setTimeout(()=>{if(!P.ready){h.hidden=false;h.innerHTML=`Khung chưa hiện? Có thể bạn chưa đăng nhập ${a&&a.email?esc(a.email):"Gmail"} trong trình duyệt. <button class="btn sm" type="button" data-p57="tab">Đăng nhập ở tab mới</button> rồi bấm ${ic("loop")}.<br><small>Thấy “accounts.google.com redirected you too many times”? Google không cho đăng nhập trong khung — hãy cập nhật tiện ích lên <b>bản 2</b> (tải lại sohoc-extension.zip) để dùng cửa sổ riêng thay cho khung này.</small>`}},9000)}};
   addEventListener("message",e=>{if(!fr||e.source!==fr.contentWindow||!/^https:\/\/(notebook|notebooklm)\.google\.com$/.test(e.origin))return;const d=e.data||{};if(!d.sohocGnb)return;
     if(d.t==="ready"||d.t==="nav"){P.ready=true;P.url=d.url||P.url;const h=$(".gnp57-hint",el);if(h)h.hidden=!d.login;if(d.login&&h)h.innerHTML=`Gemini Notebook cần đăng nhập. Google không cho đăng nhập trong khung — <button class="btn sm" type="button" data-p57="tab">đăng nhập ở tab mới</button> rồi bấm ${ic("loop")}.`;return}
     const w=wait.get(d.id);if(w){wait.delete(d.id);w(d)}});

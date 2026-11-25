@@ -149,7 +149,21 @@ async function callGemini(input,o){
 async function listGeminiModels(key){const r=await _fetch(`${GEM}/models?pageSize=200`,{headers:{"x-goog-api-key":key||apiKey("gemini")}});const j=await r.json().catch(()=>({}));if(!r.ok)throw gemErr(r.status,j);
   return (j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes("generateContent")&&/gemini/i.test(m.name)&&!/embedding|image|tts|live|audio|robotics/i.test(m.name)).map(m=>({id:m.name.replace(/^models\//,""),name:m.displayName||m.name}))}
 const call=(input,o={})=>provider()==="claude"?callClaude(input,o):callGemini(input,o);
-function parseJSON(t){let s=String(t||"").trim().replace(/^```(?:json)?\s*/i,"").replace(/```\s*$/,"");try{return JSON.parse(s)}catch(e){}const a=s.indexOf("{"),b=s.lastIndexOf("}");if(a>=0&&b>a){try{return JSON.parse(s.slice(a,b+1))}catch(e){}}throw err("invalid_json","AI trả về sai định dạng")}
+/* sửa JSON do AI trả: dấu \ sai (hay gặp với LaTeX), xuống dòng thật trong chuỗi, bị cắt cụt giữa chừng (hết token) → đóng chuỗi/ngoặc lại */
+function fixJSONText(s){let out="",st=[],inS=false,esc=false;
+  for(let i=0;i<s.length;i++){const c=s[i];
+    if(inS){if(esc){esc=false;out+=c;continue}
+      if(c==="\\"){const n=s[i+1];if(n&&/["\\\/bfnrt]/.test(n)||(n==="u"&&/^[0-9a-fA-F]{4}/.test(s.slice(i+2,i+6)))){esc=true;out+=c}else out+="\\\\";continue}
+      if(c==='"'){inS=false;out+=c;continue}
+      if(c==="\n"){out+="\\n";continue}if(c==="\t"){out+="\\t";continue}if(c==="\r")continue;out+=c;continue}
+    if(c==='"'){inS=true;out+=c;continue}
+    if(c==="{"||c==="[")st.push(c);else if(c==="}"||c==="]")st.pop();out+=c}
+  if(esc)out=out.slice(0,-1);if(inS)out+='"';
+  out=out.replace(/,\s*"[^"\\]*"\s*:?\s*$/,"").replace(/"[^"\\]*"\s*:\s*$/,'"_":null').replace(/,\s*$/,"").replace(/:\s*$/,":null");
+  while(st.length)out+=st.pop()==="{"?"}":"]";return out}
+function parseJSON(t){let s=String(t||"").trim().replace(/^```(?:json)?\s*/i,"").replace(/```\s*$/,"");const a=s.indexOf("{"),b=s.lastIndexOf("}");const body=a>=0?s.slice(a,b>a?b+1:s.length):s;
+  for(const x of [s,body,fixJSONText(s.slice(Math.max(a,0))),fixJSONText(body)]){try{const v=JSON.parse(x);if(v&&typeof v==="object")return v}catch(e){}}
+  throw err("invalid_json","AI trả về sai định dạng")}
 const sample=(input,o)=>call(input,o||{});
 sample.json=async(prompt,o={})=>{const r=await call(prompt+"\n\nCHỈ trả lời bằng đúng một đối tượng JSON hợp lệ, không có chữ hay ``` nào khác.",{...o,json:true,max:provider()==="claude"?16000:32768});return parseJSON(r.text)};
 
@@ -344,7 +358,7 @@ const accts_={
   async addFor(k,svc){const a=await auth({add:true,svc:svc||[],keep:!!cur()});roles[k]=a.id;LS.set("gRoles",roles);window.dispatchEvent(new CustomEvent("sohoc:me"));return {id:a.id,email:a.email}},
   dataKey(){return profKey()},links(){return {...plink}},
   link(id,target){if(target&&target!==id)plink[id]=target;else delete plink[id];LS.set("profLink",plink);profCheck()}};
-window.SOHOC={CFG,LS,accts:accts_,nblm:nblm_,drive:drive_,cloud:cloud_,pkey:k=>k+PKS(),getToken:()=>getToken(true),google:google_,yt:ytApi_,signOut(){const a=cur();if(a)google_.remove(a.id)},
+window.SOHOC={CFG,LS,parseJSON:t=>{try{return parseJSON(t)}catch(e){return null}},accts:accts_,nblm:nblm_,drive:drive_,cloud:cloud_,pkey:k=>k+PKS(),getToken:()=>getToken(true),google:google_,yt:ytApi_,signOut(){const a=cur();if(a)google_.remove(a.id)},
   hasKey:()=>!!apiKey(),hasOwnerKey:()=>!!ownerKey(),usingOwnerKey:()=>provider()==="gemini"&&useOwner(),keyMode,provider,model,listGeminiModels,clientId,
   async exportAll(){await load();const out={app:"so-hoc-dien-tu",v:1,exported:new Date().toISOString(),docs:Object.fromEntries(docs),assets:{}};
     try{const d=await getDB();await new Promise((res,rej)=>{const rq=d.transaction("assets").objectStore("assets").openCursor();const pend=[];rq.onsuccess=()=>{const c=rq.result;if(c){pend.push(b64(c.value).then(u=>{out.assets[c.key]=u}));c.continue()}else Promise.all(pend).then(res,rej)};rq.onerror=()=>rej(rq.error)})}catch(e){}
