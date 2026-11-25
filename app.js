@@ -2326,7 +2326,7 @@ async function seedSubjects(){
         · THÊM NGUỒN NHANH · WIDGET TRÊN TRANG · SƠ ĐỒ TƯ DUY MỚI
    ===================================================================== */
 const RAIL_ALL={home:["Trang chủ","home"],books:["Môn học & bài học","book"],cal:["Lịch học (ngày · tuần · tháng)","cal"],lab:["Phòng thí nghiệm 3D","flask"],prof:["Cá nhân hóa việc học","user"],skin:["Giao diện & màu","palette"],stk:["Sticker","star"],cut:["Cắt ghép sticker","cut"],wdg:["Widget trang trí","widget"],lay:["Bố cục & toàn màn hình","split"]};
-const TOP_ALL={cal:["Lịch học","cal"],lesson:["Bài học mới","plus"],src:["Thêm nguồn","upload"],subj:["Môn học mới","book"],task:["Thêm bài tập","check"],prof:["Cá nhân hóa","user"],edit:["Tùy chỉnh trang chủ","edit"],bars:["Tùy chỉnh thanh công cụ","more"]};
+const TOP_ALL={cal:["Lịch học","cal"],lesson:["Bài học mới","plus"],src:["Thêm nguồn","upload"],subj:["Môn học mới","book"],task:["Thêm bài tập","check"],prof:["Cá nhân hóa","user"],edit:["Tùy chỉnh trang chủ","edit"],bars:["Tùy chỉnh thanh công cụ","more"],lay:["Bố cục","split"],gnb:["Gemini Notebook","book"]};
 const W_LBL={2:"⅓",3:"½",4:"⅔",6:"Rộng"};
 const DASH_DEF=()=>({blocks:[{id:"b1",k:"shortcuts",w:2},{id:"b2",k:"recent",w:2},{id:"b3",k:"addsrc",w:2},{id:"b4",k:"tasks",w:6},{id:"b5",k:"week",w:6},{id:"b6",k:"cal",w:6},{id:"b7",k:"courses",w:6}],
   tviews:[{id:"tv-todo",l:"Cần làm",st:"todo",subj:"",when:"all"},{id:"tv-done",l:"Đã xong",st:"done",subj:"",when:"all"},{id:"tv-all",l:"Tất cả",st:"all",subj:"",when:"all"}],
@@ -9039,6 +9039,51 @@ function engMenu58(anchor){const A=AGENT58();
   $$("[data-g55k]",box).forEach(b=>b.onclick=async e=>{e.stopPropagation();const kind=b.dataset.g55k;const url=await nbUrl58(true);if(!url){toast("Bấm “Đồng bộ” trong Studio trước để tạo sổ có đủ nguồn",3600);return}
     toast(`Đang bấm “${KN55[kind]}” trong Gemini Notebook…`,2200);const r=await job58("studio",url,{kind},{timeout:60000});
     toast(r.ok?`Đã gửi lệnh “${KN55[kind]}” — tạo xong sẽ nằm trong cột Studio của cửa sổ Gemini Notebook (âm thanh/video không chép về Sổ Học được).`:eMsg58(r.error)+(r.error==="notile"?" Hãy mở cửa sổ Notebook và bấm tay.":""),6500)})}catch(e){console.warn(e)}}}
+
+/* =====================================================================
+   v53 — dọn dẹp giao diện:
+   · Trang chủ → khối Môn học: thẻ “Chưa xếp môn” có ✕ để ẩn (bài học bên trong KHÔNG bị xóa; hiện lại ở thanh trên khối Môn học);
+     ô “+N gợi ý khác” có ✕ để ẩn (hiện lại cũng ở thanh đó).
+   · Thanh trên trong bài học: Bố cục · Bài học mới · Gemini Notebook cũng có ✕ ẩn, ⠿ kéo đổi chỗ, ＋ thêm nút — như thanh ở trang chủ.
+   ===================================================================== */
+const NB59=["lay","lesson","gnb","look","scene"];/* các nút hiện trong thanh trên khi đang ở trong bài học */
+
+/* ---------- đặt Bố cục / Gemini Notebook đúng chỗ trong thứ tự (1 lần) ---------- */
+{const _nd59=normDash;normDash=function(){const o=_nd59.apply(this,arguments);try{if(o&&o.top&&!o.m59){const ord=o.top.order.filter(k=>k!=="lay"&&k!=="gnb");let i=ord.indexOf("lesson");if(i<0)i=0;ord.splice(i,0,"lay");ord.splice(ord.indexOf("lesson")+1,0,"gnb");o.top.order=ord;o.top.hidden=(o.top.hidden||[]).filter(k=>k!=="lay"&&k!=="gnb");o.m59=1}}catch(e){}return o}}
+if(UI.dash){UI.dash=normDash(UI.dash);try{saveDash()}catch(e){}}
+
+/* ---------- thanh trên (trong bài học): các nút đều sửa được ---------- */
+topAdd54=function(anchor,after){const d=UI.dash;const nb=UI.view==="nb"&&UI.cur;const shown=$$("#top [data-top]").map(b=>b.dataset.top);
+  const avail=Object.keys(TOP_ALL).filter(k=>!shown.includes(k)&&k!=="edit"&&(nb?NB59.includes(k):k!=="lay"&&k!=="gnb"));
+  const m=popMenu(anchor,`<div class="who">Thêm nút vào thanh trên</div>${avail.length?avail.map(k=>`<button data-a54="${k}">${ic(TOP_ALL[k][1])}<span>${esc(TOP_ALL[k][0])}</span></button>`).join(""):`<p class="muted" style="margin:4px 10px;font-size:12.5px">Đã có đủ các nút.</p>`}<div class="sep"></div><button data-a54="__bars">${ic("more")}<span>Tùy chỉnh thanh công cụ…</span></button>`);
+  m.addEventListener("click",e=>e.stopPropagation());
+  $$("[data-a54]",m).forEach(x=>x.onclick=()=>{const k=x.dataset.a54;closePop();if(k==="__bars")return barsDialog();d.top.hidden=(d.top.hidden||[]).filter(z=>z!==k);const o=d.top.order.filter(z=>z!==k);let j=o.indexOf(after);o.splice(j<0?o.length:j+1,0,k);d.top.order=o;saveDash();renderTop();toast(`Đã thêm “${TOP_ALL[k][0]}” — kéo ⠿ để đổi chỗ`,1600)})};
+function topX59(b,k){if($(".tx51",b))return;const x=document.createElement("span");x.className="tx51";x.setAttribute("role","button");x.title="Ẩn nút này khỏi thanh trên cùng";x.setAttribute("aria-label","Ẩn "+TOP_ALL[k][0]+" khỏi thanh trên cùng");x.innerHTML=ic("close");
+  ["pointerdown","mousedown"].forEach(ev=>x.addEventListener(ev,e=>{e.stopPropagation();e.preventDefault()}));
+  x.addEventListener("click",e=>{e.stopPropagation();e.preventDefault();const d=UI.dash||DASH_DEF();d.top.hidden=[...new Set([...(d.top.hidden||[]),k])];saveDash();renderTop();toast(`Đã ẩn “${TOP_ALL[k][0]}” — thêm lại bằng dấu ＋ ở nút bên cạnh`,2800)});b.appendChild(x)}
+{const _rt59=renderTop;renderTop=function(){const r=_rt59.apply(this,arguments);try{const t=$("#top");if(!t)return r;const nb=UI.view==="nb"&&UI.cur;
+  if(!nb){$$('[data-top="lay"],[data-top="gnb"]',t).forEach(b=>b.remove());return r}
+  const d=UI.dash;if(!d)return r;
+  const tag=(sel,k)=>{const b=$(sel,t);if(b)b.dataset.top=k};tag("#tLay","lay");tag("#tNew","lesson");tag("[data-gnb56]","gnb");
+  const hid=new Set(d.top.hidden||[]);const bs=NB59.map(k=>$(`[data-top="${k}"]`,t)).filter(Boolean);bs.forEach(b=>b.remove());
+  const ref=$("#tSnd",t);d.top.order.filter(k=>NB59.includes(k)&&!hid.has(k)).forEach(k=>{const b=bs.find(x=>x.dataset.top===k);if(!b)return;if(ref)ref.before(b);else t.appendChild(b)});
+  $$("[data-top]",t).forEach(b=>{if(TOP_ALL[b.dataset.top])topX59(b,b.dataset.top)});topDrag54(t)}catch(e){console.warn(e)}return r}}
+
+/* ---------- Trang chủ → Môn học: ẩn “Chưa xếp môn” và ô “+N gợi ý khác” ---------- */
+{const _rc59=renderCourses;renderCourses=function(){const r=_rc59.apply(this,arguments);try{const box=$("#courseBox");if(!box||UI.courseTab==="all")return r;
+  const dash=()=>UI.dash||(UI.dash=DASH_DEF());const hidNone=!!(UI.dash&&UI.dash.hideNone59);
+  const card=$(".course[data-sj=none]",box);
+  if(card){if(hidNone)card.remove();else{const tools=$(".crs-tools",card);if(tools&&!$("[data-hnone59]",tools)){const b=document.createElement("button");b.type="button";b.className="crs-g del";b.dataset.hnone59="1";b.title="Ẩn “Chưa xếp môn” (các bài học bên trong không bị xóa)";b.setAttribute("aria-label","Ẩn Chưa xếp môn");b.innerHTML=ic("close");
+      b.onclick=e=>{e.stopPropagation();dash().hideNone59=true;saveDash();renderCourses();toast("Đã ẩn “Chưa xếp môn” — bài học bên trong vẫn còn, hiện lại bằng nút trên thanh Môn học",3200)};tools.appendChild(b)}}}
+  const g=$("#crsGrid",box)||$(".courses",box);const more=g&&$(".crs-sug52-more",g);const moreOff=local.get("sug52MoreOff",false);
+  if(more){if(moreOff)more.remove();else if(!$(".sx",more)){const w=document.createElement("div");w.className=more.className;w.setAttribute("role","button");w.tabIndex=0;
+      w.innerHTML=`<span>${more.innerHTML}</span><button type="button" class="ghost ic sx" aria-label="Ẩn ô này" title="Ẩn ô này">${ic("close")}</button>`;
+      const tg=e=>{e.stopPropagation();local.set("sug52All",!local.get("sug52All",false));renderCourses()};w.onclick=e=>{if(e.target.closest(".sx"))return;tg(e)};w.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();tg(e)}};
+      $(".sx",w).onclick=e=>{e.stopPropagation();local.set("sug52MoreOff",true);renderCourses();toast("Đã ẩn ô gợi ý — hiện lại bằng nút “Gợi ý khác” trên thanh Môn học",3200)};more.replaceWith(w)}}
+  const bar=$(".crs-bar",box);if(bar){const ref=$("[data-newsj2]",bar);const chip=(attr,txt,fn)=>{if($(`[${attr}]`,bar))return;const b=document.createElement("button");b.type="button";b.className="btn sm";b.setAttribute(attr,"1");b.textContent=txt;b.onclick=fn;bar.insertBefore(b,ref||null)};
+    if(hidNone)chip("data-snone59",`Hiện “Chưa xếp môn” (${lessonsSorted("none").length})`,()=>{dash().hideNone59=false;saveDash();renderCourses()});
+    let n=0;try{n=sug52List().length}catch(e){}if(moreOff&&n>6)chip("data-sgs59","Hiện “gợi ý khác”",()=>{local.set("sug52MoreOff",false);renderCourses()})}
+  }catch(e){console.warn(e)}return r}}
 
 /* =====================================================================
    BẢN WEB ĐỘC LẬP — cài đặt AI, đăng nhập Google, sao lưu dữ liệu
