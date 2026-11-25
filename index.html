@@ -2081,6 +2081,28 @@ html.gnp57-on #top [data-top] .hide-sm,html.gnp57-on #top [data-gnb56] .hide-sm{
 .gn58-eng{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:var(--muted)}
 .gn58-eng small{opacity:.8}
 
+/* v54: thanh trên vuốt ngang được trên điện thoại (trước đây bị cắt, nút phía phải không với tới) */
+@media (hover:none),(max-width:720px){.top{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}.top::-webkit-scrollbar{display:none}
+  .top>button,.top>[data-top]{flex-shrink:0}#top [data-top]{touch-action:pan-x pan-y}}
+/* v54: vừa với điện thoại — không phần tử nào rộng hơn màn hình */
+@media (max-width:720px){
+  #main,.subj-body,.blk,.blk-wrap,.blk-in,.blk-b,.sec,.chap,#courseBox,#sjBody,.subj-body>*{min-width:0;max-width:100%;box-sizing:border-box}
+  .dash,#dash,.blocks,.blk-grid,#blocks{grid-template-columns:minmax(0,1fr)!important}
+  .crs-bar,.chap-bar,.rtab,.subj-title,.chap-h{flex-wrap:wrap;row-gap:6px}
+  .crs-bar .muted,.chap-bar .muted,.rtab .muted{white-space:normal;min-width:0}
+  .rtab .grow{flex:1 1 100%;min-width:0}
+  .subj-title input,.chap-name,#sjName{min-width:0;flex:1 1 140px;max-width:100%}
+  .subj-title .btn{flex:0 0 auto}
+  .blk-ctl{flex-wrap:nowrap;max-width:100%}
+  .courses{grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr))!important}
+  .mascot-bubble,.cat-say,.pet-say{max-width:min(240px,70vw);font-size:13px!important;line-height:1.4!important;padding:8px 10px!important}
+}
+.blk-wrap{grid-template-columns:minmax(0,1fr)}
+.lessons-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr))}
+@media (max-width:720px){.chap-h{display:flex;flex-wrap:wrap;align-items:center;min-width:0}.chap-h .chap-name{flex:1 1 120px}.lcard,.lcard *{min-width:0;overflow-wrap:anywhere}}
+.dgrid>.blk{grid-template-columns:minmax(0,1fr)}
+@media (max-width:720px){.blk-h{min-width:0;gap:6px}.blk-h>:first-child,.blk-h .blk-t,.blk-h .ttl{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.blk-h .blk-ctl{margin-left:auto;flex:0 1 auto;gap:0}.blk-h .blk-ctl button{width:28px;height:28px;padding:0}.blk-h .blk-act,.blk-h>.btn{min-width:0;flex:0 1 auto}}
+
 
 html,body{margin:0;height:100%}[hidden]{display:none!important}img{max-width:100%}
 .ytwrap{aspect-ratio:16/9;width:100%;background:#000;border-radius:12px;overflow:hidden}.ytwrap iframe{width:100%;height:100%;border:0;display:block}
@@ -2092,7 +2114,7 @@ html,body{margin:0;height:100%}[hidden]{display:none!important}img{max-width:100
 
 </style>
 
-<link rel="stylesheet" href="app-plus.css?v=591d97847e">
+<link rel="stylesheet" href="app-plus.css?v=7a5d0ba185">
 </head>
 <body>
 <div class="app" id="app">
@@ -2108,9 +2130,9 @@ html,body{margin:0;height:100%}[hidden]{display:none!important}img{max-width:100
 <div class="toast" id="toast" role="status"></div>
 
 <noscript><p style="padding:24px;font:16px system-ui">Sổ Học cần bật JavaScript.</p></noscript>
-<script src="config.js?v=591d97847e"></script>
-<script src="platform.js?v=591d97847e"></script>
-<script src="app.js?v=591d97847e"></script>
-<script src="app-plus.js?v=591d97847e"></script>
+<script src="config.js?v=7a5d0ba185"></script>
+<script src="platform.js?v=7a5d0ba185"></script>
+<script src="app.js?v=7a5d0ba185"></script>
+<script src="app-plus.js?v=7a5d0ba185"></script>
 </body>
 </html>

@@ -8578,9 +8578,9 @@ function topDrag54(t){const d=UI.dash;if(!d)return;const btns=()=>$$("[data-top]
   btns().forEach(b=>{if(b._d54)return;b._d54=1;
     if(!$(".tp54",b)){const p=document.createElement("span");p.className="tp54";p.setAttribute("role","button");p.setAttribute("aria-label","Thêm nút bên cạnh");p.title="Thêm nút bên cạnh";p.innerHTML=ic("plus");p.addEventListener("pointerdown",e=>e.stopPropagation());p.addEventListener("click",e=>{e.stopPropagation();e.preventDefault();topAdd54(b,b.dataset.top)});b.appendChild(p)}
     if(!$(".tg54",b)){const g=document.createElement("span");g.className="tg54";g.setAttribute("aria-hidden","true");g.title="Kéo để đổi vị trí";g.textContent="⠿";b.prepend(g)}
-    b.addEventListener("pointerdown",e=>{if(e.button!==0||e.target.closest(".tp54,.tx51"))return;const x0=e.clientX,y0=e.clientY;let on=false,hold=0;const touch=e.pointerType!=="mouse";const grip=!!e.target.closest(".tg54");
+    b.addEventListener("pointerdown",e=>{if(e.pointerType!=="mouse")return;if(e.button!==0||e.target.closest(".tp54,.tx51"))return;const x0=e.clientX,y0=e.clientY;let on=false,hold=0;const touch=e.pointerType!=="mouse";const grip=!!e.target.closest(".tg54");
       const start=()=>{on=true;try{hideTip()}catch(_){}b.classList.add("top-drag");t.classList.add("top-sorting");try{b.setPointerCapture(e.pointerId)}catch(_){}};
-      if(touch)hold=setTimeout(start,280);
+      /* cảm ứng: không kéo-đổi-chỗ bằng nhấn giữ nữa (tranh với việc vuốt thanh); đổi chỗ trên điện thoại ở “Tùy chỉnh thanh công cụ” */
       const flip=f=>{if(RM())return;f.forEach(([x,l])=>{const dx=l-x.getBoundingClientRect().left;if(dx)x.animate([{transform:`translateX(${dx}px)`},{transform:"none"}],{duration:160,easing:"ease-out"})})};
       const mv=ev=>{if(!on){const dx=Math.abs(ev.clientX-x0),dy=Math.abs(ev.clientY-y0);if(!touch&&((grip&&dx+dy>2)||(dx>6&&dx>dy)))start();else if(touch&&Math.hypot(dx,dy)>10)clearTimeout(hold);if(!on)return}
         ev.preventDefault();const sib=btns().filter(x=>x!==b);for(const s of sib){const rr=s.getBoundingClientRect();const mid=rr.left+rr.width/2;const br=b.getBoundingClientRect();
