@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <meta name="description" content="Sổ học kiểu NotebookLM cho sinh viên Kỹ thuật Điện tử – Máy tính: môn học, bài giảng video, slide, sơ đồ tư duy, quiz, lịch học.">
 <meta name="theme-color" content="#16191c">
 <link rel="manifest" href="manifest.webmanifest">
@@ -2102,6 +2102,16 @@ html.gnp57-on #top [data-top] .hide-sm,html.gnp57-on #top [data-gnb56] .hide-sm{
 @media (max-width:720px){.chap-h{display:flex;flex-wrap:wrap;align-items:center;min-width:0}.chap-h .chap-name{flex:1 1 120px}.lcard,.lcard *{min-width:0;overflow-wrap:anywhere}}
 .dgrid>.blk{grid-template-columns:minmax(0,1fr)}
 @media (max-width:720px){.blk-h{min-width:0;gap:6px}.blk-h>:first-child,.blk-h .blk-t,.blk-h .ttl{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.blk-h .blk-ctl{margin-left:auto;flex:0 1 auto;gap:0}.blk-h .blk-ctl button{width:28px;height:28px;padding:0}.blk-h .blk-act,.blk-h>.btn{min-width:0;flex:0 1 auto}}
+/* v56: iPhone — không cho trang bị kéo lệch ngang / phóng to khi bấm vào ô nhập */
+html,body{max-width:100%;overflow-x:hidden}
+@supports (overflow:clip){html,body{overflow-x:clip}}
+.app{max-width:100vw}
+@media (max-width:720px){input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),textarea,select,[contenteditable="true"]{font-size:16px!important}}
+/* v56: thanh dọc (rail) trên điện thoại phải nằm ngoài màn hình — chế độ kính từng làm nó thành khối nhỏ nằm đè góc trên bên trái */
+@media (max-width:720px){body .rail,body.glass .rail{position:fixed!important;left:0;top:0;bottom:0;height:auto;max-height:none;z-index:45}
+  body .rail:not(.open){visibility:hidden;box-shadow:none;pointer-events:none;transition:transform .2s,visibility 0s .2s}
+  body .rail.open{visibility:visible;transition:transform .2s}
+  body.glass .rail::after{border-radius:inherit}}
 
 
 html,body{margin:0;height:100%}[hidden]{display:none!important}img{max-width:100%}
@@ -2114,7 +2124,7 @@ html,body{margin:0;height:100%}[hidden]{display:none!important}img{max-width:100
 
 </style>
 
-<link rel="stylesheet" href="app-plus.css?v=7a5d0ba185">
+<link rel="stylesheet" href="app-plus.css?v=ccda5df2f6">
 </head>
 <body>
 <div class="app" id="app">
@@ -2130,9 +2140,9 @@ html,body{margin:0;height:100%}[hidden]{display:none!important}img{max-width:100
 <div class="toast" id="toast" role="status"></div>
 
 <noscript><p style="padding:24px;font:16px system-ui">Sổ Học cần bật JavaScript.</p></noscript>
-<script src="config.js?v=7a5d0ba185"></script>
-<script src="platform.js?v=7a5d0ba185"></script>
-<script src="app.js?v=7a5d0ba185"></script>
-<script src="app-plus.js?v=7a5d0ba185"></script>
+<script src="config.js?v=ccda5df2f6"></script>
+<script src="platform.js?v=ccda5df2f6"></script>
+<script src="app.js?v=ccda5df2f6"></script>
+<script src="app-plus.js?v=ccda5df2f6"></script>
 </body>
 </html>
